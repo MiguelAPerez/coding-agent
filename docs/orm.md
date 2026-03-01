@@ -37,16 +37,34 @@ npm run db:seed
 
 ## Clearing the Database
 
-If you need to completely clear your local database and start fresh (e.g., to wipe all users, sessions, or reset permissions):
+If you need to clear your local database and start fresh (e.g., to wipe all users, sessions, or reset permissions):
+
+### Option 1: Using the Clear Script (Recommended)
+
+To delete all records from all tables while keeping the schema intact:
+
+```bash
+npm run db:clear
+```
+
+After clearing, you can re-seed the default data:
+
+```bash
+npm run db:seed
+```
+
+### Option 2: Manual Reset
+
+If you encounter issues with the schema itself and want a total reset:
 
 1. **Delete the database file**: Remove `sqlite.db` from the root of the project.
-2. **Push the schema**: Synchronize the database structure using Drizzle.
+2. **Push the schema**: Recreate the database structure.
 
    ```bash
    npx drizzle-kit push
    ```
 
-3. **Re-seed**: Populate the new, empty database with the default permissions and admin user.
+3. **Re-seed**: Populate the new, empty database.
 
    ```bash
    npm run db:seed
