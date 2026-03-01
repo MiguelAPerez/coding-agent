@@ -9,7 +9,7 @@ export const Navbar = async () => {
     const session = await getServerSession(authOptions);
 
     return (
-        <nav className="sticky top-0 z-40 w-full border-b border-border backdrop-blur-xl">
+        <nav className="sticky top-0 z-40 w-full border-b border-border bg-background">
             <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-8">
                     <Link href="/" className="flex items-center gap-2 group">

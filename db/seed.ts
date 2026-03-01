@@ -52,13 +52,14 @@ async function seed() {
 
         // --- SEED ADMIN USER ---
         const ADMIN_EMAIL = "admin@example.com"
+        const PASS = "admin";
         const existingAdmin = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL)).get()
 
         let adminUserId: string
 
         if (!existingAdmin) {
             console.log("Creating default admin user...")
-            const hashedPassword = await bcryptjs.hash("password123", 10)
+            const hashedPassword = await bcryptjs.hash(PASS, 10)
             const [newUser] = await db
                 .insert(users)
                 .values({
