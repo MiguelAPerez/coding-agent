@@ -28,7 +28,14 @@ export const Navbar = async () => {
                         <Link href="/repositories" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
                             Repositories
                         </Link>
+                        <Link href="/agent" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
+                            Agent
+                        </Link>
+                        <Link href="/evaluation-lab" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
+                            Evaluation Lab
+                        </Link>
                     </div>
+
                 </div>
 
                 <div className="flex items-center gap-4">

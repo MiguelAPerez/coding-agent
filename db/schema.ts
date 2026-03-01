@@ -125,3 +125,97 @@ export const repositoryMetadata = sqliteTable("repository_metadata", {
     value: text("value").notNull(),
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
+
+export const agentConfigurations = sqliteTable("agent_configuration", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .unique()
+        .references(() => users.id, { onDelete: "cascade" }),
+    model: text("model").notNull().default("gpt-4o"),
+    systemPrompt: text("systemPrompt").notNull().default("You are a helpful coding assistant."),
+    temperature: integer("temperature").notNull().default(70), // scaled by 100
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const skills = sqliteTable("skill", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    content: text("content").notNull(),
+    isEnabled: integer("isEnabled", { mode: "boolean" }).notNull().default(true),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const tools = sqliteTable("tool", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    schema: text("schema").notNull(), // stringified JSON schema
+    isEnabled: integer("isEnabled", { mode: "boolean" }).notNull().default(true),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const contextGroups = sqliteTable("context_group", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    promptTemplate: text("promptTemplate").notNull(),
+    skillIds: text("skillIds"), // JSON array of skill IDs
+    toolIds: text("toolIds"),   // JSON array of tool IDs
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const benchmarks = sqliteTable("benchmark", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status", { enum: ["idle", "running", "completed", "failed"] }).notNull().default("idle"),
+    startedAt: integer("startedAt", { mode: "timestamp_ms" }),
+    completedAt: integer("completedAt", { mode: "timestamp_ms" }),
+    totalEntries: integer("totalEntries").notNull().default(0),
+    completedEntries: integer("completedEntries").notNull().default(0),
+})
+
+export const benchmarkEntries = sqliteTable("benchmark_entry", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    benchmarkId: text("benchmarkId")
+        .notNull()
+        .references(() => benchmarks.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    contextGroupId: text("contextGroupId")
+        .notNull()
+        .references(() => contextGroups.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["pending", "running", "completed", "failed"] }).notNull().default("pending"),
+    output: text("output"),
+    error: text("error"),
+    duration: integer("duration"), // in ms
+    startedAt: integer("startedAt", { mode: "timestamp_ms" }),
+    completedAt: integer("completedAt", { mode: "timestamp_ms" }),
+})
+
+
+
