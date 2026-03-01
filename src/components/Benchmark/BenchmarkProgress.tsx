@@ -62,16 +62,22 @@ export const BenchmarkProgress = ({
 
     // Simulate progress if it's running
     useEffect(() => {
+        let isActive = true;
         if (benchmark?.status === "running") {
-            const timer = setTimeout(async () => {
+            const tick = async () => {
+                if (!isActive) return;
                 const res = await simulateBenchmarkStep(benchmark.id);
-                if (res.finished) {
-                    const data = await getBenchmarkProgress(benchmark.id);
+                const data = await getBenchmarkProgress(benchmark.id);
+                if (isActive && data) {
                     setBenchmark(data as (Benchmark & { entries: BenchmarkEntry[] }) | null);
+                    if (!res.finished && data.status === "running") {
+                        setTimeout(tick, 1000); // 1s loop for snappier transitions
+                    }
                 }
-            }, 3000);
-            return () => clearTimeout(timer);
+            };
+            setTimeout(tick, 1000);
         }
+        return () => { isActive = false; };
     }, [benchmark?.id, benchmark?.status]);
 
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -124,10 +130,11 @@ export const BenchmarkProgress = ({
 
     const completedCount = benchmark.entries.filter(e => e.status === "completed" || e.status === "failed").length;
     const runningCount = benchmark.entries.filter(e => e.status === "running").length;
+    const preparingCount = benchmark.entries.filter(e => e.status === "preparing").length;
     const pendingCount = benchmark.entries.filter(e => e.status === "pending").length;
 
     const completedProgress = (completedCount / benchmark.totalEntries) * 100;
-    const runningProgress = (runningCount / benchmark.totalEntries) * 100;
+    const executionProgress = ((runningCount + preparingCount) / benchmark.totalEntries) * 100;
     const pendingProgress = (pendingCount / benchmark.totalEntries) * 100;
 
     return (
@@ -212,18 +219,18 @@ export const BenchmarkProgress = ({
                                 style={{ width: `${completedProgress}%` }}
                             />
                         )}
-                        {runningProgress > 0 && (
+                        {executionProgress > 0 && (
                             <div
                                 className={`h-full bg-primary/30 animate-pulse transition-all duration-1000 ${completedProgress === 0 && pendingProgress === 0 ? "rounded-full" :
                                     completedProgress === 0 ? "rounded-l-full" :
                                         pendingProgress === 0 ? "rounded-r-full" : ""
                                     }`}
-                                style={{ width: `${runningProgress}%` }}
+                                style={{ width: `${executionProgress}%` }}
                             />
                         )}
                         {pendingProgress > 0 && (
                             <div
-                                className={`h-full bg-foreground/10 transition-all duration-1000 ${completedProgress === 0 && runningProgress === 0 ? "rounded-full" : "rounded-r-full"
+                                className={`h-full bg-foreground/10 transition-all duration-1000 ${completedProgress === 0 && executionProgress === 0 ? "rounded-full" : "rounded-r-full"
                                     }`}
                                 style={{ width: `${pendingProgress}%` }}
                             />
@@ -232,7 +239,7 @@ export const BenchmarkProgress = ({
                     <div className="flex justify-between px-2">
                         <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest flex items-center gap-4">
                             <span>{completedCount} / {benchmark.totalEntries} Evaluated</span>
-                            {runningCount > 0 && <span className="text-primary animate-pulse">• {runningCount} Processing</span>}
+                            {(runningCount > 0 || preparingCount > 0) && <span className="text-primary animate-pulse">• {runningCount + preparingCount} In Progress</span>}
                             {pendingCount > 0 && <span className="opacity-50">• {pendingCount} Pending</span>}
                         </span>
                     </div>
