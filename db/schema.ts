@@ -79,3 +79,17 @@ export const userPermissions = sqliteTable(
         compoundKey: primaryKey({ columns: [up.userId, up.permissionId] }),
     })
 )
+
+export const giteaConfigurations = sqliteTable("gitea_configuration", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .unique()
+        .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    username: text("username").notNull(),
+    token: text("token").notNull(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})

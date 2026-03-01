@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTheme } from "@/context/ThemeContext";
+import GiteaConfiguration from "@/components/GiteaConfiguration";
 
 export default function SettingsPage() {
     const { theme, toggleTheme, mounted } = useTheme();
@@ -10,7 +11,7 @@ export default function SettingsPage() {
     const displayTheme = mounted ? theme : "dark";
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-20">
+        <div className="max-w-6xl mx-auto px-4 py-20">
             <div className="glass p-8 rounded-2xl border border-border">
                 <h1 className="text-3xl font-bold mb-4">Settings</h1>
                 <p className="text-foreground/60">Manage your application preferences and account settings.</p>
@@ -43,6 +44,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
+
+                    <GiteaConfiguration />
                 </div>
             </div>
         </div>
