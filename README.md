@@ -1,14 +1,13 @@
-# Premium Next.js Application
+# Coding Agent
 
-A beautifully crafted starting point with Tailwind CSS, TypeScript, and rich aesthetics, using the Next.js App Router.
+A simple repository manager for your coding projects. It used to make simple changes and updates to your repositories. It can also be used for simple reviews and code analysis.
 
-## Project Structure
+## Requirements
 
-- `src/app/` - Application routes and main pages
-- `src/app/api/` - Backend API endpoints
-- `docs/` - Comprehensive project documentation
-
-See [`docs/overview.md`](docs/overview.md) for a detailed breakdown of the stack and architecture.
+- Node.js 22.10.0 or higher
+- npm 10.2.4 or higher
+- Git 2.42.0 or higher
+- Ollama 0.17.0 or higher
 
 ## Getting Started
 
@@ -26,13 +25,10 @@ See [`docs/overview.md`](docs/overview.md) for a detailed breakdown of the stack
 
 3. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Design System
+## Contribution
 
-This project is configured with a modern, premium aesthetic including:
+To learn more about this project see [README.md](./docs/)
 
-- Dynamic glassmorphism utilities (`.glass`)
-- A rich dark theme configured out of the box
-- The `Outfit` font for clean, modern typography
-- Subtle micro-animations and layout transitions
+## License
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+[PolyForm Noncommercial 1.0.0](LICENSE) - This is a **Source Available** license that allows for non-commercial use, modification, and sharing, but strictly prohibits commercial use (selling).
