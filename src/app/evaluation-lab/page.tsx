@@ -1,5 +1,5 @@
 import React from "react";
-import { getContextGroups, getSkills, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks } from "@/app/actions/agent";
+import { getContextGroups, getSkills, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks } from "@/app/actions/agent";
 import { EvaluationLabClient } from "@/components/EvaluationLabClient";
 import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry } from "@/types/agent";
 
@@ -9,6 +9,7 @@ export default async function EvaluationLabPage() {
     const latestBenchmark = await getLatestBenchmark();
     const benchmarkRuns = await getBenchmarkRuns();
     const completedBenchmarks = await getCompletedBenchmarks();
+    const activeBenchmarks = await getActiveBenchmarks();
 
     return (
         <div className="container mx-auto px-6 py-12 space-y-12 min-h-screen">
@@ -27,6 +28,7 @@ export default async function EvaluationLabPage() {
                 latestBenchmark={latestBenchmark as Benchmark | null}
                 initialRuns={benchmarkRuns as BenchmarkRun[]}
                 completedBenchmarks={completedBenchmarks as (Benchmark & { entries: BenchmarkEntry[] })[]}
+                initialActiveBenchmarks={activeBenchmarks as Benchmark[]}
             />
         </div>
     );

@@ -1,23 +1,34 @@
 "use client";
 
 import React, { useState } from "react";
-import { triggerBenchmark, deleteBenchmarkRun } from "@/app/actions/agent";
-import { BenchmarkRun, ContextGroup } from "@/types/agent";
+import { triggerBenchmark, deleteBenchmarkRun, getActiveBenchmarks } from "@/app/actions/agent";
+import { BenchmarkRun, ContextGroup, Benchmark } from "@/types/agent";
 import { BenchmarkRunForm } from "./BenchmarkRunForm";
 
 export const BenchmarkRunManager = ({
     initialRuns,
     contextGroups,
-    onBenchmarkStarted
+    onBenchmarkStarted,
+    initialActiveBenchmarks = []
 }: {
     initialRuns: BenchmarkRun[];
     contextGroups: ContextGroup[];
     onBenchmarkStarted: (benchmarkId: string) => void;
+    initialActiveBenchmarks?: Benchmark[];
 }) => {
     const [runs, setRuns] = useState<BenchmarkRun[]>(initialRuns);
     const [isAddingRun, setIsAddingRun] = useState(false);
     const [editingRun, setEditingRun] = useState<BenchmarkRun | null>(null);
     const [isTriggering, setIsTriggering] = useState<string | null>(null);
+    const [activeBenchmarks, setActiveBenchmarks] = useState<Benchmark[]>(initialActiveBenchmarks);
+
+    React.useEffect(() => {
+        const interval = setInterval(async () => {
+            const latestActive = await getActiveBenchmarks();
+            setActiveBenchmarks(latestActive as Benchmark[]);
+        }, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleTrigger = async (runId: string) => {
         setIsTriggering(runId);
@@ -36,7 +47,7 @@ export const BenchmarkRunManager = ({
         try {
             await deleteBenchmarkRun(id);
             setRuns(prev => prev.filter(r => r.id !== id));
-        } catch (err) {
+        } catch {
             alert("Failed to delete run definition.");
         }
     };
@@ -122,6 +133,28 @@ export const BenchmarkRunManager = ({
                                     </div>
                                 </div>
 
+                                {/* Active Benchmark Progress Bars */}
+                                {activeBenchmarks.filter(b => b.runId === run.id).map(activeBench => {
+                                    const progress = activeBench.totalEntries > 0
+                                        ? (activeBench.completedEntries / activeBench.totalEntries) * 100
+                                        : 0;
+
+                                    return (
+                                        <div key={activeBench.id} onClick={() => onBenchmarkStarted(activeBench.id)} className="w-full mb-4 cursor-pointer group/progress">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-primary group-hover/progress:text-primary/70">{activeBench.name} - In Progress</span>
+                                                <span className="text-[10px] font-bold font-mono text-foreground/60">{Math.round(progress)}%</span>
+                                            </div>
+                                            <div className="w-full bg-foreground/5 h-2 rounded-full overflow-hidden border border-border/30">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-1000 shadow-lg shadow-primary/20"
+                                                    style={{ width: `${progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
                                 <button
                                     onClick={() => handleTrigger(run.id)}
                                     disabled={isTriggering === run.id}
@@ -129,6 +162,8 @@ export const BenchmarkRunManager = ({
                                 >
                                     {isTriggering === run.id ? (
                                         <div className="w-4 h-4 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+                                    ) : activeBenchmarks.some(b => b.runId === run.id) ? (
+                                        "🚀 Run Another"
                                     ) : (
                                         "🚀 Run Now"
                                     )}

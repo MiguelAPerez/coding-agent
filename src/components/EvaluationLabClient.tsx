@@ -12,13 +12,15 @@ export const EvaluationLabClient = ({
     skills,
     latestBenchmark,
     initialRuns,
-    completedBenchmarks
+    completedBenchmarks,
+    initialActiveBenchmarks
 }: {
     initialGroups: ContextGroup[];
     skills: Skill[];
     latestBenchmark: Benchmark | null;
     initialRuns: BenchmarkRun[];
     completedBenchmarks: (Benchmark & { entries: BenchmarkEntry[] })[];
+    initialActiveBenchmarks: Benchmark[];
 }) => {
     const [activeTab, setActiveTab] = useState(latestBenchmark?.status === "running" ? "progress" : "runs");
     const [currentBenchmarkId, setCurrentBenchmarkId] = useState<string | null>(latestBenchmark?.id || null);
@@ -59,6 +61,7 @@ export const EvaluationLabClient = ({
                         initialRuns={initialRuns}
                         contextGroups={initialGroups}
                         onBenchmarkStarted={handleBenchmarkStarted}
+                        initialActiveBenchmarks={initialActiveBenchmarks}
                     />
                 )}
                 {activeTab === "progress" && (

@@ -516,3 +516,18 @@ export async function getCompletedBenchmarks() {
         };
     });
 }
+
+export async function getActiveBenchmarks() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return [];
+
+    return db.select()
+        .from(benchmarks)
+        .where(
+            and(
+                eq(benchmarks.userId, session.user.id),
+                eq(benchmarks.status, "running")
+            )
+        )
+        .all();
+}
