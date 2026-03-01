@@ -45,19 +45,20 @@ export const BenchmarkProgress = ({
 
         const fetchData = async () => {
             const data = await getBenchmarkProgress(initialBenchmarkId) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
-            setBenchmark(prev => {
-                if (prev && prev.status === "running" && data?.status === "completed") {
-                    router.refresh(); // Refresh server state (e.g. results component)
-                }
-                return data;
-            });
+            setBenchmark(data);
         };
-
 
         fetchData();
         const interval = setInterval(fetchData, 3000);
         return () => clearInterval(interval);
-    }, [initialBenchmarkId, router]);
+    }, [initialBenchmarkId]);
+
+    // Refresh server state once when benchmark completes
+    useEffect(() => {
+        if (benchmark?.status === "completed") {
+            router.refresh();
+        }
+    }, [benchmark?.status, router]);
 
     // Simulate progress if it's running
     useEffect(() => {
@@ -65,16 +66,13 @@ export const BenchmarkProgress = ({
             const timer = setTimeout(async () => {
                 const res = await simulateBenchmarkStep(benchmark.id);
                 if (res.finished) {
-                    // Refresh data
                     const data = await getBenchmarkProgress(benchmark.id);
                     setBenchmark(data as (Benchmark & { entries: BenchmarkEntry[] }) | null);
-                    router.refresh();
                 }
-
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, [benchmark, router]);
+    }, [benchmark?.id, benchmark?.status]);
 
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
     const [collapsedModels, setCollapsedModels] = useState<Record<string, boolean>>({});
@@ -207,18 +205,29 @@ export const BenchmarkProgress = ({
                     </div>
 
                     <div className="w-full bg-foreground/5 h-4 rounded-full overflow-hidden mb-4 p-1 border border-border/30 flex">
-                        <div
-                            className="h-full bg-gradient-to-r from-primary via-primary/80 to-primary/40 rounded-l-full transition-all duration-1000 shadow-lg shadow-primary/20"
-                            style={{ width: `${completedProgress}%` }}
-                        />
-                        <div
-                            className="h-full bg-primary/20 animate-pulse transition-all duration-1000"
-                            style={{ width: `${runningProgress}%` }}
-                        />
-                        <div
-                            className="h-full bg-foreground/5 transition-all duration-1000 rounded-r-full"
-                            style={{ width: `${pendingProgress}%` }}
-                        />
+                        {completedProgress > 0 && (
+                            <div
+                                className={`h-full bg-gradient-to-r from-primary via-primary/80 to-primary/40 transition-all duration-1000 shadow-lg shadow-primary/20 ${completedProgress === 100 ? "rounded-full" : "rounded-l-full"
+                                    }`}
+                                style={{ width: `${completedProgress}%` }}
+                            />
+                        )}
+                        {runningProgress > 0 && (
+                            <div
+                                className={`h-full bg-primary/30 animate-pulse transition-all duration-1000 ${completedProgress === 0 && pendingProgress === 0 ? "rounded-full" :
+                                    completedProgress === 0 ? "rounded-l-full" :
+                                        pendingProgress === 0 ? "rounded-r-full" : ""
+                                    }`}
+                                style={{ width: `${runningProgress}%` }}
+                            />
+                        )}
+                        {pendingProgress > 0 && (
+                            <div
+                                className={`h-full bg-foreground/10 transition-all duration-1000 ${completedProgress === 0 && runningProgress === 0 ? "rounded-full" : "rounded-r-full"
+                                    }`}
+                                style={{ width: `${pendingProgress}%` }}
+                            />
+                        )}
                     </div>
                     <div className="flex justify-between px-2">
                         <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest flex items-center gap-4">

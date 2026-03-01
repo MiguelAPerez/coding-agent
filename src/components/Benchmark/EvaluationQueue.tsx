@@ -59,18 +59,29 @@ export const EvaluationQueue = ({
                                 </div>
                                 {isCollapsed && (
                                     <div className="w-24 bg-foreground/5 h-2 rounded-full overflow-hidden border border-border/30 flex">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-l-full transition-all duration-1000 shadow-lg shadow-primary/20"
-                                            style={{ width: `${modelCompletedProgress}%` }}
-                                        />
-                                        <div
-                                            className="h-full bg-primary/20 animate-pulse transition-all duration-1000"
-                                            style={{ width: `${modelRunningProgress}%` }}
-                                        />
-                                        <div
-                                            className="h-full bg-foreground/5 transition-all duration-1000 rounded-r-full"
-                                            style={{ width: `${modelPendingProgress}%` }}
-                                        />
+                                        {modelCompletedProgress > 0 && (
+                                            <div
+                                                className={`h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-1000 shadow-lg shadow-primary/20 ${modelCompletedProgress === 100 ? "rounded-full" : "rounded-l-full"
+                                                    }`}
+                                                style={{ width: `${modelCompletedProgress}%` }}
+                                            />
+                                        )}
+                                        {modelRunningProgress > 0 && (
+                                            <div
+                                                className={`h-full bg-primary/30 animate-pulse transition-all duration-1000 ${modelCompletedProgress === 0 && modelPendingProgress === 0 ? "rounded-full" :
+                                                    modelCompletedProgress === 0 ? "rounded-l-full" :
+                                                        modelPendingProgress === 0 ? "rounded-r-full" : ""
+                                                    }`}
+                                                style={{ width: `${modelRunningProgress}%` }}
+                                            />
+                                        )}
+                                        {modelPendingProgress > 0 && (
+                                            <div
+                                                className={`h-full bg-foreground/10 transition-all duration-1000 ${modelCompletedProgress === 0 && modelRunningProgress === 0 ? "rounded-full" : "rounded-r-full"
+                                                    }`}
+                                                style={{ width: `${modelPendingProgress}%` }}
+                                            />
+                                        )}
                                     </div>
                                 )}
                             </h4>
@@ -79,14 +90,16 @@ export const EvaluationQueue = ({
                                     {entries.map((entry, idx) => (
                                         <div
                                             key={entry.id}
-                                            onClick={() => (entry.status === "completed" || entry.status === "running" || entry.status === "cancelled") && setSelectedEntryId(entry.id)}
+                                            onClick={() => (entry.status === "completed" || entry.status === "running" || entry.status === "preparing" || entry.status === "cancelled") && setSelectedEntryId(entry.id)}
                                             className={`glass p-4 rounded-2xl border transition-all flex items-center justify-between group cursor-pointer ${entry.status === "running"
                                                 ? selectedEntryId === entry.id ? "border-primary bg-primary/10 shadow-xl" : "border-primary/50 bg-primary/5 scale-[1.01] shadow-xl"
-                                                : entry.status === "completed"
-                                                    ? selectedEntryId === entry.id ? "border-primary bg-primary/5" : "border-green-500/20 hover:border-primary/40"
-                                                    : entry.status === "cancelled"
-                                                        ? selectedEntryId === entry.id ? "border-amber-500/40 bg-amber-500/5 text-amber-600/60" : "border-amber-500/20 hover:border-amber-500/40 text-amber-600/40"
-                                                        : "border-border/30 opacity-50 cursor-not-allowed"
+                                                : entry.status === "preparing"
+                                                    ? selectedEntryId === entry.id ? "border-purple-500 bg-purple-500/10 shadow-lg" : "border-purple-500/50 bg-purple-500/5 scale-[1.005] shadow-lg"
+                                                    : entry.status === "completed"
+                                                        ? selectedEntryId === entry.id ? "border-primary bg-primary/5" : "border-green-500/20 hover:border-primary/40"
+                                                        : entry.status === "cancelled"
+                                                            ? selectedEntryId === entry.id ? "border-amber-500/40 bg-amber-500/5 text-amber-600/60" : "border-amber-500/20 hover:border-amber-500/40 text-amber-600/40"
+                                                            : "border-border/30 opacity-60 cursor-default hover:bg-foreground/5 hover:border-border/50 hover:opacity-100"
                                                 }`}
                                         >
                                             <div className="flex items-center gap-5">
@@ -99,10 +112,11 @@ export const EvaluationQueue = ({
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-[10px] font-bold uppercase tracking-widest ${entry.status === "running" ? "text-primary animate-pulse" :
-                                                            entry.status === "completed" ? "text-green-500/60" :
-                                                                entry.status === "cancelled" ? "text-amber-500/60" : "text-foreground/20"
+                                                            entry.status === "preparing" ? "text-purple-500 animate-pulse" :
+                                                                entry.status === "completed" ? "text-green-500/60" :
+                                                                    entry.status === "cancelled" ? "text-amber-500/60" : "text-foreground/40"
                                                             }`}>
-                                                            {entry.status}
+                                                            {entry.status === "pending" ? "Queued" : entry.status === "preparing" ? "Prep Work" : entry.status}
                                                         </span>
                                                         {entry.status === "completed" && entry.score !== null && (
                                                             <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-black">
@@ -114,8 +128,13 @@ export const EvaluationQueue = ({
                                                                 {(() => {
                                                                     try {
                                                                         const m = JSON.parse(entry.metrics);
-                                                                        const results = m.expectationResults || [];
-                                                                        return `${results.filter((res: { found: boolean }) => res.found).length} / ${results.length}`;
+                                                                        if (m.expectationResults) {
+                                                                            const results = m.expectationResults || [];
+                                                                            return `${results.filter((res: { found: boolean }) => res.found).length} / ${results.length}`;
+                                                                        }
+                                                                        // Fallback for older metrics format if needed, though instruction implies expectationResults is the new standard
+                                                                        // return m.keywordMatches?.filter((match: { found: boolean }) => match.found).length || 0;
+                                                                        return "0/0"; // If expectationResults is not present and no other fallback
                                                                     } catch {
                                                                         return "0/0";
                                                                     }
@@ -142,6 +161,12 @@ export const EvaluationQueue = ({
                                                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
                                                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
                                                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                                                    </div>
+                                                )}
+                                                {entry.status === "preparing" && (
+                                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-500/10 rounded-lg">
+                                                        <div className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                                                        <span className="text-[9px] font-bold text-purple-500 uppercase tracking-widest hidden sm:inline-block">Loading Context</span>
                                                     </div>
                                                 )}
                                                 {entry.status === "completed" && (

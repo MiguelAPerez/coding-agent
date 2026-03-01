@@ -202,7 +202,7 @@ export const contextGroups = sqliteTable("context_group", {
     name: text("name").notNull(),
     description: text("description"),
     category: text("category"),
-    expectedKeywords: text("expectedKeywords"), // JSON array
+    expectations: text("expectations"), // JSON array of expectation objects
     weight: real("weight"),
     maxSentences: integer("maxSentences"),
     systemContext: text("systemContext"),
@@ -259,7 +259,7 @@ export const benchmarkEntries = sqliteTable("benchmark_entry", {
     metrics: text("metrics"), // JSON string
     prompt: text("prompt"),
     systemContext: text("systemContext"),
-    status: text("status", { enum: ["pending", "running", "completed", "failed", "cancelled"] }).notNull().default("pending"),
+    status: text("status", { enum: ["pending", "preparing", "running", "completed", "failed", "cancelled"] }).notNull().default("pending"),
     output: text("output"),
     error: text("error"),
     duration: integer("duration"), // in ms

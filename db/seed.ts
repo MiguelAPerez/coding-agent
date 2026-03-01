@@ -114,7 +114,7 @@ async function seed() {
                 name: tc.name,
                 description: `Category: ${tc.category} | Weight: ${tc.weight}`,
                 category: tc.category,
-                expectedKeywords: JSON.stringify(tc.control),
+                expectations: JSON.stringify(tc.expectations),
                 weight: tc.weight,
                 maxSentences: tc.maxSentences || null,
                 systemContext: tc.systemContext || null,

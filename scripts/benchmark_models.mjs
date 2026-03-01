@@ -38,10 +38,10 @@ async function runBenchmark() {
                 const start = Date.now();
                 try {
                     const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 120000); // Increased timeout for high context
+                    const _timeout = setTimeout(() => controller.abort(), 120000); // Increased timeout for high context
 
                     let progress = 0;
-                    const loaderInterval = setInterval(() => {
+                    const _loaderInterval = setInterval(() => {
                         progress = (progress + 1) % 5;
                         const dots = ".".repeat(progress);
                         process.stdout.write(`\r  [${testCase.category}] ${testCase.name} ${dots}    `);
@@ -63,14 +63,35 @@ async function runBenchmark() {
                     const duration = Date.now() - start;
                     const content = response.message.content;
 
-                    let matches = 0;
-                    testCase.control.forEach(keyword => {
-                        if (content.toLowerCase().includes(keyword.toLowerCase())) {
-                            matches++;
+                    let totalScore = 0;
+                    const expectations = testCase.expectations || [];
+                    const matchDetails = expectations.map(exp => {
+                        let found = false;
+                        switch (exp.type) {
+                            case "contains":
+                                found = content.toLowerCase().includes(exp.value.toLowerCase());
+                                break;
+                            case "not_contains":
+                                found = !content.toLowerCase().includes(exp.value.toLowerCase());
+                                break;
+                            case "regex":
+                                try {
+                                    const match = exp.value.match(/^\/(.*)\/([gimuy]*)$/);
+                                    const regex = match ? new RegExp(match[1], match[2]) : new RegExp(exp.value, "i");
+                                    found = regex.test(content);
+                                } catch (_e) {
+                                    found = false;
+                                }
+                                break;
+                            case "exact":
+                                found = content.trim().toLowerCase() === exp.value.trim().toLowerCase();
+                                break;
                         }
+                        if (found) totalScore += (100 / expectations.length);
+                        return { ...exp, found };
                     });
 
-                    let score = (matches / testCase.control.length) * 100;
+                    let score = Math.round(totalScore);
                     if (testCase.maxSentences) {
                         const sentenceCount = content.split(/[.!?]+\s/).filter(s => s.trim().length > 0).length;
                         if (sentenceCount > testCase.maxSentences) score *= 0.5;
@@ -78,7 +99,7 @@ async function runBenchmark() {
 
                     testCaseLatencies.push(duration);
                     testCaseScores.push(score);
-                } catch (err) {
+                } catch (_err) {
                     testCaseScores.push(0);
                     testCaseLatencies.push(60000);
                 } finally {

@@ -75,7 +75,7 @@ export interface BenchmarkEntry {
     metrics: string | null; // JSON string
     prompt: string | null;
     systemContext: string | null;
-    status: "pending" | "running" | "completed" | "failed" | "cancelled";
+    status: "pending" | "preparing" | "running" | "completed" | "failed" | "cancelled";
     output: string | null;
     error: string | null;
     duration: number | null;

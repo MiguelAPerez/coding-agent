@@ -389,6 +389,7 @@ export async function cancelBenchmark(benchmarkId: string) {
                 eq(benchmarkEntries.benchmarkId, benchmarkId),
                 or(
                     eq(benchmarkEntries.status, "pending"),
+                    eq(benchmarkEntries.status, "preparing"),
                     eq(benchmarkEntries.status, "running")
                 )
             )
@@ -413,6 +414,139 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         .where(eq(benchmarkEntries.benchmarkId, benchmarkId))
         .all();
 
+    const nextPreparingEntry = allEntries.find(e => e.status === "preparing");
+
+    if (nextPreparingEntry) {
+        const cg = db.select().from(contextGroups).where(eq(contextGroups.id, nextPreparingEntry.contextGroupId)).get();
+
+        if (!cg) throw new Error("Context group not found");
+
+        const expectations = cg.expectations ? JSON.parse(cg.expectations) : [];
+        const prompt = cg.promptTemplate;
+        const category = cg.category || "Uncategorized";
+        const systemContext = cg.systemContext || "";
+
+        const startedAt = new Date();
+        db.update(benchmarkEntries)
+            .set({ status: "running", startedAt, category, prompt })
+            .where(eq(benchmarkEntries.id, nextPreparingEntry.id))
+            .run();
+
+        let output = "";
+        let duration = 0;
+
+        try {
+            const ollamaConfig = await getOllamaConfig();
+            if (!ollamaConfig) {
+                throw new Error("Ollama is not configured.");
+            }
+
+            const requestBody = {
+                model: nextPreparingEntry.model,
+                prompt: prompt,
+                system: systemContext,
+                stream: false,
+                keep_alive: 0
+            };
+
+            const startTime = Date.now();
+            const response = await fetch(`${ollamaConfig.url}/api/generate`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(requestBody),
+                cache: "no-store",
+                signal: AbortSignal.timeout(120000),
+            });
+
+            duration = Date.now() - startTime;
+
+            if (!response.ok) {
+                throw new Error(`Ollama API error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            output = data.response || "";
+
+        } catch (error) {
+            output = `Error during generation: ${error instanceof Error ? error.message : "Unknown error"}`;
+            duration = duration || 1000; // fallback duration if it failed before starting
+        }
+
+        const completedAt = new Date(startedAt.getTime() + duration);
+
+        // Scoring logic
+        let totalScore = 0;
+        const matchDetails = expectations.map((exp: { type: string; value: string }) => {
+            let found = false;
+            switch (exp.type) {
+                case "contains":
+                    found = output.toLowerCase().includes(exp.value.toLowerCase());
+                    break;
+                case "not_contains":
+                    found = !output.toLowerCase().includes(exp.value.toLowerCase());
+                    break;
+                case "regex":
+                    try {
+                        const match = exp.value.match(/^\/(.*)\/([gimuy]*)$/);
+                        const regex = match ? new RegExp(match[1], match[2]) : new RegExp(exp.value, "i");
+                        found = regex.test(output);
+                    } catch {
+                        found = false;
+                    }
+                    break;
+                case "exact":
+                    found = output.trim().toLowerCase() === exp.value.trim().toLowerCase();
+                    break;
+            }
+            if (found && expectations.length > 0) totalScore += (100 / expectations.length);
+            return { ...exp, found };
+        });
+
+        // If an error occurred, score is 0. Otherwise calculate normally.
+        const isError = output.startsWith("Error during generation");
+        let score = isError ? 0 : Math.round(totalScore);
+
+        if (cg.maxSentences && cg.maxSentences > 0) {
+            const sentenceCount = output.split(/[.!?]+\s/).filter(s => s.trim().length > 0).length;
+            if (sentenceCount > cg.maxSentences) score *= 0.5;
+        }
+
+        db.update(benchmarkEntries)
+            .set({
+                status: "completed",
+                completedAt,
+                duration,
+                output,
+                category,
+                score: Math.round(score),
+                prompt,
+                systemContext,
+                metrics: JSON.stringify({
+                    expectationResults: matchDetails,
+                    modelName: nextPreparingEntry.model,
+                    throughput: duration > 0 ? Math.round(output.length / (duration / 1000)) : 0,
+                    responseSize: output.length,
+                    responseSizeBytes: output.length,
+                    error: isError
+                })
+            })
+            .where(eq(benchmarkEntries.id, nextPreparingEntry.id))
+            .run();
+
+        const bench = db.select().from(benchmarks).where(eq(benchmarks.id, benchmarkId)).get();
+        if (bench) {
+            db.update(benchmarks)
+                .set({ completedEntries: bench.completedEntries + 1 })
+                .where(eq(benchmarks.id, benchmarkId))
+                .run();
+        }
+
+        revalidatePath("/evaluation-lab");
+        return { finished: false };
+    }
+
     const nextPendingEntry = allEntries.find(e => e.status === "pending");
 
     if (!nextPendingEntry) {
@@ -423,133 +557,12 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         return { finished: true };
     }
 
-    // Get context group details
-    const cg = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
-
-    if (!cg) throw new Error("Context group not found");
-
-    const expectations = cg.expectations ? JSON.parse(cg.expectations) : [];
-    const prompt = cg.promptTemplate;
-    const category = cg.category || "Uncategorized";
-    const systemContext = cg.systemContext || "";
-
-    const startedAt = new Date();
-    db.update(benchmarkEntries)
-        .set({ status: "running", startedAt, category, prompt })
-        .where(eq(benchmarkEntries.id, nextPendingEntry.id))
-        .run();
-
-    let output = "";
-    let duration = 0;
-
-    try {
-        const ollamaConfig = await getOllamaConfig();
-        if (!ollamaConfig) {
-            throw new Error("Ollama is not configured.");
-        }
-
-        const requestBody = {
-            model: nextPendingEntry.model,
-            prompt: prompt,
-            system: systemContext,
-            stream: false,
-            keep_alive: 0
-        };
-
-        const startTime = Date.now();
-        const response = await fetch(`${ollamaConfig.url}/api/generate`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
-            cache: "no-store",
-            // Need a bit longer timeout for LLM generation
-            signal: AbortSignal.timeout(120000),
-        });
-
-        duration = Date.now() - startTime;
-
-        if (!response.ok) {
-            throw new Error(`Ollama API error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        output = data.response || "";
-
-    } catch (error) {
-        output = `Error during generation: ${error instanceof Error ? error.message : "Unknown error"}`;
-        duration = duration || 1000; // fallback duration if it failed before starting
-    }
-
-    const completedAt = new Date(startedAt.getTime() + duration);
-
-    // Scoring logic
-    let totalScore = 0;
-    const matchDetails = expectations.map((exp: { type: string; value: string }) => {
-        let found = false;
-        switch (exp.type) {
-            case "contains":
-                found = output.toLowerCase().includes(exp.value.toLowerCase());
-                break;
-            case "not_contains":
-                found = !output.toLowerCase().includes(exp.value.toLowerCase());
-                break;
-            case "regex":
-                try {
-                    const match = exp.value.match(/^\/(.*)\/([gimuy]*)$/);
-                    const regex = match ? new RegExp(match[1], match[2]) : new RegExp(exp.value, "i");
-                    found = regex.test(output);
-                } catch {
-                    found = false;
-                }
-                break;
-            case "exact":
-                found = output.trim().toLowerCase() === exp.value.trim().toLowerCase();
-                break;
-        }
-        if (found) totalScore += (100 / expectations.length);
-        return { ...exp, found };
-    });
-
-    // If an error occurred, score is 0. Otherwise calculate normally.
-    const isError = output.startsWith("Error during generation");
-    let score = isError ? 0 : Math.round(totalScore);
-
-    if (cg.maxSentences) {
-        const sentenceCount = output.split(/[.!?]+\s/).filter(s => s.trim().length > 0).length;
-        if (sentenceCount > cg.maxSentences) score *= 0.5;
-    }
+    const cgPrep = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
 
     db.update(benchmarkEntries)
-        .set({
-            status: "completed",
-            completedAt,
-            duration,
-            output,
-            category,
-            score: Math.round(score),
-            prompt,
-            systemContext,
-            metrics: JSON.stringify({
-                expectationResults: matchDetails,
-                modelName: nextPendingEntry.model,
-                throughput: duration > 0 ? Math.round(output.length / (duration / 1000)) : 0,
-                responseSize: output.length,
-                responseSizeBytes: output.length,
-                error: isError
-            })
-        })
+        .set({ status: "preparing", category: cgPrep?.category || "Uncategorized" })
         .where(eq(benchmarkEntries.id, nextPendingEntry.id))
         .run();
-
-    const bench = db.select().from(benchmarks).where(eq(benchmarks.id, benchmarkId)).get();
-    if (bench) {
-        db.update(benchmarks)
-            .set({ completedEntries: bench.completedEntries + 1 })
-            .where(eq(benchmarks.id, benchmarkId))
-            .run();
-    }
 
     revalidatePath("/evaluation-lab");
     return { finished: false };
