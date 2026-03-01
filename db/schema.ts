@@ -236,7 +236,7 @@ export const benchmarks = sqliteTable("benchmark", {
     runId: text("runId")
         .references(() => benchmarkRuns.id, { onDelete: "set null" }),
     name: text("name").notNull(),
-    status: text("status", { enum: ["idle", "running", "completed", "failed"] }).notNull().default("idle"),
+    status: text("status", { enum: ["idle", "running", "completed", "failed", "cancelled"] }).notNull().default("idle"),
     startedAt: integer("startedAt", { mode: "timestamp_ms" }),
     completedAt: integer("completedAt", { mode: "timestamp_ms" }),
     totalEntries: integer("totalEntries").notNull().default(0),
@@ -259,7 +259,7 @@ export const benchmarkEntries = sqliteTable("benchmark_entry", {
     metrics: text("metrics"), // JSON string
     prompt: text("prompt"),
     systemContext: text("systemContext"),
-    status: text("status", { enum: ["pending", "running", "completed", "failed"] }).notNull().default("pending"),
+    status: text("status", { enum: ["pending", "running", "completed", "failed", "cancelled"] }).notNull().default("pending"),
     output: text("output"),
     error: text("error"),
     duration: integer("duration"), // in ms

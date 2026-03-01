@@ -66,12 +66,14 @@ export const EvaluationQueue = ({
                                     {entries.map((entry, idx) => (
                                         <div
                                             key={entry.id}
-                                            onClick={() => (entry.status === "completed" || entry.status === "running") && setSelectedEntryId(entry.id)}
+                                            onClick={() => (entry.status === "completed" || entry.status === "running" || entry.status === "cancelled") && setSelectedEntryId(entry.id)}
                                             className={`glass p-4 rounded-2xl border transition-all flex items-center justify-between group cursor-pointer ${entry.status === "running"
                                                 ? selectedEntryId === entry.id ? "border-primary bg-primary/10 shadow-xl" : "border-primary/50 bg-primary/5 scale-[1.01] shadow-xl"
                                                 : entry.status === "completed"
                                                     ? selectedEntryId === entry.id ? "border-primary bg-primary/5" : "border-green-500/20 hover:border-primary/40"
-                                                    : "border-border/30 opacity-50 cursor-not-allowed"
+                                                    : entry.status === "cancelled"
+                                                        ? selectedEntryId === entry.id ? "border-amber-500/40 bg-amber-500/5 text-amber-600/60" : "border-amber-500/20 hover:border-amber-500/40 text-amber-600/40"
+                                                        : "border-border/30 opacity-50 cursor-not-allowed"
                                                 }`}
                                         >
                                             <div className="flex items-center gap-5">
@@ -84,7 +86,8 @@ export const EvaluationQueue = ({
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-[10px] font-bold uppercase tracking-widest ${entry.status === "running" ? "text-primary animate-pulse" :
-                                                            entry.status === "completed" ? "text-green-500/60" : "text-foreground/20"
+                                                            entry.status === "completed" ? "text-green-500/60" :
+                                                                entry.status === "cancelled" ? "text-amber-500/60" : "text-foreground/20"
                                                             }`}>
                                                             {entry.status}
                                                         </span>

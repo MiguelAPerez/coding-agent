@@ -22,6 +22,8 @@ export const BenchmarkRunManager = ({
     const [editingRun, setEditingRun] = useState<BenchmarkRun | null>(null);
     const [isTriggering, setIsTriggering] = useState<string | null>(null);
     const [activeBenchmarks, setActiveBenchmarks] = useState<Benchmark[]>(initialActiveBenchmarks);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const router = useRouter();
 
     React.useEffect(() => {
@@ -54,12 +56,17 @@ export const BenchmarkRunManager = ({
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this run definition?")) return;
+        setIsDeleting(id);
+        setConfirmDeleteId(null);
         try {
             await deleteBenchmarkRun(id);
             setRuns(prev => prev.filter(r => r.id !== id));
-        } catch {
+            router.refresh();
+        } catch (err) {
+            console.error("Failed to delete run definition", err);
             alert("Failed to delete run definition.");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -127,18 +134,38 @@ export const BenchmarkRunManager = ({
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setEditingRun(run)}
-                                            className="p-2 hover:bg-primary/10 rounded-xl transition-all text-foreground/30 hover:text-primary"
-                                        >
-                                            ✏️
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(run.id)}
-                                            className="p-2 hover:bg-destructive/10 rounded-xl transition-all text-foreground/30 hover:text-destructive"
-                                        >
-                                            🗑️
-                                        </button>
+                                        {confirmDeleteId === run.id ? (
+                                            <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+                                                <button
+                                                    onClick={() => handleDelete(run.id)}
+                                                    disabled={isDeleting === run.id}
+                                                    className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all text-xs font-bold disabled:opacity-50"
+                                                >
+                                                    {isDeleting === run.id ? "..." : "Delete"}
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDeleteId(null)}
+                                                    className="p-2 hover:bg-foreground/10 rounded-xl transition-all text-foreground/40 text-xs font-bold"
+                                                >
+                                                    Esc
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setEditingRun(run)}
+                                                    className="p-2 hover:bg-primary/10 rounded-xl transition-all text-foreground/30 hover:text-primary"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDeleteId(run.id)}
+                                                    className="p-2 hover:bg-destructive/10 rounded-xl transition-all text-foreground/30 hover:text-destructive"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

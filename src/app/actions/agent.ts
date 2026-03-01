@@ -2,7 +2,7 @@
 
 import { db } from "@/../db";
 import { agentConfigurations, skills, tools, contextGroups, benchmarkRuns, benchmarks, benchmarkEntries } from "@/../db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { getOllamaConfig } from "./ollama";
 
 import { getServerSession } from "next-auth/next";
@@ -246,6 +246,10 @@ export async function deleteBenchmarkRun(id: string) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
+    // We don't delete completion data (benchmarks), but we could.
+    // For now, we just delete the run definition.
+    // The benchmarks table has { onDelete: "set null" } for runId,
+    // so it won't crash on foreign key constraints.
     db.delete(benchmarkRuns).where(eq(benchmarkRuns.id, id)).run();
     revalidatePath("/evaluation-lab");
 }
@@ -366,9 +370,43 @@ export async function getLatestBenchmark() {
 
 
 // Simulated update for the prototype
+export async function cancelBenchmark(benchmarkId: string) {
+    console.log("Cancelling benchmark:", benchmarkId);
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    console.log("Updating benchmark status to cancelled");
+    db.update(benchmarks)
+        .set({ status: "cancelled", completedAt: new Date() })
+        .where(eq(benchmarks.id, benchmarkId))
+        .run();
+
+    console.log("Updating benchmark entries status to cancelled");
+    db.update(benchmarkEntries)
+        .set({ status: "cancelled" })
+        .where(
+            and(
+                eq(benchmarkEntries.benchmarkId, benchmarkId),
+                or(
+                    eq(benchmarkEntries.status, "pending"),
+                    eq(benchmarkEntries.status, "running")
+                )
+            )
+        )
+        .run();
+
+    console.log("Revalidating path and finishing cancellation");
+    revalidatePath("/evaluation-lab");
+}
+
 export async function simulateBenchmarkStep(benchmarkId: string) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const benchmark = db.select().from(benchmarks).where(eq(benchmarks.id, benchmarkId)).get();
+    if (!benchmark || benchmark.status !== "running") {
+        return { finished: true };
+    }
 
     const allEntries = db.select()
         .from(benchmarkEntries)

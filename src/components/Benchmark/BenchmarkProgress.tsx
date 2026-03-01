@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getBenchmarkProgress, simulateBenchmarkStep } from "@/app/actions/agent";
+import { getBenchmarkProgress, simulateBenchmarkStep, cancelBenchmark } from "@/app/actions/agent";
 import { Benchmark, BenchmarkEntry } from "@/types/agent";
 import { useRouter } from "next/navigation";
 import { getOllamaModels } from "@/app/actions/ollama";
@@ -15,6 +15,8 @@ export const BenchmarkProgress = ({
 }) => {
     const [benchmark, setBenchmark] = useState<(Benchmark & { entries: BenchmarkEntry[] }) | null>(null);
     const [modelCapabilities, setModelCapabilities] = useState<Record<string, string[]>>({});
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [showConfirmCancel, setShowConfirmCancel] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -139,9 +141,62 @@ export const BenchmarkProgress = ({
                                 ID: {benchmark.id.slice(0, 8)}... • Status: {benchmark.status}
                             </p>
                         </div>
-                        <div className="text-right px-6 py-4 glass bg-background/40 rounded-2xl border border-border/50">
-                            <span className="text-3xl font-black text-primary font-mono">{Math.round(progress)}%</span>
-                            <p className="text-[10px] font-bold uppercase tracking-tighter text-foreground/30">Total Progress</p>
+                        <div className="flex items-center gap-4">
+                            {benchmark.status === "running" && (
+                                <div className="flex items-center gap-2">
+                                    {showConfirmCancel ? (
+                                        <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+                                            <span className="text-[10px] font-bold text-red-500/60 uppercase">Are you sure?</span>
+                                            <button
+                                                onClick={async () => {
+                                                    setIsCancelling(true);
+                                                    setShowConfirmCancel(false);
+                                                    try {
+                                                        await cancelBenchmark(benchmark.id);
+                                                        const data = await getBenchmarkProgress(benchmark.id) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
+                                                        setBenchmark(data);
+                                                        router.refresh();
+                                                    } catch (err) {
+                                                        console.error("Failed to cancel benchmark", err);
+                                                        alert("Failed to cancel benchmark run.");
+                                                    } finally {
+                                                        setIsCancelling(false);
+                                                    }
+                                                }}
+                                                disabled={isCancelling}
+                                                className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[10px] font-bold uppercase transition-all hover:bg-red-600 disabled:opacity-50"
+                                            >
+                                                Yes, Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => setShowConfirmCancel(false)}
+                                                className="px-3 py-1.5 bg-foreground/5 hover:bg-foreground/10 text-foreground/60 rounded-lg text-[10px] font-bold uppercase transition-all"
+                                            >
+                                                No
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setShowConfirmCancel(true)}
+                                            disabled={isCancelling}
+                                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {isCancelling ? (
+                                                <>
+                                                    <div className="w-3 h-3 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+                                                    Cancelling...
+                                                </>
+                                            ) : (
+                                                "Cancel Run"
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            <div className="text-right px-6 py-4 glass bg-background/40 rounded-2xl border border-border/50">
+                                <span className="text-3xl font-black text-primary font-mono">{Math.round(progress)}%</span>
+                                <p className="text-[10px] font-bold uppercase tracking-tighter text-foreground/30">Total Progress</p>
+                            </div>
                         </div>
                     </div>
 

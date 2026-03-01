@@ -58,7 +58,7 @@ export interface Benchmark {
     userId: string;
     runId: string | null;
     name: string;
-    status: "idle" | "running" | "completed" | "failed";
+    status: "idle" | "running" | "completed" | "failed" | "cancelled";
     startedAt: Date | null;
     completedAt: Date | null;
     totalEntries: number;
@@ -75,7 +75,7 @@ export interface BenchmarkEntry {
     metrics: string | null; // JSON string
     prompt: string | null;
     systemContext: string | null;
-    status: "pending" | "running" | "completed" | "failed";
+    status: "pending" | "running" | "completed" | "failed" | "cancelled";
     output: string | null;
     error: string | null;
     duration: number | null;
