@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/../db";
-import { agentConfigurations, skills, tools, contextGroups, benchmarks, benchmarkEntries } from "@/../db/schema";
+import { agentConfigurations, skills, tools, contextGroups, benchmarkRuns, benchmarks, benchmarkEntries } from "@/../db/schema";
 import { eq, desc } from "drizzle-orm";
 
 import { getServerSession } from "next-auth/next";
@@ -189,6 +189,97 @@ export async function deleteContextGroup(id: string) {
     revalidatePath("/evaluation-lab");
 }
 
+export async function getBenchmarkRuns() {
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return [];
+
+    return db.select().from(benchmarkRuns).where(eq(benchmarkRuns.userId, session.user.id)).all();
+}
+
+export async function saveBenchmarkRun(data: { id?: string; name: string; models: string[]; contextGroupIds: string[] }) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const now = new Date();
+    if (data.id) {
+        db.update(benchmarkRuns)
+            .set({
+                name: data.name,
+                models: JSON.stringify(data.models),
+                contextGroupIds: JSON.stringify(data.contextGroupIds),
+                updatedAt: now,
+            })
+            .where(eq(benchmarkRuns.id, data.id))
+            .run();
+    } else {
+        db.insert(benchmarkRuns)
+            .values({
+                userId: session.user.id,
+                name: data.name,
+                models: JSON.stringify(data.models),
+                contextGroupIds: JSON.stringify(data.contextGroupIds),
+                updatedAt: now,
+            })
+            .run();
+    }
+
+    revalidatePath("/evaluation-lab");
+}
+
+export async function deleteBenchmarkRun(id: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    db.delete(benchmarkRuns).where(eq(benchmarkRuns.id, id)).run();
+    revalidatePath("/evaluation-lab");
+}
+
+export async function triggerBenchmark(runId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const run = db.select().from(benchmarkRuns).where(eq(benchmarkRuns.id, runId)).get();
+    if (!run) throw new Error("Run definition not found");
+
+    const models = JSON.parse(run.models) as string[];
+    const contextGroupIds = JSON.parse(run.contextGroupIds) as string[];
+
+    const benchmarkId = crypto.randomUUID();
+    const now = new Date();
+
+    // Create benchmark session
+    db.insert(benchmarks)
+        .values({
+            id: benchmarkId,
+            userId: session.user.id,
+            runId: runId,
+            name: run.name,
+            status: "running",
+            startedAt: now,
+            totalEntries: models.length * contextGroupIds.length,
+            completedEntries: 0,
+        })
+        .run();
+
+    // Create entries
+    for (const model of models) {
+        for (const cgId of contextGroupIds) {
+            db.insert(benchmarkEntries)
+                .values({
+                    benchmarkId: benchmarkId,
+                    model: model,
+                    contextGroupId: cgId,
+                    status: "pending",
+                })
+                .run();
+        }
+    }
+
+    revalidatePath("/evaluation-lab");
+    return benchmarkId;
+}
+
 export async function runBenchmark(name: string, models: string[], contextGroupIds: string[]) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
@@ -271,8 +362,6 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
 
     const nextPendingEntry = allEntries.find(e => e.status === "pending");
 
-
-
     if (!nextPendingEntry) {
         db.update(benchmarks)
             .set({ status: "completed", completedAt: new Date() })
@@ -281,22 +370,71 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         return { finished: true };
     }
 
+    // Get context group details
+    const cg = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
+
+    // Simulating the "things we are testing" from benchmark_models.mjs
+    const mockTestCases = [
+        {
+            category: "Technical",
+            name: "Gotify REST API",
+            prompt: "How do I send a notification using Gotify's REST API?",
+            control: ["POST", "/message", "token", "message"],
+        },
+        {
+            category: "Code Generation",
+            name: "React Hook",
+            prompt: "Write a simple React useLocalStorage hook.",
+            control: ["useState", "useEffect", "JSON.stringify", "localStorage.getItem"],
+        },
+        {
+            category: "Data Extraction",
+            name: "Messy Log Parser",
+            prompt: "Extract the IP address from: '[2024-05-20 12:00:01] ERROR (192.168.1.45)'",
+            control: ["192.168.1.45"],
+        }
+    ];
+
+    const testCase = mockTestCases.find(t => t.name === cg?.name) || mockTestCases[Math.floor(Math.random() * mockTestCases.length)];
+
     const startedAt = new Date();
     db.update(benchmarkEntries)
         .set({ status: "running", startedAt })
         .where(eq(benchmarkEntries.id, nextPendingEntry.id))
         .run();
 
-    // Simulate work
+    // Simulate work/latency
     const duration = Math.floor(Math.random() * 2000) + 1000;
     const completedAt = new Date(startedAt.getTime() + duration);
+
+    // Simulate model output
+    const output = `Simulated response for ${nextPendingEntry.model}. Here are some keywords: ${testCase.control.slice(0, Math.floor(Math.random() * testCase.control.length) + 1).join(", ")}. Performance is good.`;
+
+    // Scoring logic
+    let matches = 0;
+    const matchDetails = testCase.control.map(keyword => {
+        const found = output.toLowerCase().includes(keyword.toLowerCase());
+        if (found) matches++;
+        return { keyword, found };
+    });
+
+    const score = Math.round((matches / testCase.control.length) * 100);
 
     db.update(benchmarkEntries)
         .set({
             status: "completed",
             completedAt,
             duration,
-            output: `Simulated result for ${nextPendingEntry.model} with Context Group ${nextPendingEntry.contextGroupId}`
+            output,
+            category: testCase.category,
+            score,
+            prompt: testCase.prompt,
+            systemContext: cg?.promptTemplate || "",
+            metrics: JSON.stringify({
+                keywordMatches: matchDetails,
+                modelName: nextPendingEntry.model,
+                throughput: Math.round(output.length / (duration / 1000))
+            })
         })
         .where(eq(benchmarkEntries.id, nextPendingEntry.id))
         .run();

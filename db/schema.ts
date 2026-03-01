@@ -207,6 +207,19 @@ export const contextGroups = sqliteTable("context_group", {
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
 
+export const benchmarkRuns = sqliteTable("benchmark_run", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    models: text("models").notNull(), // JSON array of model names
+    contextGroupIds: text("contextGroupIds").notNull(), // JSON array of context group IDs
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
 export const benchmarks = sqliteTable("benchmark", {
     id: text("id")
         .primaryKey()
@@ -214,6 +227,8 @@ export const benchmarks = sqliteTable("benchmark", {
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
+    runId: text("runId")
+        .references(() => benchmarkRuns.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     status: text("status", { enum: ["idle", "running", "completed", "failed"] }).notNull().default("idle"),
     startedAt: integer("startedAt", { mode: "timestamp_ms" }),
@@ -233,6 +248,11 @@ export const benchmarkEntries = sqliteTable("benchmark_entry", {
     contextGroupId: text("contextGroupId")
         .notNull()
         .references(() => contextGroups.id, { onDelete: "cascade" }),
+    category: text("category"),
+    score: integer("score"),
+    metrics: text("metrics"), // JSON string
+    prompt: text("prompt"),
+    systemContext: text("systemContext"),
     status: text("status", { enum: ["pending", "running", "completed", "failed"] }).notNull().default("pending"),
     output: text("output"),
     error: text("error"),

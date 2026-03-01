@@ -38,9 +38,19 @@ export interface ContextGroup {
     updatedAt: Date;
 }
 
+export interface BenchmarkRun {
+    id: string;
+    userId: string;
+    name: string;
+    models: string; // JSON string
+    contextGroupIds: string; // JSON string
+    updatedAt: Date;
+}
+
 export interface Benchmark {
     id: string;
     userId: string;
+    runId: string | null;
     name: string;
     status: "idle" | "running" | "completed" | "failed";
     startedAt: Date | null;
@@ -54,6 +64,11 @@ export interface BenchmarkEntry {
     benchmarkId: string;
     model: string;
     contextGroupId: string;
+    category: string | null;
+    score: number | null;
+    metrics: string | null; // JSON string
+    prompt: string | null;
+    systemContext: string | null;
     status: "pending" | "running" | "completed" | "failed";
     output: string | null;
     error: string | null;

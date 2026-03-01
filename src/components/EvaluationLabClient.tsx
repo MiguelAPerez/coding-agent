@@ -2,26 +2,34 @@
 
 import React, { useState } from "react";
 import { ContextGroupManager } from "./ContextGroupManager";
-import { BenchmarkRunner } from "./BenchmarkRunner";
+import { BenchmarkRunManager } from "./BenchmarkRunManager";
 import { BenchmarkProgress } from "./BenchmarkProgress";
-import { ContextGroup, Skill, Benchmark } from "@/types/agent";
+import { ContextGroup, Skill, Benchmark, BenchmarkRun } from "@/types/agent";
 
 export const EvaluationLabClient = ({
     initialGroups,
     skills,
-    latestBenchmark
+    latestBenchmark,
+    initialRuns
 }: {
     initialGroups: ContextGroup[];
     skills: Skill[];
     latestBenchmark: Benchmark | null;
+    initialRuns: BenchmarkRun[];
 }) => {
-    const [activeTab, setActiveTab] = useState(latestBenchmark?.status === "running" ? "progress" : "runner");
+    const [activeTab, setActiveTab] = useState(latestBenchmark?.status === "running" ? "progress" : "runs");
+    const [currentBenchmarkId, setCurrentBenchmarkId] = useState<string | null>(latestBenchmark?.id || null);
 
     const tabs = [
-        { id: "runner", label: "Runner", icon: "🚀" },
+        { id: "runs", label: "Runs", icon: "🚀" },
         { id: "progress", label: "Progress", icon: "📊" },
         { id: "groups", label: "Context Groups", icon: "📁" },
     ];
+
+    const handleBenchmarkStarted = (id: string) => {
+        setCurrentBenchmarkId(id);
+        setActiveTab("progress");
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -31,8 +39,8 @@ export const EvaluationLabClient = ({
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === tab.id
-                                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                            : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"
                             }`}
                     >
                         <span>{tab.icon}</span>
@@ -42,11 +50,15 @@ export const EvaluationLabClient = ({
             </div>
 
             <div className="min-h-[600px]">
-                {activeTab === "runner" && (
-                    <BenchmarkRunner contextGroups={initialGroups} />
+                {activeTab === "runs" && (
+                    <BenchmarkRunManager
+                        initialRuns={initialRuns}
+                        contextGroups={initialGroups}
+                        onBenchmarkStarted={handleBenchmarkStarted}
+                    />
                 )}
                 {activeTab === "progress" && (
-                    <BenchmarkProgress initialBenchmarkId={latestBenchmark?.id || null} />
+                    <BenchmarkProgress initialBenchmarkId={currentBenchmarkId} />
                 )}
                 {activeTab === "groups" && (
                     <ContextGroupManager initialGroups={initialGroups} skills={skills} />
