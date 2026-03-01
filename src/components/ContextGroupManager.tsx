@@ -15,6 +15,11 @@ export const ContextGroupManager = ({
     const [editForm, setEditForm] = useState({
         name: "",
         description: "",
+        category: "",
+        weight: 1,
+        expectedKeywords: "",
+        maxSentences: "" as string | number,
+        systemContext: "",
         promptTemplate: "",
         skillIds: [] as string[]
     });
@@ -25,7 +30,9 @@ export const ContextGroupManager = ({
             await saveContextGroup({
                 ...editForm,
                 id: isEditing || undefined,
-                skillIds: JSON.stringify(editForm.skillIds)
+                skillIds: JSON.stringify(editForm.skillIds),
+                weight: Number(editForm.weight),
+                maxSentences: editForm.maxSentences ? Number(editForm.maxSentences) : undefined,
             });
             window.location.reload();
         } catch {
@@ -44,7 +51,17 @@ export const ContextGroupManager = ({
 
     const startNew = () => {
         setIsEditing("");
-        setEditForm({ name: "", description: "", promptTemplate: "", skillIds: [] });
+        setEditForm({
+            name: "",
+            description: "",
+            category: "Technical",
+            weight: 1,
+            expectedKeywords: "",
+            maxSentences: "",
+            systemContext: "",
+            promptTemplate: "",
+            skillIds: []
+        });
     };
 
     const startEdit = (group: ContextGroup) => {
@@ -53,6 +70,11 @@ export const ContextGroupManager = ({
         setEditForm({
             name: group.name,
             description: group.description || "",
+            category: group.category || "Technical",
+            weight: group.weight || 1,
+            expectedKeywords: group.expectedKeywords ? JSON.parse(group.expectedKeywords).join(", ") : "",
+            maxSentences: group.maxSentences || "",
+            systemContext: group.systemContext || "",
             promptTemplate: group.promptTemplate,
             skillIds: skillIds
         });
@@ -84,13 +106,70 @@ export const ContextGroupManager = ({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-semibold uppercase text-foreground/40">Description</label>
+                                <label className="text-xs font-semibold uppercase text-foreground/40">Category</label>
                                 <input
                                     className="w-full bg-background border border-border rounded-xl px-4 py-2"
-                                    value={editForm.description}
-                                    onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                                    value={editForm.category}
+                                    onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                                    placeholder="Technical, Reasoning, etc."
                                 />
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold uppercase text-foreground/40">Weight</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-2"
+                                    value={editForm.weight}
+                                    onChange={e => setEditForm({ ...editForm, weight: Number(e.target.value) })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold uppercase text-foreground/40">Max Sentences</label>
+                                <input
+                                    type="number"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-2"
+                                    value={editForm.maxSentences}
+                                    onChange={e => setEditForm({ ...editForm, maxSentences: e.target.value })}
+                                    placeholder="Optional"
+                                />
+                            </div>
+                            <div className="space-y-2 col-span-1">
+                                <label className="text-xs font-semibold uppercase text-foreground/40 text-transparent select-none">Spacer</label>
+                                <div className="text-[10px] text-foreground/20 italic mt-2">Adjust scoring weights and constraints.</div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase text-foreground/40">Description</label>
+                            <input
+                                className="w-full bg-background border border-border rounded-xl px-4 py-2"
+                                value={editForm.description}
+                                onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase text-foreground/40">Expected Keywords (comma separated)</label>
+                            <input
+                                className="w-full bg-background border border-border rounded-xl px-4 py-2 font-mono text-sm"
+                                value={editForm.expectedKeywords}
+                                onChange={e => setEditForm({ ...editForm, expectedKeywords: e.target.value })}
+                                placeholder="keyword1, keyword2, keyword3..."
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase text-foreground/40">System Context (Custom Persona)</label>
+                            <textarea
+                                className="w-full bg-background border border-border rounded-xl px-4 py-2 min-h-[60px]"
+                                value={editForm.systemContext}
+                                onChange={e => setEditForm({ ...editForm, systemContext: e.target.value })}
+                                placeholder="Optional: System level instructions..."
+                            />
                         </div>
 
                         <div className="space-y-2">
@@ -112,8 +191,8 @@ export const ContextGroupManager = ({
                                         key={skill.id}
                                         onClick={() => toggleSkill(skill.id)}
                                         className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${editForm.skillIds.includes(skill.id)
-                                                ? "bg-primary/10 border-primary/40 text-primary"
-                                                : "bg-background/40 border-border hover:border-foreground/20"
+                                            ? "bg-primary/10 border-primary/40 text-primary"
+                                            : "bg-background/40 border-border hover:border-foreground/20"
                                             }`}
                                     >
                                         <div className={`w-3 h-3 rounded-full border ${editForm.skillIds.includes(skill.id) ? "bg-primary border-primary" : "border-border"
@@ -134,9 +213,9 @@ export const ContextGroupManager = ({
                             </button>
                             <button
                                 type="submit"
-                                className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all"
+                                className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all font-mono"
                             >
-                                Save Group
+                                SAVE_CONFIG
                             </button>
                         </div>
                     </form>
@@ -156,14 +235,31 @@ export const ContextGroupManager = ({
                         <p className="text-sm text-foreground/40 line-clamp-2 mb-4">
                             {group.description || "No description provided."}
                         </p>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {group.category && (
+                                <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-md uppercase">
+                                    {group.category}
+                                </span>
+                            )}
+                            {group.weight !== null && (
+                                <span className="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-md uppercase">
+                                    w:{group.weight}
+                                </span>
+                            )}
+                            {group.expectedKeywords && (
+                                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-2 py-0.5 rounded-md uppercase">
+                                    {JSON.parse(group.expectedKeywords).length} Keywords
+                                </span>
+                            )}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                             {group.skillIds && JSON.parse(group.skillIds).length > 0 && (
-                                <span className="text-[10px] bg-primary/5 text-primary/60 px-2 py-0.5 rounded-full border border-primary/10">
+                                <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
                                     {JSON.parse(group.skillIds).length} Skills
                                 </span>
                             )}
                             <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                                Template set
+                                {group.promptTemplate.length} chars
                             </span>
                         </div>
                     </div>

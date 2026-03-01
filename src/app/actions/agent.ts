@@ -147,33 +147,47 @@ export async function getContextGroups() {
     return db.select().from(contextGroups).where(eq(contextGroups.userId, session.user.id)).all();
 }
 
-export async function saveContextGroup(data: { id?: string; name: string; description?: string; promptTemplate: string; skillIds?: string; toolIds?: string }) {
+export async function saveContextGroup(data: {
+    id?: string;
+    name: string;
+    description?: string;
+    category?: string;
+    weight?: number;
+    expectedKeywords?: string;
+    maxSentences?: number;
+    systemContext?: string;
+    promptTemplate: string;
+    skillIds?: string;
+    toolIds?: string
+}) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
     const now = new Date();
+    const values = {
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        weight: data.weight,
+        expectedKeywords: data.expectedKeywords,
+        maxSentences: data.maxSentences,
+        systemContext: data.systemContext,
+        promptTemplate: data.promptTemplate,
+        skillIds: data.skillIds,
+        toolIds: data.toolIds,
+        updatedAt: now,
+    };
+
     if (data.id) {
         db.update(contextGroups)
-            .set({
-                name: data.name,
-                description: data.description,
-                promptTemplate: data.promptTemplate,
-                skillIds: data.skillIds,
-                toolIds: data.toolIds,
-                updatedAt: now,
-            })
+            .set(values)
             .where(eq(contextGroups.id, data.id))
             .run();
     } else {
         db.insert(contextGroups)
             .values({
                 userId: session.user.id,
-                name: data.name,
-                description: data.description,
-                promptTemplate: data.promptTemplate,
-                skillIds: data.skillIds,
-                toolIds: data.toolIds,
-                updatedAt: now,
+                ...values,
             })
             .run();
     }
@@ -373,29 +387,12 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
     // Get context group details
     const cg = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
 
-    // Simulating the "things we are testing" from benchmark_models.mjs
-    const mockTestCases = [
-        {
-            category: "Technical",
-            name: "Gotify REST API",
-            prompt: "How do I send a notification using Gotify's REST API?",
-            control: ["POST", "/message", "token", "message"],
-        },
-        {
-            category: "Code Generation",
-            name: "React Hook",
-            prompt: "Write a simple React useLocalStorage hook.",
-            control: ["useState", "useEffect", "JSON.stringify", "localStorage.getItem"],
-        },
-        {
-            category: "Data Extraction",
-            name: "Messy Log Parser",
-            prompt: "Extract the IP address from: '[2024-05-20 12:00:01] ERROR (192.168.1.45)'",
-            control: ["192.168.1.45"],
-        }
-    ];
+    if (!cg) throw new Error("Context group not found");
 
-    const testCase = mockTestCases.find(t => t.name === cg?.name) || mockTestCases[Math.floor(Math.random() * mockTestCases.length)];
+    const expectedKeywords = cg.expectedKeywords ? JSON.parse(cg.expectedKeywords) : [];
+    const prompt = cg.promptTemplate;
+    const category = cg.category || "Uncategorized";
+    const systemContext = cg.systemContext || "";
 
     const startedAt = new Date();
     db.update(benchmarkEntries)
@@ -408,17 +405,17 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
     const completedAt = new Date(startedAt.getTime() + duration);
 
     // Simulate model output
-    const output = `Simulated response for ${nextPendingEntry.model}. Here are some keywords: ${testCase.control.slice(0, Math.floor(Math.random() * testCase.control.length) + 1).join(", ")}. Performance is good.`;
+    const output = `Simulated response for ${nextPendingEntry.model}. Here are some keywords: ${expectedKeywords.slice(0, Math.floor(Math.random() * expectedKeywords.length) + 1).join(", ")}. Performance is good.`;
 
     // Scoring logic
     let matches = 0;
-    const matchDetails = testCase.control.map(keyword => {
+    const matchDetails = expectedKeywords.map((keyword: string) => {
         const found = output.toLowerCase().includes(keyword.toLowerCase());
         if (found) matches++;
         return { keyword, found };
     });
 
-    const score = Math.round((matches / testCase.control.length) * 100);
+    const score = expectedKeywords.length > 0 ? Math.round((matches / expectedKeywords.length) * 100) : 100;
 
     db.update(benchmarkEntries)
         .set({
@@ -426,10 +423,10 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
             completedAt,
             duration,
             output,
-            category: testCase.category,
+            category,
             score,
-            prompt: testCase.prompt,
-            systemContext: cg?.promptTemplate || "",
+            prompt,
+            systemContext,
             metrics: JSON.stringify({
                 keywordMatches: matchDetails,
                 modelName: nextPendingEntry.model,

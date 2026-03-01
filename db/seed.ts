@@ -1,7 +1,8 @@
 import { db } from "./index"
-import { permissions, users, userPermissions } from "./schema"
+import { permissions, users, userPermissions, contextGroups } from "./schema"
 import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
+import { testCases } from "../scripts/mock/test_cases.mjs"
 
 // The default permissions we want every environment to have
 const DEFAULT_PERMISSIONS = [
@@ -95,8 +96,45 @@ async function seed() {
                     throw e
                 }
             }
-
         }
+
+        // --- SEED CONTEXT GROUPS ---
+        console.log("\n🌱 Seeding context groups from mock data...")
+        let cgCount = 0
+
+        for (const tc of testCases) {
+            const existing = await db
+                .select()
+                .from(contextGroups)
+                .where(eq(contextGroups.name, tc.name))
+                .get()
+
+            const values = {
+                userId: adminUserId,
+                name: tc.name,
+                description: `Category: ${tc.category} | Weight: ${tc.weight}`,
+                category: tc.category,
+                expectedKeywords: JSON.stringify(tc.control),
+                weight: tc.weight,
+                maxSentences: tc.maxSentences || null,
+                systemContext: tc.systemContext || null,
+                promptTemplate: tc.prompt,
+                updatedAt: new Date(),
+            }
+
+            if (!existing) {
+                console.log(`Inserting context group: ${tc.name}`)
+                await db.insert(contextGroups).values(values)
+                cgCount++
+            } else {
+                console.log(`Updating context group: ${tc.name} (already exists)`)
+                await db.update(contextGroups)
+                    .set(values)
+                    .where(eq(contextGroups.id, existing.id))
+                    .run();
+            }
+        }
+        console.log(`✅ Context groups seeded! (${cgCount} new, ${testCases.length - cgCount} updated)`)
 
         console.log("\n✅ Seeding complete!")
         console.log(`   Admin Email: ${ADMIN_EMAIL}`)

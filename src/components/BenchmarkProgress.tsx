@@ -151,8 +151,22 @@ export const BenchmarkProgress = ({
                                                 }`}>
                                                 {entry.status}
                                             </span>
-                                            {entry.score !== null && (
-                                                <span className="text-[10px] font-bold text-primary">Score: {entry.score}%</span>
+                                            {entry.status === "completed" && entry.score !== null && (
+                                                <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-black">
+                                                    {entry.score}%
+                                                </span>
+                                            )}
+                                            {entry.status === "completed" && entry.metrics && (
+                                                <span className="text-[10px] text-foreground/20 italic">
+                                                    {(() => {
+                                                        try {
+                                                            const m = JSON.parse(entry.metrics);
+                                                            return m.keywordMatches?.filter((match: { found: boolean }) => match.found).length || 0;
+                                                        } catch {
+                                                            return 0;
+                                                        }
+                                                    })()} matches
+                                                </span>
                                             )}
                                         </div>
                                     </div>

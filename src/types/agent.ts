@@ -32,6 +32,11 @@ export interface ContextGroup {
     userId: string;
     name: string;
     description: string | null;
+    category: string | null;
+    expectedKeywords: string | null; // stringified JSON
+    weight: number | null;
+    maxSentences: number | null;
+    systemContext: string | null;
     promptTemplate: string;
     skillIds: string | null; // stringified JSON
     toolIds: string | null;  // stringified JSON
@@ -42,6 +47,7 @@ export interface BenchmarkRun {
     id: string;
     userId: string;
     name: string;
+    description: string | null;
     models: string; // JSON string
     contextGroupIds: string; // JSON string
     updatedAt: Date;

@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, primaryKey } from "drizzle-orm/sqlite-core"
+import { integer, sqliteTable, text, primaryKey, real } from "drizzle-orm/sqlite-core"
 import type { AdapterAccount } from "next-auth/adapters"
 
 export const users = sqliteTable("user", {
@@ -201,6 +201,11 @@ export const contextGroups = sqliteTable("context_group", {
         .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
+    category: text("category"),
+    expectedKeywords: text("expectedKeywords"), // JSON array
+    weight: real("weight"),
+    maxSentences: integer("maxSentences"),
+    systemContext: text("systemContext"),
     promptTemplate: text("promptTemplate").notNull(),
     skillIds: text("skillIds"), // JSON array of skill IDs
     toolIds: text("toolIds"),   // JSON array of tool IDs
@@ -215,6 +220,7 @@ export const benchmarkRuns = sqliteTable("benchmark_run", {
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    description: text("description"),
     models: text("models").notNull(), // JSON array of model names
     contextGroupIds: text("contextGroupIds").notNull(), // JSON array of context group IDs
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),

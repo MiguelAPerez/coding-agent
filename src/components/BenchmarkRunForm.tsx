@@ -151,9 +151,21 @@ export const BenchmarkRunForm = ({
                                             : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
                                             }`}
                                     >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium truncate max-w-[150px]">{group.name}</span>
-                                            <span className="text-[10px] opacity-60">Template: {group.promptTemplate.slice(0, 20)}...</span>
+                                        <div className="flex flex-col flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-sm font-bold truncate">{group.name}</span>
+                                                {group.category && (
+                                                    <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">
+                                                        {group.category}
+                                                    </span>
+                                                )}
+                                                {group.weight !== null && (
+                                                    <span className="text-[9px] bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded font-black tracking-tighter">
+                                                        W:{group.weight}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] opacity-40 line-clamp-1 italic">{group.description || "No description"}</span>
                                         </div>
                                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedContextGroups.includes(group.id) ? "bg-primary border-primary" : "border-border/50"
                                             }`}>
