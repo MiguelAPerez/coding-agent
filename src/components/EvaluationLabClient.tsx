@@ -4,23 +4,27 @@ import React, { useState } from "react";
 import { ContextGroupManager } from "./ContextGroupManager";
 import { BenchmarkRunManager } from "./BenchmarkRunManager";
 import { BenchmarkProgress } from "./BenchmarkProgress";
-import { ContextGroup, Skill, Benchmark, BenchmarkRun } from "@/types/agent";
+import { BenchmarkResults } from "./BenchmarkResults";
+import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry } from "@/types/agent";
 
 export const EvaluationLabClient = ({
     initialGroups,
     skills,
     latestBenchmark,
-    initialRuns
+    initialRuns,
+    completedBenchmarks
 }: {
     initialGroups: ContextGroup[];
     skills: Skill[];
     latestBenchmark: Benchmark | null;
     initialRuns: BenchmarkRun[];
+    completedBenchmarks: (Benchmark & { entries: BenchmarkEntry[] })[];
 }) => {
     const [activeTab, setActiveTab] = useState(latestBenchmark?.status === "running" ? "progress" : "runs");
     const [currentBenchmarkId, setCurrentBenchmarkId] = useState<string | null>(latestBenchmark?.id || null);
 
     const tabs = [
+        { id: "results", label: "Results", icon: "🏆" },
         { id: "runs", label: "Runs", icon: "🚀" },
         { id: "progress", label: "Progress", icon: "📊" },
         { id: "groups", label: "Context Groups", icon: "📁" },
@@ -62,6 +66,9 @@ export const EvaluationLabClient = ({
                 )}
                 {activeTab === "groups" && (
                     <ContextGroupManager initialGroups={initialGroups} skills={skills} />
+                )}
+                {activeTab === "results" && (
+                    <BenchmarkResults data={completedBenchmarks} />
                 )}
             </div>
         </div>

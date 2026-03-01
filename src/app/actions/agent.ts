@@ -2,7 +2,8 @@
 
 import { db } from "@/../db";
 import { agentConfigurations, skills, tools, contextGroups, benchmarkRuns, benchmarks, benchmarkEntries } from "@/../db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
+import { getOllamaConfig } from "./ollama";
 
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
@@ -400,12 +401,50 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         .where(eq(benchmarkEntries.id, nextPendingEntry.id))
         .run();
 
-    // Simulate work/latency
-    const duration = Math.floor(Math.random() * 2000) + 1000;
-    const completedAt = new Date(startedAt.getTime() + duration);
+    let output = "";
+    let duration = 0;
 
-    // Simulate model output
-    const output = `Simulated response for ${nextPendingEntry.model}. Here are some keywords: ${expectedKeywords.slice(0, Math.floor(Math.random() * expectedKeywords.length) + 1).join(", ")}. Performance is good.`;
+    try {
+        const ollamaConfig = await getOllamaConfig();
+        if (!ollamaConfig) {
+            throw new Error("Ollama is not configured.");
+        }
+
+        const requestBody = {
+            model: nextPendingEntry.model,
+            prompt: prompt,
+            system: systemContext,
+            stream: false,
+            keep_alive: 0
+        };
+
+        const startTime = Date.now();
+        const response = await fetch(`${ollamaConfig.url}/api/generate`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+            cache: "no-store",
+            // Need a bit longer timeout for LLM generation
+            signal: AbortSignal.timeout(120000),
+        });
+
+        duration = Date.now() - startTime;
+
+        if (!response.ok) {
+            throw new Error(`Ollama API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        output = data.response || "";
+
+    } catch (error) {
+        output = `Error during generation: ${error instanceof Error ? error.message : "Unknown error"}`;
+        duration = duration || 1000; // fallback duration if it failed before starting
+    }
+
+    const completedAt = new Date(startedAt.getTime() + duration);
 
     // Scoring logic
     let matches = 0;
@@ -415,7 +454,9 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         return { keyword, found };
     });
 
-    const score = expectedKeywords.length > 0 ? Math.round((matches / expectedKeywords.length) * 100) : 100;
+    // If an error occurred, score is 0. Otherwise calculate normally.
+    const isError = output.startsWith("Error during generation");
+    const score = isError ? 0 : (expectedKeywords.length > 0 ? Math.round((matches / expectedKeywords.length) * 100) : 100);
 
     db.update(benchmarkEntries)
         .set({
@@ -430,7 +471,9 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
             metrics: JSON.stringify({
                 keywordMatches: matchDetails,
                 modelName: nextPendingEntry.model,
-                throughput: Math.round(output.length / (duration / 1000))
+                throughput: duration > 0 ? Math.round(output.length / (duration / 1000)) : 0,
+                responseSize: output.length,
+                error: isError
             })
         })
         .where(eq(benchmarkEntries.id, nextPendingEntry.id))
@@ -448,3 +491,28 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
     return { finished: false };
 }
 
+export async function getCompletedBenchmarks() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return [];
+
+    const completedBenchmarks = db.select()
+        .from(benchmarks)
+        .where(
+            and(
+                eq(benchmarks.userId, session.user.id),
+                eq(benchmarks.status, "completed")
+            )
+        )
+        .all();
+
+    return completedBenchmarks.map(b => {
+        const entries = db.select()
+            .from(benchmarkEntries)
+            .where(eq(benchmarkEntries.benchmarkId, b.id))
+            .all();
+        return {
+            ...b,
+            entries
+        };
+    });
+}

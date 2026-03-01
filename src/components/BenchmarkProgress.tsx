@@ -208,14 +208,18 @@ export const BenchmarkProgress = ({
                         <div className="space-y-4">
                             <div className="p-4 bg-background/40 rounded-2xl border border-border/50">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-foreground/30 mb-2">Metrics</p>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <p className="text-xl font-black text-primary">{selectedEntry.score}%</p>
-                                        <p className="text-[8px] uppercase font-bold text-foreground/20">Accuracy Score</p>
+                                        <p className="text-[8px] uppercase font-bold text-foreground/20">Accuracy</p>
                                     </div>
                                     <div>
                                         <p className="text-xl font-black text-foreground/60">{selectedEntry.duration}ms</p>
                                         <p className="text-[8px] uppercase font-bold text-foreground/20">Latency</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xl font-black text-foreground/60">{selectedEntry.parsedMetrics?.responseSize || 0}c</p>
+                                        <p className="text-[8px] uppercase font-bold text-foreground/20">Size</p>
                                     </div>
                                 </div>
                             </div>

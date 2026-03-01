@@ -261,6 +261,9 @@ export const ContextGroupManager = ({
                             <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
                                 {group.promptTemplate.length} chars
                             </span>
+                            <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
+                                ~{Math.ceil(group.promptTemplate.length / 4)} tokens
+                            </span>
                         </div>
                     </div>
                 ))}
