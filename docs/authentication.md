@@ -12,30 +12,7 @@ This document outlines the architecture, setup, and maintenance of the custom Au
 
 ### Database Schema
 
-The database relies on standard NextAuth models along with a custom implementation to support fine-grained permissions over simple roles.
-
-- **`users`**: Contains base user properties (`name`, `username` (unique), `email`, `password` (hashed)).
-- **`permissions`**: Defines granular access controls (e.g., `admin`, `users:read`, `settings:write`).
-- **`user_permissions`**: A many-to-many join table securely mapping `users` to their assigned `permissions`.
-- **NextAuth Defaults**: `accounts`, `sessions`, `verificationTokens` are maintained for standard Auth flows.
-
-## Seeding the Database
-
-We use a programmatic database seeder to ensure deterministic initialization of necessary records (like the default `admin` user and standard application `permissions`).
-
-### Running the Seeder
-
-To populate the database with required defaults, execute:
-
-```bash
-npm run db:seed
-```
-
-**What it does:**
-
-1. **Initializes Permissions**: Idempotently inserts the base `name`/`description` pairs for app permissions.
-2. **Creates Default Admin**: If an admin user does not exist, it creates one with the username `admin`, email `admin@example.com`, and a default password `password123`.
-3. **Grants Access**: Explicitly ties the `admin` permission to the newly generated `admin` user via the `user_permissions` table.
+The database relies on models defined in `db/schema.ts`. For a detailed breakdown of the schema, database seeding, and how to clear the database, please refer to the [Database and ORM Documentation](./orm.md).
 
 ## Accessing Permissions In-App
 
