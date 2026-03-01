@@ -8,8 +8,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Premium Next.js App",
-  description: "A premium application built with Next.js and Tailwind CSS",
+  title: "Coding Agent",
+  description: "You inhouse repository manager",
 };
 
 import { Navbar } from "@/components/Navbar";
