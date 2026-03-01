@@ -32,7 +32,12 @@ export const EvaluationQueue = ({
                     }, {} as Record<string, BenchmarkEntry[]>)
                 ).map(([modelName, entries]) => {
                     const modelCompleted = entries.filter(e => e.status === "completed" || e.status === "failed").length;
-                    const modelProgress = entries.length > 0 ? (modelCompleted / entries.length) * 100 : 0;
+                    const modelRunning = entries.filter(e => e.status === "running").length;
+                    const modelPending = entries.filter(e => e.status === "pending").length;
+
+                    const modelCompletedProgress = entries.length > 0 ? (modelCompleted / entries.length) * 100 : 0;
+                    const modelRunningProgress = entries.length > 0 ? (modelRunning / entries.length) * 100 : 0;
+                    const modelPendingProgress = entries.length > 0 ? (modelPending / entries.length) * 100 : 0;
                     const isCollapsed = collapsedModels[modelName] !== false;
 
                     return (
@@ -53,10 +58,18 @@ export const EvaluationQueue = ({
                                     <span className="text-[10px] opacity-60 normal-case">({modelCompleted}/{entries.length})</span>
                                 </div>
                                 {isCollapsed && (
-                                    <div className="w-24 bg-foreground/5 h-2 rounded-full overflow-hidden border border-border/30">
+                                    <div className="w-24 bg-foreground/5 h-2 rounded-full overflow-hidden border border-border/30 flex">
                                         <div
-                                            className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-1000 shadow-lg shadow-primary/20"
-                                            style={{ width: `${modelProgress}%` }}
+                                            className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-l-full transition-all duration-1000 shadow-lg shadow-primary/20"
+                                            style={{ width: `${modelCompletedProgress}%` }}
+                                        />
+                                        <div
+                                            className="h-full bg-primary/20 animate-pulse transition-all duration-1000"
+                                            style={{ width: `${modelRunningProgress}%` }}
+                                        />
+                                        <div
+                                            className="h-full bg-foreground/5 transition-all duration-1000 rounded-r-full"
+                                            style={{ width: `${modelPendingProgress}%` }}
                                         />
                                     </div>
                                 )}

@@ -124,7 +124,13 @@ export const BenchmarkProgress = ({
         );
     }
 
-    const progress = (benchmark.completedEntries / benchmark.totalEntries) * 100;
+    const completedCount = benchmark.entries.filter(e => e.status === "completed" || e.status === "failed").length;
+    const runningCount = benchmark.entries.filter(e => e.status === "running").length;
+    const pendingCount = benchmark.entries.filter(e => e.status === "pending").length;
+
+    const completedProgress = (completedCount / benchmark.totalEntries) * 100;
+    const runningProgress = (runningCount / benchmark.totalEntries) * 100;
+    const pendingProgress = (pendingCount / benchmark.totalEntries) * 100;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -194,21 +200,31 @@ export const BenchmarkProgress = ({
                                 </div>
                             )}
                             <div className="text-right px-6 py-4 glass bg-background/40 rounded-2xl border border-border/50">
-                                <span className="text-3xl font-black text-primary font-mono">{Math.round(progress)}%</span>
+                                <span className="text-3xl font-black text-primary font-mono">{Math.round(completedProgress)}%</span>
                                 <p className="text-[10px] font-bold uppercase tracking-tighter text-foreground/30">Total Progress</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="w-full bg-foreground/5 h-4 rounded-full overflow-hidden mb-4 p-1 border border-border/30">
+                    <div className="w-full bg-foreground/5 h-4 rounded-full overflow-hidden mb-4 p-1 border border-border/30 flex">
                         <div
-                            className="h-full bg-gradient-to-r from-primary via-primary/80 to-primary/40 rounded-full transition-all duration-1000 shadow-lg shadow-primary/20"
-                            style={{ width: `${progress}%` }}
+                            className="h-full bg-gradient-to-r from-primary via-primary/80 to-primary/40 rounded-l-full transition-all duration-1000 shadow-lg shadow-primary/20"
+                            style={{ width: `${completedProgress}%` }}
+                        />
+                        <div
+                            className="h-full bg-primary/20 animate-pulse transition-all duration-1000"
+                            style={{ width: `${runningProgress}%` }}
+                        />
+                        <div
+                            className="h-full bg-foreground/5 transition-all duration-1000 rounded-r-full"
+                            style={{ width: `${pendingProgress}%` }}
                         />
                     </div>
                     <div className="flex justify-between px-2">
-                        <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest">
-                            {benchmark.completedEntries} / {benchmark.totalEntries} Evaluated
+                        <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest flex items-center gap-4">
+                            <span>{completedCount} / {benchmark.totalEntries} Evaluated</span>
+                            {runningCount > 0 && <span className="text-primary animate-pulse">• {runningCount} Processing</span>}
+                            {pendingCount > 0 && <span className="opacity-50">• {pendingCount} Pending</span>}
                         </span>
                     </div>
                 </div>

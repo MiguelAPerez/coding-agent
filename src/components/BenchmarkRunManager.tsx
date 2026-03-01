@@ -27,6 +27,10 @@ export const BenchmarkRunManager = ({
     const router = useRouter();
 
     React.useEffect(() => {
+        setRuns(initialRuns);
+    }, [initialRuns]);
+
+    React.useEffect(() => {
         const interval = setInterval(async () => {
             const latestActive = await getActiveBenchmarks() as Benchmark[];
             setActiveBenchmarks(prev => {
