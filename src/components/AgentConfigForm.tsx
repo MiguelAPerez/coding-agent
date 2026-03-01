@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { saveAgentConfig } from "@/app/actions/agent";
+import { getOllamaModels } from "@/app/actions/ollama";
 import { AgentConfig } from "@/types/agent";
 
 export const AgentConfigForm = ({ initialConfig }: { initialConfig: AgentConfig | null }) => {
@@ -10,6 +11,19 @@ export const AgentConfigForm = ({ initialConfig }: { initialConfig: AgentConfig 
     const [temperature, setTemperature] = useState(initialConfig?.temperature || 70);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState("");
+    const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+
+    useEffect(() => {
+        async function loadOllamaModels() {
+            try {
+                const models = await getOllamaModels();
+                setOllamaModels(models.map(m => m.name));
+            } catch (err) {
+                console.error("Failed to load Ollama models", err);
+            }
+        }
+        loadOllamaModels();
+    }, []);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,10 +49,19 @@ export const AgentConfigForm = ({ initialConfig }: { initialConfig: AgentConfig 
                     onChange={(e) => setModel(e.target.value)}
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none"
                 >
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                    <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                    <option value="claude-3-opus">Claude 3 Opus</option>
+                    <optgroup label="Cloud Models">
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="claude-3-opus">Claude 3 Opus</option>
+                    </optgroup>
+                    {ollamaModels.length > 0 && (
+                        <optgroup label="Local (Ollama)">
+                            {ollamaModels.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                            ))}
+                        </optgroup>
+                    )}
                 </select>
             </div>
 

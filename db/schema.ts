@@ -94,6 +94,30 @@ export const giteaConfigurations = sqliteTable("gitea_configuration", {
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
 
+export const ollamaConfigurations = sqliteTable("ollama_configuration", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .unique()
+        .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const ollamaModels = sqliteTable("ollama_model", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    details: text("details"), // JSON string for metadata
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
 export const repositories = sqliteTable("repository", {
     id: text("id")
         .primaryKey()

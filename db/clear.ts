@@ -1,5 +1,5 @@
 import { db } from "./index"
-import { users, accounts, sessions, verificationTokens, permissions, userPermissions, giteaConfigurations, repositories, repositoryMetadata, agentConfigurations, skills, tools, contextGroups, benchmarks, benchmarkEntries } from "./schema"
+import { users, accounts, sessions, verificationTokens, permissions, userPermissions, giteaConfigurations, repositories, repositoryMetadata, agentConfigurations, skills, tools, contextGroups, benchmarks, benchmarkEntries, ollamaConfigurations, ollamaModels } from "./schema"
 
 async function clear() {
     console.log("🧹 Clearing database...")
@@ -13,7 +13,14 @@ async function clear() {
         console.log("- Clearing repositories...")
         await db.delete(repositories)
 
+        console.log("- Clearing Ollama models...")
+        await db.delete(ollamaModels)
+
+        console.log("- Clearing Ollama configurations...")
+        await db.delete(ollamaConfigurations)
+
         console.log("- Clearing benchmark entries...")
+
         await db.delete(benchmarkEntries)
 
         console.log("- Clearing benchmarks...")

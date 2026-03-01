@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { runBenchmark } from "@/app/actions/agent";
+import { getOllamaModels } from "@/app/actions/ollama";
 import { ContextGroup } from "@/types/agent";
 
 export const BenchmarkRunner = ({
@@ -13,15 +14,30 @@ export const BenchmarkRunner = ({
     const [selectedContextGroups, setSelectedContextGroups] = useState<string[]>([]);
     const [benchmarkName, setBenchmarkName] = useState("");
     const [isStarting, setIsStarting] = useState(false);
+    const [ollamaModels, setOllamaModels] = useState<string[]>([]);
 
-    const availableModels = [
-        "gpt-4o",
-        "gpt-4-turbo",
-        "gpt-3.5-turbo",
-        "claude-3-opus",
-        "claude-3-sonnet",
-        "gemini-1.5-pro"
+    useEffect(() => {
+        async function loadOllamaModels() {
+            try {
+                const models = await getOllamaModels();
+                setOllamaModels(models.map(m => m.name));
+            } catch (err) {
+                console.error("Failed to load Ollama models", err);
+            }
+        }
+        loadOllamaModels();
+    }, []);
+
+    const cloudModels: string[] = [
+        // "gpt-4o",
+        // "gpt-4-turbo",
+        // "gpt-3.5-turbo",
+        // "claude-3-opus",
+        // "claude-3-sonnet",
+        // "gemini-1.5-pro"
     ];
+
+    const availableModels = [...cloudModels, ...ollamaModels];
 
     const toggleModel = (model: string) => {
         setSelectedModels(prev =>
@@ -89,8 +105,8 @@ export const BenchmarkRunner = ({
                                     key={model}
                                     onClick={() => toggleModel(model)}
                                     className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedModels.includes(model)
-                                            ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
-                                            : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
+                                        ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
+                                        : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
                                         }`}
                                 >
                                     <span className="text-sm font-medium">{model}</span>
@@ -118,8 +134,8 @@ export const BenchmarkRunner = ({
                                         key={group.id}
                                         onClick={() => toggleContextGroup(group.id)}
                                         className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedContextGroups.includes(group.id)
-                                                ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
-                                                : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
+                                            ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
+                                            : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
                                             }`}
                                     >
                                         <div className="flex flex-col">
