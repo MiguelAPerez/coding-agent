@@ -158,7 +158,7 @@ export const agentConfigurations = sqliteTable("agent_configuration", {
         .notNull()
         .unique()
         .references(() => users.id, { onDelete: "cascade" }),
-    model: text("model").notNull().default("gpt-4o"),
+    model: text("model").notNull().default(""),
     systemPrompt: text("systemPrompt").notNull().default("You are a helpful coding assistant."),
     temperature: integer("temperature").notNull().default(70), // scaled by 100
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),

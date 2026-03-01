@@ -10,7 +10,7 @@ export const BenchmarkRunner = ({
 }: {
     contextGroups: ContextGroup[]
 }) => {
-    const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-4o"]);
+    const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [selectedContextGroups, setSelectedContextGroups] = useState<string[]>([]);
     const [benchmarkName, setBenchmarkName] = useState("");
     const [isStarting, setIsStarting] = useState(false);
@@ -140,28 +140,64 @@ export const BenchmarkRunner = ({
                                 No context groups found. Create one in the Context Groups tab first.
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-2">
-                                {contextGroups.map(group => (
-                                    <div
-                                        key={group.id}
-                                        onClick={() => toggleContextGroup(group.id)}
-                                        className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedContextGroups.includes(group.id)
-                                            ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
-                                            : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
-                                            }`}
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium truncate max-w-[150px]">{group.name}</span>
-                                            <span className="text-[10px] opacity-60">Template: {group.promptTemplate.slice(0, 20)}...</span>
+                            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                {Object.entries(
+                                    contextGroups.reduce((acc, group) => {
+                                        const cat = group.category || "Uncategorized";
+                                        if (!acc[cat]) acc[cat] = [];
+                                        acc[cat].push(group);
+                                        return acc;
+                                    }, {} as Record<string, ContextGroup[]>)
+                                ).sort(([a], [b]) => a.localeCompare(b)).map(([category, groups]) => {
+                                    const allSelected = groups.every(g => selectedContextGroups.includes(g.id));
+                                    const someSelected = groups.some(g => selectedContextGroups.includes(g.id)) && !allSelected;
+
+                                    return (
+                                        <div key={category} className="space-y-3">
+                                            <div
+                                                onClick={() => {
+                                                    const ids = groups.map(g => g.id);
+                                                    if (allSelected) {
+                                                        setSelectedContextGroups(prev => prev.filter(id => !ids.includes(id)));
+                                                    } else {
+                                                        setSelectedContextGroups(prev => Array.from(new Set([...prev, ...ids])));
+                                                    }
+                                                }}
+                                                className="flex items-center justify-between px-2 cursor-pointer group/cat"
+                                            >
+                                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-foreground/30 group-hover/cat:text-primary transition-colors">
+                                                    {category} ({groups.length})
+                                                </h3>
+                                                <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded transition-all ${allSelected ? 'bg-primary/20 text-primary' : someSelected ? 'bg-primary/10 text-primary/60' : 'bg-foreground/5 text-foreground/20'}`}>
+                                                    {allSelected ? 'All Selected' : someSelected ? 'Partial' : 'Select All'}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {groups.map(group => (
+                                                    <div
+                                                        key={group.id}
+                                                        onClick={() => toggleContextGroup(group.id)}
+                                                        className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedContextGroups.includes(group.id)
+                                                            ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
+                                                            : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
+                                                            }`}
+                                                    >
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium truncate max-w-[150px]">{group.name}</span>
+                                                            <span className="text-[10px] opacity-60">Template: {group.promptTemplate.slice(0, 20)}...</span>
+                                                        </div>
+                                                        <div className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedContextGroups.includes(group.id) ? "bg-primary border-primary" : "border-border/50"
+                                                            }`}>
+                                                            {selectedContextGroups.includes(group.id) && (
+                                                                <div className="w-2 h-2 bg-background rounded-sm rotate-45" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedContextGroups.includes(group.id) ? "bg-primary border-primary" : "border-border/50"
-                                            }`}>
-                                            {selectedContextGroups.includes(group.id) && (
-                                                <div className="w-2 h-2 bg-background rounded-sm rotate-45" />
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

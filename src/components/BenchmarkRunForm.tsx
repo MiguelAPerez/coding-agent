@@ -17,7 +17,7 @@ export const BenchmarkRunForm = ({
     onCancel: () => void;
 }) => {
     const [selectedModels, setSelectedModels] = useState<string[]>(
-        initialData ? JSON.parse(initialData.models) : ["gpt-4o"]
+        initialData ? JSON.parse(initialData.models) : []
     );
     const [selectedContextGroups, setSelectedContextGroups] = useState<string[]>(
         initialData ? JSON.parse(initialData.contextGroupIds) : []
@@ -121,7 +121,7 @@ export const BenchmarkRunForm = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <label className="text-xs font-bold uppercase tracking-widest text-foreground/30 px-1">Select Models</label>
-                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                             {availableModels.map(model => (
                                 <div
                                     key={model.name}
@@ -152,46 +152,82 @@ export const BenchmarkRunForm = ({
                     </div>
 
                     <div className="space-y-4">
-                        <label className="text-xs font-bold uppercase tracking-widest text-foreground/30 px-1">Context Groups</label>
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-foreground/30">Context Groups</label>
+                            <span className="text-[10px] font-bold uppercase py-0.5 px-2 bg-primary/10 text-primary rounded-full">
+                                {selectedContextGroups.length} Selected
+                            </span>
+                        </div>
                         {contextGroups.length === 0 ? (
                             <div className="h-full flex items-center justify-center border-2 border-dashed border-border/30 rounded-3xl p-8 text-center text-foreground/20 italic">
                                 No context groups found.
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                {contextGroups.map(group => (
-                                    <div
-                                        key={group.id}
-                                        onClick={() => toggleContextGroup(group.id)}
-                                        className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedContextGroups.includes(group.id)
-                                            ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
-                                            : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
-                                            }`}
-                                    >
-                                        <div className="flex flex-col flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm font-bold truncate">{group.name}</span>
-                                                {group.category && (
-                                                    <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">
-                                                        {group.category}
-                                                    </span>
-                                                )}
-                                                {group.weight !== null && (
-                                                    <span className="text-[9px] bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded font-black tracking-tighter">
-                                                        W:{group.weight}
-                                                    </span>
-                                                )}
+                            <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                {Object.entries(
+                                    contextGroups.reduce((acc, group) => {
+                                        const cat = group.category || "Uncategorized";
+                                        if (!acc[cat]) acc[cat] = [];
+                                        acc[cat].push(group);
+                                        return acc;
+                                    }, {} as Record<string, ContextGroup[]>)
+                                ).sort(([a], [b]) => a.localeCompare(b)).map(([category, groups]) => {
+                                    const allSelected = groups.every(g => selectedContextGroups.includes(g.id));
+                                    const someSelected = groups.some(g => selectedContextGroups.includes(g.id)) && !allSelected;
+
+                                    return (
+                                        <div key={category} className="space-y-3">
+                                            <div
+                                                onClick={() => {
+                                                    const ids = groups.map(g => g.id);
+                                                    if (allSelected) {
+                                                        setSelectedContextGroups(prev => prev.filter(id => !ids.includes(id)));
+                                                    } else {
+                                                        setSelectedContextGroups(prev => Array.from(new Set([...prev, ...ids])));
+                                                    }
+                                                }}
+                                                className="flex items-center justify-between px-2 cursor-pointer group/cat"
+                                            >
+                                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-foreground/30 group-hover/cat:text-primary transition-colors">
+                                                    {category} ({groups.length})
+                                                </h3>
+                                                <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded transition-all ${allSelected ? 'bg-primary/20 text-primary' : someSelected ? 'bg-primary/10 text-primary/60' : 'bg-foreground/5 text-foreground/20'}`}>
+                                                    {allSelected ? 'All Selected' : someSelected ? 'Partial' : 'Select All'}
+                                                </div>
                                             </div>
-                                            <span className="text-[10px] opacity-40 line-clamp-1 italic">{group.description || "No description"}</span>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {groups.map(group => (
+                                                    <div
+                                                        key={group.id}
+                                                        onClick={() => toggleContextGroup(group.id)}
+                                                        className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedContextGroups.includes(group.id)
+                                                            ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
+                                                            : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
+                                                            }`}
+                                                    >
+                                                        <div className="flex flex-col flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-sm font-bold truncate">{group.name}</span>
+                                                                {group.weight !== null && (
+                                                                    <span className="text-[9px] bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded font-black tracking-tighter">
+                                                                        W:{group.weight}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-[10px] opacity-40 line-clamp-1 italic">{group.description || "No description"}</span>
+                                                        </div>
+                                                        <div className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedContextGroups.includes(group.id) ? "bg-primary border-primary" : "border-border/50"
+                                                            }`}>
+                                                            {selectedContextGroups.includes(group.id) && (
+                                                                <div className="w-2 h-2 bg-background rounded-sm rotate-45" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedContextGroups.includes(group.id) ? "bg-primary border-primary" : "border-border/50"
-                                            }`}>
-                                            {selectedContextGroups.includes(group.id) && (
-                                                <div className="w-2 h-2 bg-background rounded-sm rotate-45" />
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

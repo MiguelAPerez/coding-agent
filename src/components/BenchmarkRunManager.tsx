@@ -71,10 +71,8 @@ export const BenchmarkRunManager = ({
                 onSuccess={() => {
                     setIsAddingRun(false);
                     setEditingRun(null);
-                    // In a real app, we'd refresh the list here. 
-                    // Since it's a server action with revalidatePath, it might need a window.location.reload() 
-                    // or a parent state update if we were more sophisticated.
-                    window.location.reload();
+                    router.push("/evaluation-lab?tab=runs");
+                    router.refresh();
                 }}
                 onCancel={() => {
                     setIsAddingRun(false);

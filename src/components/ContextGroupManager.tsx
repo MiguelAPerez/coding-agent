@@ -222,48 +222,61 @@ export const ContextGroupManager = ({
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {initialGroups.map(group => (
-                    <div key={group.id} className="glass p-5 rounded-2xl border border-border/50 hover:border-primary/30 transition-all group">
-                        <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-bold text-foreground/80">{group.name}</h3>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => startEdit(group)} className="p-1 hover:text-primary"><span className="text-xs">Edit</span></button>
-                                <button onClick={() => deleteContextGroup(group.id)} className="p-1 hover:text-destructive"><span className="text-xs">Delete</span></button>
-                            </div>
+            <div className="space-y-10">
+                {Object.entries(
+                    initialGroups.reduce((acc, group) => {
+                        const cat = group.category || "Uncategorized";
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(group);
+                        return acc;
+                    }, {} as Record<string, ContextGroup[]>)
+                ).sort(([a], [b]) => a.localeCompare(b)).map(([category, groups]) => (
+                    <div key={category} className="space-y-4">
+                        <div className="flex items-center gap-4 px-2">
+                            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground/40">{category}</h3>
+                            <div className="flex-1 h-[1px] bg-border/40" />
+                            <span className="text-[10px] font-bold text-foreground/20 uppercase">{groups.length} Prompts</span>
                         </div>
-                        <p className="text-sm text-foreground/40 line-clamp-2 mb-4">
-                            {group.description || "No description provided."}
-                        </p>
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {group.category && (
-                                <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-md uppercase">
-                                    {group.category}
-                                </span>
-                            )}
-                            {group.weight !== null && (
-                                <span className="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-md uppercase">
-                                    w:{group.weight}
-                                </span>
-                            )}
-                            {group.expectedKeywords && (
-                                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-2 py-0.5 rounded-md uppercase">
-                                    {JSON.parse(group.expectedKeywords).length} Keywords
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {group.skillIds && JSON.parse(group.skillIds).length > 0 && (
-                                <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                                    {JSON.parse(group.skillIds).length} Skills
-                                </span>
-                            )}
-                            <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                                {group.promptTemplate.length} chars
-                            </span>
-                            <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                                ~{Math.ceil(group.promptTemplate.length / 4)} tokens
-                            </span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {groups.map(group => (
+                                <div key={group.id} className="glass p-5 rounded-2xl border border-border/50 hover:border-primary/30 transition-all group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="font-bold text-foreground/80">{group.name}</h3>
+                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => startEdit(group)} className="p-1 hover:text-primary"><span className="text-xs">Edit</span></button>
+                                            <button onClick={() => deleteContextGroup(group.id)} className="p-1 hover:text-destructive"><span className="text-xs">Delete</span></button>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-foreground/40 line-clamp-2 mb-4">
+                                        {group.description || "No description provided."}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {group.weight !== null && (
+                                            <span className="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-md uppercase">
+                                                w:{group.weight}
+                                            </span>
+                                        )}
+                                        {group.expectedKeywords && (
+                                            <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-2 py-0.5 rounded-md uppercase">
+                                                {JSON.parse(group.expectedKeywords).length} Keywords
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {group.skillIds && JSON.parse(group.skillIds).length > 0 && (
+                                            <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
+                                                {JSON.parse(group.skillIds).length} Skills
+                                            </span>
+                                        )}
+                                        <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
+                                            {group.promptTemplate.length} chars
+                                        </span>
+                                        <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
+                                            ~{Math.ceil(group.promptTemplate.length / 4)} tokens
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ContextGroupManager } from "./ContextGroupManager";
 import { BenchmarkRunManager } from "./BenchmarkRunManager";
 import { BenchmarkProgress } from "./Benchmark/BenchmarkProgress";
@@ -22,8 +23,17 @@ export const EvaluationLabClient = ({
     completedBenchmarks: (Benchmark & { entries: BenchmarkEntry[] })[];
     initialActiveBenchmarks: Benchmark[];
 }) => {
-    const [activeTab, setActiveTab] = useState(latestBenchmark?.status === "running" ? "progress" : "results");
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    const activeTab = searchParams.get("tab") || (latestBenchmark?.status === "running" ? "progress" : "results");
     const [currentBenchmarkId, setCurrentBenchmarkId] = useState<string | null>(latestBenchmark?.id || null);
+
+    const handleTabChange = (tabId: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("tab", tabId);
+        router.push(`?${params.toString()}`, { scroll: false });
+    };
 
     const tabs = [
         { id: "results", label: "Results", icon: "🏆" },
@@ -34,7 +44,7 @@ export const EvaluationLabClient = ({
 
     const handleBenchmarkStarted = (id: string) => {
         setCurrentBenchmarkId(id);
-        setActiveTab("progress");
+        handleTabChange("progress");
     };
 
     return (
@@ -43,7 +53,7 @@ export const EvaluationLabClient = ({
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => handleTabChange(tab.id)}
                         className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === tab.id
                             ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                             : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"

@@ -6,7 +6,7 @@ import { getOllamaModels } from "@/app/actions/ollama";
 import { AgentConfig } from "@/types/agent";
 
 export const AgentConfigForm = ({ initialConfig }: { initialConfig: AgentConfig | null }) => {
-    const [model, setModel] = useState(initialConfig?.model || "gpt-4o");
+    const [model, setModel] = useState(initialConfig?.model || "");
     const [systemPrompt, setSystemPrompt] = useState(initialConfig?.systemPrompt || "You are a helpful coding assistant.");
     const [temperature, setTemperature] = useState(initialConfig?.temperature || 70);
     const [isSaving, setIsSaving] = useState(false);
@@ -49,11 +49,8 @@ export const AgentConfigForm = ({ initialConfig }: { initialConfig: AgentConfig 
                     onChange={(e) => setModel(e.target.value)}
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none"
                 >
-                    <optgroup label="Cloud Models">
-                        <option value="gpt-4o">GPT-4o</option>
-                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                        <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                        <option value="claude-3-opus">Claude 3 Opus</option>
+                    <optgroup label="Cloud Models (Coming Soon)">
+                        <option value="" disabled>Select a model...</option>
                     </optgroup>
                     {ollamaModels.length > 0 && (
                         <optgroup label="Local (Ollama)">

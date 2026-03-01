@@ -14,7 +14,7 @@ export const EvaluationLab = ({ initialConfig }: { initialConfig: AgentConfig | 
         setIsRunning(true);
         // Mocking the AI call for now since no keys are present
         setTimeout(() => {
-            setResult(`[MOCK RESPONSE based on model: ${initialConfig?.model || "gpt-4o"}]\n\nHello! I am your configured agent. I've received your prompt: "${prompt}".\n\nSince there are no API keys configured in the environment yet, I am providing this simulated response to demonstrate the Evaluation Lab interface.\n\nTemperature used: ${(initialConfig?.temperature || 70) / 100}`);
+            setResult(`[MOCK RESPONSE based on model: ${initialConfig?.model || "Unknown"}]\n\nHello! I am your configured agent. I've received your prompt: "${prompt}".\n\nSince there are no API keys configured in the environment yet, I am providing this simulated response to demonstrate the Evaluation Lab interface.\n\nTemperature used: ${(initialConfig?.temperature || 70) / 100}`);
             setIsRunning(false);
         }, 1500);
     };
@@ -52,7 +52,7 @@ export const EvaluationLab = ({ initialConfig }: { initialConfig: AgentConfig | 
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between items-center py-2 border-b border-border/30">
                             <span className="text-foreground/50">Model</span>
-                            <span className="font-mono text-primary font-bold">{initialConfig?.model || "gpt-4o"}</span>
+                            <span className="font-mono text-primary font-bold">{initialConfig?.model || "None set"}</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-border/30">
                             <span className="text-foreground/50">Temperature</span>

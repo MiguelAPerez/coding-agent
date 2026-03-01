@@ -202,5 +202,201 @@ export const testCases = [
         prompt: "Write a simple function to add two numbers following the style guide.",
         control: ["function", "var", "add"],
         weight: 1.5
+    },
+    {
+        category: "Code Generation",
+        name: "Add Express Route",
+        prompt: "Given this Express app, add a GET route at '/health' that returns { status: 'ok' }.\n\nconst express = require('express');\nconst app = express();\n\n// Add route here\n\napp.listen(3000);",
+        control: ["app.get", "/health", "status", "ok"],
+        weight: 1.5
+    },
+    {
+        category: "Code Generation",
+        name: "Add Redux Default Case",
+        prompt: "Add a default case to this Redux reducer that returns the current state:\n\nfunction reducer(state = { count: 0 }, action) {\n  switch (action.type) {\n    case 'INC': return { count: state.count + 1 };\n    // Add default case here\n  }\n}",
+        control: ["default", "return state"],
+        weight: 1.2
+    },
+    {
+        category: "Technical",
+        name: "Add YAML Service",
+        prompt: "Add a 'redis' service using the 'redis:alpine' image to this docker-compose snippet:\n\nservices:\n  web:\n    image: node:18\n    ports:\n      - \"3000:3000\"\n# Add redis here",
+        control: ["redis:", "image: redis:alpine"],
+        weight: 1.4
+    },
+    {
+        category: "Code Generation",
+        name: "Add React Mount Log",
+        prompt: "Add a useEffect hook to this component that logs 'Mounted!' only once when the component mounts:\n\nfunction App() {\n  return <div>Hello</div>;\n}",
+        control: ["useEffect", "console.log", "Mounted", "[]"],
+        weight: 1.5
+    },
+    {
+        category: "Technical",
+        name: "Add Env Variable",
+        prompt: "Identify where to add a new 'DATABASE_URL' variable to this .env file and show the line:\n\nPORT=3000\nLOG_LEVEL=info",
+        control: ["DATABASE_URL="],
+        weight: 1.0
+    },
+    {
+        category: "Code Generation",
+        name: "Add Class Method",
+        prompt: "Add a method called 'greet' to this class that returns 'Hello, my name is ' plus the name property:\n\nclass User {\n  constructor(name) { this.name = name; }\n}",
+        control: ["greet()", "return", "this.name"],
+        weight: 1.2
+    },
+    {
+        category: "Code Generation",
+        name: "Add Zod Validation",
+        prompt: "Add an 'email' field to this Zod schema that validates it is a string and a valid email format:\n\nconst schema = z.object({\n  name: z.string(),\n});",
+        control: ["email:", "z.string()", "email()"],
+        weight: 1.3
+    },
+    {
+        category: "Code Generation",
+        name: "Add Python Decorator",
+        prompt: "Add the '@app.route(\"/api\")' decorator to this Python function:\n\ndef get_api_data():\n    return {'data': 123}",
+        control: ["@app.route", "/api"],
+        weight: 1.1
+    },
+    {
+        category: "Technical",
+        name: "Add npm Script",
+        prompt: "Add a 'test:watch' script that runs 'jest --watch' to this package.json:\n\n{\n  \"scripts\": {\n    \"test\": \"jest\"\n  }\n}",
+        control: ["test:watch", "jest --watch"],
+        weight: 1.2
+    },
+    {
+        category: "Code Generation",
+        name: "Add SQL Where Clause",
+        prompt: "Modify this SQL query to only select users where 'active' is true:\n\nSELECT * FROM users;",
+        control: ["WHERE", "active", "true"],
+        weight: 1.0
+    },
+    {
+        category: "Formatting",
+        name: "Add CSS Variable",
+        prompt: "Add a CSS variable '--primary-color' with value '#3B82F6' to the :root selector:\n\n:root {\n  --font-size: 16px;\n}",
+        control: ["--primary-color", "#3B82F6"],
+        weight: 1.0
+    },
+    {
+        category: "Code Debugging",
+        name: "Add Axios Catch",
+        prompt: "Add a .catch() block to this axios call that logs the error message:\n\naxios.get('/api/users').then(res => console.log(res.data))",
+        control: [".catch", "err", "console.log", "message"],
+        weight: 1.3
+    },
+    {
+        category: "Code Generation",
+        name: "Add Interface Prop",
+        prompt: "Add an optional 'age' property of type number to this TypeScript interface:\n\ninterface Person {\n  name: string;\n}",
+        control: ["age?:", "number"],
+        weight: 1.2
+    },
+    {
+        category: "Technical",
+        name: "Add K8s Port",
+        prompt: "Add port 8080 to the container ports in this Kubernetes manifest:\n\nspec:\n  containers:\n    - name: app\n      image: app:v1\n      # Add ports here",
+        control: ["ports:", "containerPort: 8080"],
+        weight: 1.4
+    },
+    {
+        category: "Code Generation",
+        name: "Add Utility Function",
+        prompt: "Implement a 'slugify' function that takes a string and returns it lowercase with spaces replaced by hyphens.",
+        control: ["toLowerCase()", "replace", "/ /g", "-"],
+        weight: 1.5
+    },
+    {
+        category: "High Context",
+        name: "Meeting Minutes Extraction",
+        prompt: `Read the following meeting minutes from the 'Project Phoenix' sync and extract:
+        1. The date of the next milestone meeting.
+        2. The person responsible for the 'Database Migration' task.
+        3. The primary concern raised by the Frontend team.
+        4. The name of the new testing framework being adopted.
+
+        --- MEETING MINUTES ---
+        August 15th, 2024 - Project Phoenix Weekly Sync
+        Participants: Alice (Project Manager), Bob (Backend), Charlie (Frontend), Diana (QA)
+
+        Agenda:
+        - Review of Sprint 4 progress.
+        - Database migration plan.
+        - Frontend state management refactor.
+
+        Discussion:
+        Alice opened the meeting by confirming that the next milestone review is set for September 12th. 
+        Bob provided an update on the Database Migration. He confirmed he will be leading this effort and expects it to be completed by next Tuesday.
+        Charlie expressed a major concern regarding the performance of the current state management library when handling large datasets, noting that the 'Redux' overhead is noticeably hitting frame rates.
+        Diana introduced 'Playwright' as the new end-to-end testing framework. The team agreed to switch from Cypress starting next month.
+
+        Action Items:
+        - Bob to finalize migration script.
+        - Charlie to draft a proposal for 'Zustand' or 'Recoil'.
+        --- END ---`,
+        control: ["September 12th", "Bob", "performance", "Playwright"],
+        weight: 2.5
+    },
+    {
+        category: "High Context",
+        name: "API Spec Implementation",
+        prompt: `Based on the following API specification, write a TypeScript function 'createUser' that uses the 'fetch' API to create a new user. The function should take 'username' and 'email' as arguments and return the parsed JSON response.
+
+        --- API SPEC ---
+        Endpoint: /api/v2/users
+        Method: POST
+        Headers:
+          - Content-Type: application/json
+          - X-API-Key: ENV_API_KEY
+        Body:
+          {
+            "username": "string",
+            "email": "string"
+          }
+        Success Response: 201 Created
+        --- END ---`,
+        control: ["fetch", "POST", "/api/v2/users", "application/json", "X-API-Key", "JSON.stringify"],
+        weight: 2.2
+    },
+    {
+        category: "High Context",
+        name: "Codebase Architectural Analysis",
+        prompt: `Analyze the following description of a monorepo structure and answer:
+        1. Which package contains the core business logic?
+        2. Where are the shared UI components located?
+        3. What technology is used for the API layer?
+
+        --- CODEBASE DESCRIPTION ---
+        Our 'Titan' monorepo is managed with TurboRepo. 
+        - /apps/web: Next.js frontend application.
+        - /apps/api: Fastify-based backend service providing GraphQL endpoints.
+        - /packages/core: The source of truth for all business rules, domain entities, and data validation logic.
+        - /packages/ui: A library of reusable React components styled with Tailwind CSS, used by all frontends.
+        - /packages/config: Shared ESLint, Prettier, and TypeScript configurations.
+        --- END ---`,
+        control: ["packages/core", "packages/ui", "Fastify"],
+        weight: 2.0
+    },
+    {
+        category: "High Context",
+        name: "Security Audit Extraction",
+        prompt: `Read the following security audit snippet and extract:
+        1. The CVE identifier of the critical vulnerability.
+        2. The name of the affected library.
+        3. The suggested remediation step.
+
+        --- SECURITY AUDIT ---
+        Report ID: SEC-2024-08
+        Severity: CRITICAL
+        Vulnerability: Remote Code Execution (RCE) via insecure deserialization.
+        Identifier: CVE-2024-34567
+        Affected Component: 'nexus-logic' version 1.4.2 and below.
+        Details: An attacker can send a crafted payload to the /process-data endpoint to execute arbitrary system commands.
+        Remediation: Upgrade 'nexus-logic' to version 1.5.0 or higher immediately and rotate all service tokens.
+        --- END ---`,
+        control: ["CVE-2024-34567", "nexus-logic", "Upgrade"],
+        weight: 2.5
     }
 ];
