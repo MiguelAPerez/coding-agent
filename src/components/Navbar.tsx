@@ -1,10 +1,13 @@
 import React from "react";
 import Link from "next/link";
 import { UserProfileDropdown } from "./UserProfileDropdown";
-
 import { config } from '@/config';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/auth";
 
-export const Navbar = () => {
+export const Navbar = async () => {
+    const session = await getServerSession(authOptions);
+
     return (
         <nav className="sticky top-0 z-40 w-full border-b border-border backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -26,7 +29,18 @@ export const Navbar = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <UserProfileDropdown />
+                    {session?.user ? (
+                        <UserProfileDropdown user={session.user} />
+                    ) : (
+                        <div className="flex items-center space-x-4">
+                            <Link href="/login" className="text-sm font-medium text-foreground/80 hover:text-foreground">
+                                Log in
+                            </Link>
+                            <Link href="/register" className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                                Sign up
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
         </nav>
