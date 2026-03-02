@@ -1,10 +1,11 @@
-import type { NextAuthOptions, DefaultSession } from "next-auth"
+import type { NextAuthOptions, DefaultSession, Session } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { db } from "../db"
 import { users, permissions, userPermissions } from "../db/schema"
 import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
+import { getServerSession } from "next-auth";
 
 declare module "next-auth" {
     interface Session {
@@ -94,4 +95,9 @@ export const authOptions: NextAuthOptions = {
             return session
         },
     },
+}
+
+export async function isLoggedIn(): Promise<boolean> {
+    const session = await getServerSession(authOptions);
+    return session?.user !== undefined;
 }
