@@ -668,3 +668,20 @@ export async function getActiveBenchmarks() {
         )
         .all();
 }
+
+export async function clearBenchmarkData() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    db.delete(benchmarkEntries).where(
+        inArray(
+            benchmarkEntries.benchmarkId,
+            db.select({ id: benchmarks.id }).from(benchmarks).where(eq(benchmarks.userId, session.user.id))
+        )
+    ).run();
+
+    db.delete(benchmarks).where(eq(benchmarks.userId, session.user.id)).run();
+
+    revalidatePath("/evaluation-lab");
+}
+
