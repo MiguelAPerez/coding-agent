@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { runBenchmark } from "@/app/actions/agent";
+import { runBenchmark } from "@/app/actions/benchmarks";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { ContextGroup } from "@/types/agent";
 

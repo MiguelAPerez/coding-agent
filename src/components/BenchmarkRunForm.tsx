@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { saveBenchmarkRun } from "@/app/actions/agent";
+import { saveBenchmarkRun } from "@/app/actions/benchmarks";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { ContextGroup, BenchmarkRun, SystemPrompt, SystemPromptSet } from "@/types/agent";
 

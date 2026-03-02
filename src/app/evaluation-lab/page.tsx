@@ -1,5 +1,7 @@
 import React from "react";
-import { getContextGroups, getSkills, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks, getSystemPrompts, getSystemPromptSets } from "@/app/actions/agent";
+import { getSkills } from "@/app/actions/skills";
+import { getSystemPrompts, getSystemPromptSets } from "@/app/actions/prompts";
+import { getContextGroups, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks } from "@/app/actions/benchmarks";
 import { EvaluationLabClient } from "@/components/EvaluationLabClient";
 import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
 

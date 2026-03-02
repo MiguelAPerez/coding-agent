@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Benchmark, BenchmarkEntry } from "@/types/agent";
 import { getOllamaModels } from "@/app/actions/ollama";
-import { clearBenchmarkData } from "@/app/actions/agent";
+import { clearBenchmarkData } from "@/app/actions/benchmarks";
 
 type ViewType = "models" | "categories" | "variations";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { saveSkill, deleteSkill } from "@/app/actions/agent";
+import { saveSkill, deleteSkill } from "@/app/actions/skills";
 import { Skill } from "@/types/agent";
 
 export const SkillsManager = ({ initialSkills }: { initialSkills: Skill[] }) => {

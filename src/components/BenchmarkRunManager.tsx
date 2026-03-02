@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { triggerBenchmark, deleteBenchmarkRun, getActiveBenchmarks } from "@/app/actions/agent";
+import { triggerBenchmark, deleteBenchmarkRun, getActiveBenchmarks } from "@/app/actions/benchmarks";
 import { BenchmarkRun, ContextGroup, Benchmark, SystemPrompt, SystemPromptSet } from "@/types/agent";
 import { BenchmarkRunForm } from "./BenchmarkRunForm";
 import { useRouter } from "next/navigation";

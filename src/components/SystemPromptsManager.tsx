@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { saveSystemPrompt, deleteSystemPrompt } from "@/app/actions/agent";
+import { saveSystemPrompt, deleteSystemPrompt } from "@/app/actions/prompts";
 import { SystemPrompt } from "@/types/agent";
 
 export const SystemPromptsManager = ({

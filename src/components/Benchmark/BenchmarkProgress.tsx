@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getBenchmarkProgress, simulateBenchmarkStep, cancelBenchmark } from "@/app/actions/agent";
+import { getBenchmarkProgress, simulateBenchmarkStep, cancelBenchmark } from "@/app/actions/benchmarks";
 import { Benchmark, BenchmarkEntry } from "@/types/agent";
 import { useRouter } from "next/navigation";
 import { getOllamaModels } from "@/app/actions/ollama";

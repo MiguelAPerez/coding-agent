@@ -1,5 +1,7 @@
 import React from "react";
-import { getAgentConfig, getSkills, getTools } from "@/app/actions/agent";
+import { getAgentConfig } from "@/app/actions/config";
+import { getSkills } from "@/app/actions/skills";
+import { getTools } from "@/app/actions/tools";
 import { AgentPageClient } from "@/components/AgentPageClient";
 
 export default async function AgentPage() {

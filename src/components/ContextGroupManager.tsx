@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { saveContextGroup, deleteContextGroup } from "@/app/actions/agent";
+import { saveContextGroup, deleteContextGroup } from "@/app/actions/benchmarks";
 import { ContextGroup, Skill } from "@/types/agent";
 
 export const ContextGroupManager = ({

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { saveTool, deleteTool } from "@/app/actions/agent";
+import { saveTool, deleteTool } from "@/app/actions/tools";
 import { Tool } from "@/types/agent";
 
 export const ToolsManager = ({ initialTools }: { initialTools: Tool[] }) => {

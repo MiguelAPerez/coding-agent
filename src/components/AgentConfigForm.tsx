@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { saveAgentConfig } from "@/app/actions/agent";
+import { saveAgentConfig } from "@/app/actions/config";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { AgentConfig } from "@/types/agent";
 
