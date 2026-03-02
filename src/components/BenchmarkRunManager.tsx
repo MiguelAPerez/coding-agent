@@ -2,18 +2,22 @@
 
 import React, { useState } from "react";
 import { triggerBenchmark, deleteBenchmarkRun, getActiveBenchmarks } from "@/app/actions/agent";
-import { BenchmarkRun, ContextGroup, Benchmark } from "@/types/agent";
+import { BenchmarkRun, ContextGroup, Benchmark, SystemPrompt, SystemPromptSet } from "@/types/agent";
 import { BenchmarkRunForm } from "./BenchmarkRunForm";
 import { useRouter } from "next/navigation";
 
 export const BenchmarkRunManager = ({
     initialRuns,
     contextGroups,
+    systemPrompts = [],
+    systemPromptSets = [],
     onBenchmarkStarted,
     initialActiveBenchmarks = []
 }: {
     initialRuns: BenchmarkRun[];
     contextGroups: ContextGroup[];
+    systemPrompts?: SystemPrompt[];
+    systemPromptSets?: SystemPromptSet[];
     onBenchmarkStarted: (benchmarkId: string) => void;
     initialActiveBenchmarks?: Benchmark[];
 }) => {
@@ -78,6 +82,8 @@ export const BenchmarkRunManager = ({
         return (
             <BenchmarkRunForm
                 contextGroups={contextGroups}
+                systemPrompts={systemPrompts}
+                systemPromptSets={systemPromptSets}
                 initialData={editingRun || undefined}
                 onSuccess={() => {
                     setIsAddingRun(false);

@@ -21,8 +21,7 @@ export const ContextGroupManager = ({
         maxSentences: "" as string | number,
         systemContext: "",
         promptTemplate: "",
-        skillIds: [] as string[],
-        systemPromptVariations: [] as { id: string; name: string; systemPrompt: string }[]
+        skillIds: [] as string[]
     });
 
     const handleSave = async (e: React.FormEvent) => {
@@ -33,7 +32,6 @@ export const ContextGroupManager = ({
                 id: isEditing || undefined,
                 skillIds: JSON.stringify(editForm.skillIds),
                 expectations: JSON.stringify(editForm.expectations),
-                systemPromptVariations: JSON.stringify(editForm.systemPromptVariations),
                 weight: Number(editForm.weight),
                 maxSentences: editForm.maxSentences ? Number(editForm.maxSentences) : undefined,
             });
@@ -63,8 +61,7 @@ export const ContextGroupManager = ({
             maxSentences: "",
             systemContext: "",
             promptTemplate: "",
-            skillIds: [],
-            systemPromptVariations: []
+            skillIds: []
         });
     };
 
@@ -81,8 +78,7 @@ export const ContextGroupManager = ({
             maxSentences: group.maxSentences || "",
             systemContext: group.systemContext || "",
             promptTemplate: group.promptTemplate,
-            skillIds: skillIds,
-            systemPromptVariations: group.systemPromptVariations ? JSON.parse(group.systemPromptVariations) : []
+            skillIds: skillIds
         });
     };
 
@@ -109,28 +105,6 @@ export const ContextGroupManager = ({
         }));
     };
 
-    const addVariation = () => {
-        setEditForm(prev => ({
-            ...prev,
-            systemPromptVariations: [...prev.systemPromptVariations, { id: crypto.randomUUID(), name: "", systemPrompt: "" }]
-        }));
-    };
-
-    const removeVariation = (id: string) => {
-        setEditForm(prev => ({
-            ...prev,
-            systemPromptVariations: prev.systemPromptVariations.filter(v => v.id !== id)
-        }));
-    };
-
-    const updateVariation = (id: string, field: "name" | "systemPrompt", value: string) => {
-        setEditForm(prev => ({
-            ...prev,
-            systemPromptVariations: prev.systemPromptVariations.map(v =>
-                v.id === id ? { ...v, [field]: value } : v
-            )
-        }));
-    };
 
     return (
         <div className="space-y-6">
@@ -261,50 +235,6 @@ export const ContextGroupManager = ({
                             />
                         </div>
 
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                                <label className="text-xs font-semibold uppercase text-foreground/40">System Prompt Variations</label>
-                                <button
-                                    type="button"
-                                    onClick={addVariation}
-                                    className="text-[10px] bg-purple-500/10 text-purple-500 px-2 py-1 rounded hover:bg-purple-500/20 transition-all font-bold uppercase"
-                                >
-                                    + Add Variation
-                                </button>
-                            </div>
-                            <div className="space-y-4">
-                                {editForm.systemPromptVariations.map((v) => (
-                                    <div key={v.id} className="p-4 border border-border/40 rounded-2xl bg-foreground/[0.02] space-y-3 animate-in zoom-in-95 duration-200">
-                                        <div className="flex justify-between items-center">
-                                            <input
-                                                className="bg-transparent border-none text-xs font-black uppercase tracking-widest text-primary/60 focus:ring-0 p-0 w-1/2"
-                                                value={v.name}
-                                                onChange={e => updateVariation(v.id, "name", e.target.value)}
-                                                placeholder="VARIATION NAME (e.g. PIRATE)"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeVariation(v.id)}
-                                                className="text-[10px] text-destructive/40 hover:text-destructive transition-colors font-bold uppercase"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                        <textarea
-                                            className="w-full bg-background/50 border border-border rounded-xl px-4 py-2 text-sm min-h-[80px]"
-                                            value={v.systemPrompt}
-                                            onChange={e => updateVariation(v.id, "systemPrompt", e.target.value)}
-                                            placeholder="System prompt instructions for this variation..."
-                                        />
-                                    </div>
-                                ))}
-                                {editForm.systemPromptVariations.length === 0 && (
-                                    <div className="text-center py-4 border-2 border-dashed border-border/20 rounded-xl text-[10px] text-foreground/20 italic">
-                                        No system prompt variations. The base system context will be used.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
 
                         <div className="space-y-2">
                             <label className="text-xs font-semibold uppercase text-foreground/40">Prompt Template</label>
@@ -393,11 +323,6 @@ export const ContextGroupManager = ({
                                         {group.expectations && (
                                             <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-2 py-0.5 rounded-md uppercase">
                                                 {JSON.parse(group.expectations).length} Expectations
-                                            </span>
-                                        )}
-                                        {group.systemPromptVariations && (
-                                            <span className="text-[10px] bg-purple-500/10 text-purple-600 font-bold px-2 py-0.5 rounded-md uppercase">
-                                                {JSON.parse(group.systemPromptVariations).length} Variations
                                             </span>
                                         )}
                                     </div>

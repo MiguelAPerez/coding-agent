@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/../db";
-import { agentConfigurations, skills, tools, contextGroups, benchmarkRuns, benchmarks, benchmarkEntries } from "@/../db/schema";
+import { agentConfigurations, skills, tools, contextGroups, benchmarkRuns, benchmarks, benchmarkEntries, systemPrompts, systemPromptSets } from "@/../db/schema";
 import { eq, desc, and, or, inArray } from "drizzle-orm";
 import { getOllamaConfig } from "./ollama";
 
@@ -206,6 +206,93 @@ export async function deleteContextGroup(id: string) {
     revalidatePath("/evaluation-lab");
 }
 
+export async function getSystemPrompts() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return [];
+
+    return db.select().from(systemPrompts).where(eq(systemPrompts.userId, session.user.id)).all();
+}
+
+export async function saveSystemPrompt(data: { id?: string; name: string; content: string }) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const now = new Date();
+    if (data.id) {
+        db.update(systemPrompts)
+            .set({
+                name: data.name,
+                content: data.content,
+                updatedAt: now,
+            })
+            .where(eq(systemPrompts.id, data.id))
+            .run();
+    } else {
+        db.insert(systemPrompts)
+            .values({
+                userId: session.user.id,
+                name: data.name,
+                content: data.content,
+                updatedAt: now,
+            })
+            .run();
+    }
+
+    revalidatePath("/evaluation-lab");
+}
+
+export async function deleteSystemPrompt(id: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    db.delete(systemPrompts).where(eq(systemPrompts.id, id)).run();
+    revalidatePath("/evaluation-lab");
+}
+
+export async function getSystemPromptSets() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return [];
+
+    return db.select().from(systemPromptSets).where(eq(systemPromptSets.userId, session.user.id)).all();
+}
+
+export async function saveSystemPromptSet(data: { id?: string; name: string; description?: string; systemPromptIds: string[] }) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const now = new Date();
+    const values = {
+        name: data.name,
+        description: data.description,
+        systemPromptIds: JSON.stringify(data.systemPromptIds),
+        updatedAt: now,
+    };
+
+    if (data.id) {
+        db.update(systemPromptSets)
+            .set(values)
+            .where(eq(systemPromptSets.id, data.id))
+            .run();
+    } else {
+        db.insert(systemPromptSets)
+            .values({
+                userId: session.user.id,
+                ...values,
+            })
+            .run();
+    }
+
+    revalidatePath("/evaluation-lab");
+}
+
+export async function deleteSystemPromptSet(id: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    db.delete(systemPromptSets).where(eq(systemPromptSets.id, id)).run();
+    revalidatePath("/evaluation-lab");
+}
+
 export async function getBenchmarkRuns() {
 
     const session = await getServerSession(authOptions);
@@ -214,29 +301,37 @@ export async function getBenchmarkRuns() {
     return db.select().from(benchmarkRuns).where(eq(benchmarkRuns.userId, session.user.id)).all();
 }
 
-export async function saveBenchmarkRun(data: { id?: string; name: string; models: string[]; contextGroupIds: string[] }) {
+export async function saveBenchmarkRun(data: {
+    id?: string;
+    name: string;
+    models: string[];
+    contextGroupIds: string[];
+    systemPromptIds?: string[];
+    systemPromptSetIds?: string[];
+}) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
     const now = new Date();
+    const values = {
+        name: data.name,
+        models: JSON.stringify(data.models),
+        contextGroupIds: JSON.stringify(data.contextGroupIds),
+        systemPromptIds: data.systemPromptIds ? JSON.stringify(data.systemPromptIds) : null,
+        systemPromptSetIds: data.systemPromptSetIds ? JSON.stringify(data.systemPromptSetIds) : null,
+        updatedAt: now,
+    };
+
     if (data.id) {
         db.update(benchmarkRuns)
-            .set({
-                name: data.name,
-                models: JSON.stringify(data.models),
-                contextGroupIds: JSON.stringify(data.contextGroupIds),
-                updatedAt: now,
-            })
+            .set(values)
             .where(eq(benchmarkRuns.id, data.id))
             .run();
     } else {
         db.insert(benchmarkRuns)
             .values({
                 userId: session.user.id,
-                name: data.name,
-                models: JSON.stringify(data.models),
-                contextGroupIds: JSON.stringify(data.contextGroupIds),
-                updatedAt: now,
+                ...values,
             })
             .run();
     }
@@ -265,23 +360,53 @@ export async function triggerBenchmark(runId: string) {
 
     const models = JSON.parse(run.models) as string[];
     const contextGroupIds = JSON.parse(run.contextGroupIds) as string[];
+    const systemPromptIds = run.systemPromptIds ? JSON.parse(run.systemPromptIds) as string[] : [];
+    const systemPromptSetIds = run.systemPromptSetIds ? JSON.parse(run.systemPromptSetIds) as string[] : [];
 
-    // Fetch all context groups to calculate total entries and get variations
+    // Fetch all context groups
     const cgs = db.select().from(contextGroups).where(inArray(contextGroups.id, contextGroupIds)).all();
     const cgMap = new Map(cgs.map(cg => [cg.id, cg]));
 
-    let totalEntries = 0;
-    for (const cgId of contextGroupIds) {
-        const cg = cgMap.get(cgId);
-        if (cg && cg.systemPromptVariations) {
+    // Resolve all independent system prompts
+    // eslint-disable-next-line prefer-const
+    let resolvedSystemPromptIds = new Set<string>(systemPromptIds);
+    if (systemPromptSetIds.length > 0) {
+        const sets = db.select().from(systemPromptSets).where(inArray(systemPromptSets.id, systemPromptSetIds)).all();
+        sets.forEach(set => {
             try {
-                const variations = JSON.parse(cg.systemPromptVariations);
-                totalEntries += models.length * Math.max(1, variations.length);
-            } catch {
-                totalEntries += models.length;
+                const ids = JSON.parse(set.systemPromptIds) as string[];
+                ids.forEach(id => resolvedSystemPromptIds.add(id));
+            } catch { }
+        });
+    }
+
+    const resolvedSystemPromptsList = Array.from(resolvedSystemPromptIds);
+    const systemPromptsData = resolvedSystemPromptsList.length > 0
+        ? db.select().from(systemPrompts).where(inArray(systemPrompts.id, resolvedSystemPromptsList)).all()
+        : [];
+    const spMap = new Map(systemPromptsData.map(sp => [sp.id, sp]));
+
+    // Calculate total entries
+    // Matrix is: Models x Context Groups x (Independent System Prompts OR Legacy Variations)
+    let totalEntries = 0;
+    for (const model of models) {
+        for (const cgId of contextGroupIds) {
+            const cg = cgMap.get(cgId);
+            if (!cg) continue;
+
+            if (resolvedSystemPromptsList.length > 0) {
+                totalEntries += resolvedSystemPromptsList.length;
+            } else {
+                // Backward compatibility: use legacy variations if no independent prompts selected
+                let legacyVariationsCount = 0;
+                if (cg.systemPromptVariations) {
+                    try {
+                        const variations = JSON.parse(cg.systemPromptVariations);
+                        legacyVariationsCount = variations.length;
+                    } catch { }
+                }
+                totalEntries += Math.max(1, legacyVariationsCount);
             }
-        } else {
-            totalEntries += models.length;
         }
     }
 
@@ -297,7 +422,7 @@ export async function triggerBenchmark(runId: string) {
             name: run.name,
             status: "running",
             startedAt: now,
-            totalEntries: totalEntries, // Corrected to use the computed totalEntries
+            totalEntries: totalEntries,
             completedEntries: 0,
         })
         .run();
@@ -306,37 +431,54 @@ export async function triggerBenchmark(runId: string) {
     for (const model of models) {
         for (const cgId of contextGroupIds) {
             const cg = cgMap.get(cgId);
-            let variations: { id: string; name: string; systemPrompt: string }[] = [];
+            if (!cg) continue;
 
-            if (cg && cg.systemPromptVariations) {
-                try {
-                    variations = JSON.parse(cg.systemPromptVariations);
-                } catch { }
-            }
+            if (resolvedSystemPromptsList.length > 0) {
+                for (const spId of resolvedSystemPromptsList) {
+                    const sp = spMap.get(spId);
+                    db.insert(benchmarkEntries)
+                        .values({
+                            benchmarkId: benchmarkId,
+                            model: model,
+                            contextGroupId: cgId,
+                            systemPromptId: spId,
+                            status: "pending",
+                            // Store variation name for UI results
+                            metrics: JSON.stringify({ variationName: sp?.name || "System Prompt" })
+                        })
+                        .run();
+                }
+            } else {
+                // Legacy logic
+                let variations: { id: string; name: string; systemPrompt: string }[] = [];
+                if (cg.systemPromptVariations) {
+                    try {
+                        variations = JSON.parse(cg.systemPromptVariations);
+                    } catch { }
+                }
 
-            if (variations.length > 0) {
-                for (const variation of variations) {
+                if (variations.length > 0) {
+                    for (const variation of variations) {
+                        db.insert(benchmarkEntries)
+                            .values({
+                                benchmarkId: benchmarkId,
+                                model: model,
+                                contextGroupId: cgId,
+                                status: "pending",
+                                metrics: JSON.stringify({ variation })
+                            })
+                            .run();
+                    }
+                } else {
                     db.insert(benchmarkEntries)
                         .values({
                             benchmarkId: benchmarkId,
                             model: model,
                             contextGroupId: cgId,
                             status: "pending",
-                            // Pass the variation info in contextGroupId or metrics?
-                            // Let's use metrics JSON to store the variation metadata so it's transparent.
-                            metrics: JSON.stringify({ variation })
                         })
                         .run();
                 }
-            } else {
-                db.insert(benchmarkEntries)
-                    .values({
-                        benchmarkId: benchmarkId,
-                        model: model,
-                        contextGroupId: cgId,
-                        status: "pending",
-                    })
-                    .run();
             }
         }
     }
@@ -471,11 +613,17 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         const prompt = cg.promptTemplate;
         const category = cg.category || "Uncategorized";
 
-        // Extract variation from pending metrics if available
+        // Extract variation from pending metrics OR new systemPromptId
         let systemContext = cg.systemContext || "";
         let variationName = null;
 
-        if (nextPreparingEntry.metrics) {
+        if (nextPreparingEntry.systemPromptId) {
+            const sp = db.select().from(systemPrompts).where(eq(systemPrompts.id, nextPreparingEntry.systemPromptId)).get();
+            if (sp) {
+                systemContext = sp.content;
+                variationName = sp.name;
+            }
+        } else if (nextPreparingEntry.metrics) {
             try {
                 const pending = JSON.parse(nextPreparingEntry.metrics);
                 if (pending.variation) {

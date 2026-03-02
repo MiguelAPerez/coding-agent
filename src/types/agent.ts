@@ -44,6 +44,23 @@ export interface ContextGroup {
     updatedAt: Date;
 }
 
+export interface SystemPrompt {
+    id: string;
+    userId: string;
+    name: string;
+    content: string;
+    updatedAt: Date;
+}
+
+export interface SystemPromptSet {
+    id: string;
+    userId: string;
+    name: string;
+    description: string | null;
+    systemPromptIds: string; // JSON string array
+    updatedAt: Date;
+}
+
 export interface BenchmarkRun {
     id: string;
     userId: string;
@@ -51,6 +68,8 @@ export interface BenchmarkRun {
     description: string | null;
     models: string; // JSON string
     contextGroupIds: string; // JSON string
+    systemPromptIds: string | null; // JSON string array
+    systemPromptSetIds: string | null; // JSON string array
     updatedAt: Date;
 }
 
@@ -71,6 +90,7 @@ export interface BenchmarkEntry {
     benchmarkId: string;
     model: string;
     contextGroupId: string;
+    systemPromptId: string | null;
     category: string | null;
     score: number | null;
     metrics: string | null; // JSON string

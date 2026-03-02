@@ -1025,4 +1025,4 @@ export const testCases = [
         ],
         weight: 1.0
     }
-];
+]

@@ -1,8 +1,9 @@
 import { db } from "./index"
-import { permissions, users, userPermissions, contextGroups } from "./schema"
 import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
-import { testCases } from "../scripts/mock/test_cases.mjs"
+import { contextGroups as mockContexts } from "../data/repos/agent_data/contexts"
+import { systemPrompts as mockPrompts, systemPromptSets as mockSets } from "../data/repos/agent_data/systemPrompts"
+import { systemPrompts, systemPromptSets, contextGroups, permissions, users, userPermissions } from "./schema"
 
 // The default permissions we want every environment to have
 const DEFAULT_PERMISSIONS = [
@@ -98,11 +99,52 @@ async function seed() {
             }
         }
 
+        // --- SEED SYSTEM PROMPTS ---
+        console.log("\n🌱 Seeding system prompts...")
+        const promptIdMap = new Map<string, string>(); // mockId -> actualId
+
+        for (const mp of mockPrompts) {
+            const existing = await db.select().from(systemPrompts).where(eq(systemPrompts.name, mp.name)).get();
+            if (!existing) {
+                console.log(`Inserting system prompt: ${mp.name}`);
+                const [inserted] = await db.insert(systemPrompts).values({
+                    userId: adminUserId,
+                    name: mp.name,
+                    content: mp.content,
+                }).returning();
+                promptIdMap.set(mp.id, inserted.id);
+            } else {
+                console.log(`System prompt already exists: ${mp.name}`);
+                promptIdMap.set(mp.id, existing.id);
+            }
+        }
+
+        // --- SEED SYSTEM PROMPT SETS ---
+        console.log("\n🌱 Seeding system prompt sets...")
+        for (const ms of mockSets) {
+            const existing = await db.select().from(systemPromptSets).where(eq(systemPromptSets.name, ms.name)).get();
+
+            // Map mock IDs to real UUIDs
+            const realIds = ms.systemPromptIds.map(id => promptIdMap.get(id)).filter(Boolean) as string[];
+
+            if (!existing) {
+                console.log(`Inserting system prompt set: ${ms.name}`);
+                await db.insert(systemPromptSets).values({
+                    userId: adminUserId,
+                    name: ms.name,
+                    description: ms.description,
+                    systemPromptIds: JSON.stringify(realIds),
+                });
+            } else {
+                console.log(`System prompt set already exists: ${ms.name}`);
+            }
+        }
+
         // --- SEED CONTEXT GROUPS ---
         console.log("\n🌱 Seeding context groups from mock data...")
         let cgCount = 0
 
-        for (const tc of testCases) {
+        for (const tc of mockContexts) {
             const existing = await db
                 .select()
                 .from(contextGroups)
@@ -119,7 +161,6 @@ async function seed() {
                 maxSentences: tc.maxSentences || null,
                 systemContext: tc.systemContext || null,
                 promptTemplate: tc.prompt,
-                systemPromptVariations: tc.systemPromptVariations ? JSON.stringify(tc.systemPromptVariations) : null,
                 updatedAt: new Date(),
             }
 
@@ -135,7 +176,7 @@ async function seed() {
                     .run();
             }
         }
-        console.log(`✅ Context groups seeded! (${cgCount} new, ${testCases.length - cgCount} updated)`)
+        console.log(`✅ Context groups seeded! (${cgCount} new, ${mockContexts.length - cgCount} updated)`)
 
         console.log("\n✅ Seeding complete!")
         console.log(`   Admin Email: ${ADMIN_EMAIL}`)

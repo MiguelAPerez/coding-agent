@@ -3,15 +3,19 @@
 import React, { useState, useEffect } from "react";
 import { saveBenchmarkRun } from "@/app/actions/agent";
 import { getOllamaModels } from "@/app/actions/ollama";
-import { ContextGroup, BenchmarkRun } from "@/types/agent";
+import { ContextGroup, BenchmarkRun, SystemPrompt, SystemPromptSet } from "@/types/agent";
 
 export const BenchmarkRunForm = ({
     contextGroups,
+    systemPrompts = [],
+    systemPromptSets = [],
     initialData,
     onSuccess,
     onCancel
 }: {
     contextGroups: ContextGroup[];
+    systemPrompts?: SystemPrompt[];
+    systemPromptSets?: SystemPromptSet[];
     initialData?: BenchmarkRun;
     onSuccess: () => void;
     onCancel: () => void;
@@ -21,6 +25,12 @@ export const BenchmarkRunForm = ({
     );
     const [selectedContextGroups, setSelectedContextGroups] = useState<string[]>(
         initialData ? JSON.parse(initialData.contextGroupIds) : []
+    );
+    const [selectedSystemPrompts, setSelectedSystemPrompts] = useState<string[]>(
+        initialData?.systemPromptIds ? JSON.parse(initialData.systemPromptIds) : []
+    );
+    const [selectedSystemPromptSets, setSelectedSystemPromptSets] = useState<string[]>(
+        initialData?.systemPromptSetIds ? JSON.parse(initialData.systemPromptSetIds) : []
     );
     const [runName, setRunName] = useState(initialData?.name || "");
     const [isSaving, setIsSaving] = useState(false);
@@ -66,6 +76,22 @@ export const BenchmarkRunForm = ({
         );
     };
 
+    const toggleSystemPrompt = (id: string) => {
+        setSelectedSystemPrompts(prev =>
+            prev.includes(id)
+                ? prev.filter(i => i !== id)
+                : [...prev, id]
+        );
+    };
+
+    const toggleSystemPromptSet = (id: string) => {
+        setSelectedSystemPromptSets(prev =>
+            prev.includes(id)
+                ? prev.filter(i => i !== id)
+                : [...prev, id]
+        );
+    };
+
     const handleSave = async () => {
         if (!runName || selectedModels.length === 0 || selectedContextGroups.length === 0) {
             alert("Please fill in all fields.");
@@ -78,7 +104,9 @@ export const BenchmarkRunForm = ({
                 id: initialData?.id,
                 name: runName,
                 models: selectedModels,
-                contextGroupIds: selectedContextGroups
+                contextGroupIds: selectedContextGroups,
+                systemPromptIds: selectedSystemPrompts,
+                systemPromptSetIds: selectedSystemPromptSets
             });
             onSuccess();
         } catch {
@@ -230,6 +258,74 @@ export const BenchmarkRunForm = ({
                                 })}
                             </div>
                         )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-foreground/30">Independent Personas</label>
+                            <span className="text-[10px] font-bold uppercase py-0.5 px-2 bg-primary/10 text-primary rounded-full">
+                                {selectedSystemPrompts.length} Selected
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {systemPrompts.map(sp => (
+                                <div
+                                    key={sp.id}
+                                    onClick={() => toggleSystemPrompt(sp.id)}
+                                    className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedSystemPrompts.includes(sp.id)
+                                        ? "bg-primary/5 border-primary/40 text-primary shadow-sm"
+                                        : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
+                                        }`}
+                                >
+                                    <div className="flex flex-col gap-1 min-w-0">
+                                        <span className="text-sm font-bold truncate">{sp.name}</span>
+                                        <span className="text-[10px] opacity-40 line-clamp-1 italic">&quot;{sp.content}&quot;</span>
+                                    </div>
+                                    <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedSystemPrompts.includes(sp.id) ? "bg-primary border-primary" : "border-border/50"
+                                        }`}>
+                                        {selectedSystemPrompts.includes(sp.id) && <div className="w-1.5 h-1.5 bg-background rounded-full" />}
+                                    </div>
+                                </div>
+                            ))}
+                            {systemPrompts.length === 0 && (
+                                <p className="text-[10px] text-foreground/20 italic p-4 text-center">No individual personas saved yet.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-xs font-bold uppercase tracking-widest text-foreground/30">Persona Sets</label>
+                            <span className="text-[10px] font-bold uppercase py-0.5 px-2 bg-purple-500/10 text-purple-600 rounded-full">
+                                {selectedSystemPromptSets.length} Selected
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {systemPromptSets.map(set => (
+                                <div
+                                    key={set.id}
+                                    onClick={() => toggleSystemPromptSet(set.id)}
+                                    className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedSystemPromptSets.includes(set.id)
+                                        ? "bg-purple-500/5 border-purple-500/40 text-purple-700 shadow-sm"
+                                        : "bg-background/20 border-border/50 hover:border-foreground/10 text-foreground/60"
+                                        }`}
+                                >
+                                    <div className="flex flex-col gap-1 min-w-0">
+                                        <span className="text-sm font-bold truncate">{set.name}</span>
+                                        <span className="text-[10px] opacity-40 line-clamp-1 italic">{set.description || "No description"}</span>
+                                    </div>
+                                    <div className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedSystemPromptSets.includes(set.id) ? "bg-purple-500 border-purple-500" : "border-border/50"
+                                        }`}>
+                                        {selectedSystemPromptSets.includes(set.id) && <div className="w-2 h-2 bg-background rounded-sm rotate-45" />}
+                                    </div>
+                                </div>
+                            ))}
+                            {systemPromptSets.length === 0 && (
+                                <p className="text-[10px] text-foreground/20 italic p-4 text-center">No persona sets saved yet.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
 

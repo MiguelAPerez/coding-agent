@@ -6,15 +6,18 @@ import { ContextGroupManager } from "./ContextGroupManager";
 import { BenchmarkRunManager } from "./BenchmarkRunManager";
 import { BenchmarkProgress } from "./Benchmark/BenchmarkProgress";
 import { BenchmarkResults } from "./BenchmarkResults";
-import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry } from "@/types/agent";
-
+import { SystemPromptsManager } from "./SystemPromptsManager";
+import { SystemPromptSetManager } from "./SystemPromptSetManager";
+import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
 export const EvaluationLabClient = ({
     initialGroups,
     skills,
     latestBenchmark,
     initialRuns,
     completedBenchmarks,
-    initialActiveBenchmarks
+    initialActiveBenchmarks,
+    initialSystemPrompts,
+    initialSystemPromptSets
 }: {
     initialGroups: ContextGroup[];
     skills: Skill[];
@@ -22,6 +25,8 @@ export const EvaluationLabClient = ({
     initialRuns: BenchmarkRun[];
     completedBenchmarks: (Benchmark & { entries: BenchmarkEntry[] })[];
     initialActiveBenchmarks: Benchmark[];
+    initialSystemPrompts: SystemPrompt[];
+    initialSystemPromptSets: SystemPromptSet[];
 }) => {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -39,7 +44,9 @@ export const EvaluationLabClient = ({
         { id: "results", label: "Results", icon: "🏆" },
         { id: "runs", label: "Runs", icon: "🚀" },
         { id: "progress", label: "Progress", icon: "📊" },
-        { id: "groups", label: "Context Groups", icon: "📁" },
+        { id: "system-prompts", label: "Personas", icon: "👤" },
+        { id: "prompt-sets", label: "Sets", icon: "📑" },
+        { id: "groups", label: "Groups", icon: "📁" },
     ];
 
     const handleBenchmarkStarted = (id: string) => {
@@ -70,6 +77,8 @@ export const EvaluationLabClient = ({
                     <BenchmarkRunManager
                         initialRuns={initialRuns}
                         contextGroups={initialGroups}
+                        systemPrompts={initialSystemPrompts}
+                        systemPromptSets={initialSystemPromptSets}
                         onBenchmarkStarted={handleBenchmarkStarted}
                         initialActiveBenchmarks={initialActiveBenchmarks}
                     />
@@ -79,6 +88,12 @@ export const EvaluationLabClient = ({
                 )}
                 {activeTab === "groups" && (
                     <ContextGroupManager initialGroups={initialGroups} skills={skills} />
+                )}
+                {activeTab === "system-prompts" && (
+                    <SystemPromptsManager initialPrompts={initialSystemPrompts} />
+                )}
+                {activeTab === "prompt-sets" && (
+                    <SystemPromptSetManager initialSets={initialSystemPromptSets} prompts={initialSystemPrompts} />
                 )}
                 {activeTab === "results" && (
                     <BenchmarkResults data={completedBenchmarks} />

@@ -213,6 +213,31 @@ export const contextGroups = sqliteTable("context_group", {
     updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
+export const systemPrompts = sqliteTable("system_prompt", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    content: text("content").notNull(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+})
+
+export const systemPromptSets = sqliteTable("system_prompt_set", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    systemPromptIds: text("systemPromptIds").notNull(), // JSON array of system prompt IDs
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+})
+
 export const benchmarkRuns = sqliteTable("benchmark_run", {
     id: text("id")
         .primaryKey()
@@ -224,6 +249,8 @@ export const benchmarkRuns = sqliteTable("benchmark_run", {
     description: text("description"),
     models: text("models").notNull(), // JSON array of model names
     contextGroupIds: text("contextGroupIds").notNull(), // JSON array of context group IDs
+    systemPromptIds: text("systemPromptIds"), // JSON array of independent system prompt IDs
+    systemPromptSetIds: text("systemPromptSetIds"), // JSON array of prompt set IDs
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
 
@@ -264,6 +291,8 @@ export const benchmarkEntries = sqliteTable("benchmark_entry", {
     output: text("output"),
     error: text("error"),
     duration: integer("duration"), // in ms
+    systemPromptId: text("systemPromptId")
+        .references(() => systemPrompts.id),
     startedAt: integer("startedAt", { mode: "timestamp_ms" }),
     completedAt: integer("completedAt", { mode: "timestamp_ms" }),
 })
