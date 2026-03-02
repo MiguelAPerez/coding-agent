@@ -27,6 +27,8 @@ export async function saveContextGroup(data: {
     promptTemplate: string;
     skillIds?: string;
     toolIds?: string;
+    systemPromptIds?: string;
+    systemPromptSetIds?: string;
     systemPromptVariations?: string;
 }) {
     const session = await getServerSession(authOptions);
@@ -44,6 +46,8 @@ export async function saveContextGroup(data: {
         promptTemplate: data.promptTemplate,
         skillIds: data.skillIds,
         toolIds: data.toolIds,
+        systemPromptIds: data.systemPromptIds,
+        systemPromptSetIds: data.systemPromptSetIds,
         systemPromptVariations: data.systemPromptVariations,
         updatedAt: now,
     };
@@ -160,7 +164,7 @@ export async function triggerBenchmark(runId: string) {
     const spMap = new Map(systemPromptsData.map(sp => [sp.id, sp]));
 
     let totalEntries = 0;
-    for (const _ of models) {
+    for (const model of models) {
         for (const cgId of contextGroupIds) {
             const cg = cgMap.get(cgId);
             if (!cg) continue;
@@ -172,7 +176,7 @@ export async function triggerBenchmark(runId: string) {
                 if (cg.systemPromptVariations) {
                     try {
                         const variations = JSON.parse(cg.systemPromptVariations);
-                        legacyVariationsCount = variations.length;
+                        legacyVariationsCount = Array.isArray(variations) ? variations.length : 0;
                     } catch { }
                 }
                 totalEntries += Math.max(1, legacyVariationsCount);
@@ -201,9 +205,35 @@ export async function triggerBenchmark(runId: string) {
             const cg = cgMap.get(cgId);
             if (!cg) continue;
 
-            if (resolvedSystemPromptsList.length > 0) {
-                for (const spId of resolvedSystemPromptsList) {
-                    const sp = spMap.get(spId);
+            // 1. Resolve variations for this specific Context Group
+            const cgSystemPromptIds = new Set<string>();
+            if (cg.systemPromptIds) {
+                try {
+                    const ids = JSON.parse(cg.systemPromptIds) as string[];
+                    ids.forEach(id => cgSystemPromptIds.add(id));
+                } catch { }
+            }
+            if (cg.systemPromptSetIds) {
+                try {
+                    const setIds = JSON.parse(cg.systemPromptSetIds) as string[];
+                    const setsForCg = db.select().from(systemPromptSets).where(inArray(systemPromptSets.id, setIds)).all();
+                    setsForCg.forEach(set => {
+                        try {
+                            const ids = JSON.parse(set.systemPromptIds) as string[];
+                            ids.forEach(id => cgSystemPromptIds.add(id));
+                        } catch { }
+                    });
+                } catch { }
+            }
+
+            const cgVariationsList = Array.from(cgSystemPromptIds);
+
+            // 2. Logic: If CG has referenced prompts OR manual variations, use them.
+            // Otherwise, use the RUN-level prompts.
+
+            if (cgVariationsList.length > 0) {
+                for (const spId of cgVariationsList) {
+                    const sp = spMap.get(spId) || db.select().from(systemPrompts).where(eq(systemPrompts.id, spId)).get();
                     db.insert(benchmarkEntries)
                         .values({
                             benchmarkId: benchmarkId,
@@ -216,15 +246,15 @@ export async function triggerBenchmark(runId: string) {
                         .run();
                 }
             } else {
-                let variations: { id: string; name: string; systemPrompt: string }[] = [];
+                let manualVariations: { id: string; name: string; systemPrompt: string }[] = [];
                 if (cg.systemPromptVariations) {
                     try {
-                        variations = JSON.parse(cg.systemPromptVariations);
+                        manualVariations = JSON.parse(cg.systemPromptVariations);
                     } catch { }
                 }
 
-                if (variations.length > 0) {
-                    for (const variation of variations) {
+                if (manualVariations.length > 0) {
+                    for (const variation of manualVariations) {
                         db.insert(benchmarkEntries)
                             .values({
                                 benchmarkId: benchmarkId,
@@ -236,14 +266,31 @@ export async function triggerBenchmark(runId: string) {
                             .run();
                     }
                 } else {
-                    db.insert(benchmarkEntries)
-                        .values({
-                            benchmarkId: benchmarkId,
-                            model: model,
-                            contextGroupId: cgId,
-                            status: "pending",
-                        })
-                        .run();
+                    // Fallback to RUN prompts
+                    if (resolvedSystemPromptsList.length > 0) {
+                        for (const spId of resolvedSystemPromptsList) {
+                            const sp = spMap.get(spId);
+                            db.insert(benchmarkEntries)
+                                .values({
+                                    benchmarkId: benchmarkId,
+                                    model: model,
+                                    contextGroupId: cgId,
+                                    systemPromptId: spId,
+                                    status: "pending",
+                                    metrics: JSON.stringify({ variationName: sp?.name || "System Prompt" })
+                                })
+                                .run();
+                        }
+                    } else {
+                        db.insert(benchmarkEntries)
+                            .values({
+                                benchmarkId: benchmarkId,
+                                model: model,
+                                contextGroupId: cgId,
+                                status: "pending",
+                            })
+                            .run();
+                    }
                 }
             }
         }

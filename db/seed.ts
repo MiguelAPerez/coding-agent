@@ -124,8 +124,9 @@ async function seed() {
         for (const ms of mockSets) {
             const existing = await db.select().from(systemPromptSets).where(eq(systemPromptSets.name, ms.name)).get();
 
-            // Map mock IDs to real UUIDs
-            const realIds = ms.systemPromptIds.map(id => promptIdMap.get(id)).filter(Boolean) as string[];
+            // Pick some random IDs from the actual seeded prompts
+            const allRealIds = Array.from(promptIdMap.values());
+            const randomRealIds = allRealIds.sort(() => Math.random() - 0.5).slice(0, 2);
 
             if (!existing) {
                 console.log(`Inserting system prompt set: ${ms.name}`);
@@ -133,7 +134,7 @@ async function seed() {
                     userId: adminUserId,
                     name: ms.name,
                     description: ms.description,
-                    systemPromptIds: JSON.stringify(realIds),
+                    systemPromptIds: JSON.stringify(randomRealIds),
                 });
             } else {
                 console.log(`System prompt set already exists: ${ms.name}`);

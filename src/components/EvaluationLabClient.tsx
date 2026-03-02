@@ -87,7 +87,12 @@ export const EvaluationLabClient = ({
                     <BenchmarkProgress initialBenchmarkId={currentBenchmarkId} />
                 )}
                 {activeTab === "groups" && (
-                    <ContextGroupManager initialGroups={initialGroups} skills={skills} />
+                    <ContextGroupManager
+                        initialGroups={initialGroups}
+                        skills={skills}
+                        prompts={initialSystemPrompts}
+                        promptSets={initialSystemPromptSets}
+                    />
                 )}
                 {activeTab === "system-prompts" && (
                     <SystemPromptsManager initialPrompts={initialSystemPrompts} />

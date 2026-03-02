@@ -2,14 +2,18 @@
 
 import React, { useState } from "react";
 import { saveContextGroup, deleteContextGroup } from "@/app/actions/benchmarks";
-import { ContextGroup, Skill } from "@/types/agent";
+import { ContextGroup, Skill, SystemPrompt, SystemPromptSet } from "@/types/agent";
 
 export const ContextGroupManager = ({
     initialGroups,
-    skills
+    skills,
+    prompts = [],
+    promptSets = []
 }: {
     initialGroups: ContextGroup[];
     skills: Skill[];
+    prompts?: SystemPrompt[];
+    promptSets?: SystemPromptSet[];
 }) => {
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({
@@ -21,7 +25,10 @@ export const ContextGroupManager = ({
         maxSentences: "" as string | number,
         systemContext: "",
         promptTemplate: "",
-        skillIds: [] as string[]
+        skillIds: [] as string[],
+        systemPromptIds: [] as string[],
+        systemPromptSetIds: [] as string[],
+        systemPromptVariations: [] as { id: string; name: string; systemPrompt: string }[]
     });
 
     const handleSave = async (e: React.FormEvent) => {
@@ -32,6 +39,9 @@ export const ContextGroupManager = ({
                 id: isEditing || undefined,
                 skillIds: JSON.stringify(editForm.skillIds),
                 expectations: JSON.stringify(editForm.expectations),
+                systemPromptIds: JSON.stringify(editForm.systemPromptIds),
+                systemPromptSetIds: JSON.stringify(editForm.systemPromptSetIds),
+                systemPromptVariations: JSON.stringify(editForm.systemPromptVariations),
                 weight: Number(editForm.weight),
                 maxSentences: editForm.maxSentences ? Number(editForm.maxSentences) : undefined,
             });
@@ -61,7 +71,10 @@ export const ContextGroupManager = ({
             maxSentences: "",
             systemContext: "",
             promptTemplate: "",
-            skillIds: []
+            skillIds: [],
+            systemPromptIds: [],
+            systemPromptSetIds: [],
+            systemPromptVariations: []
         });
     };
 
@@ -74,11 +87,14 @@ export const ContextGroupManager = ({
             description: group.description || "",
             category: group.category || "Technical",
             weight: group.weight || 1,
-            expectations: expectations,
+            expectations: Array.isArray(expectations) ? expectations : [],
             maxSentences: group.maxSentences || "",
             systemContext: group.systemContext || "",
             promptTemplate: group.promptTemplate,
-            skillIds: skillIds
+            skillIds: Array.isArray(skillIds) ? skillIds : [],
+            systemPromptIds: group.systemPromptIds ? JSON.parse(group.systemPromptIds) || [] : [],
+            systemPromptSetIds: group.systemPromptSetIds ? JSON.parse(group.systemPromptSetIds) || [] : [],
+            systemPromptVariations: group.systemPromptVariations ? JSON.parse(group.systemPromptVariations) || [] : []
         });
     };
 
@@ -102,6 +118,56 @@ export const ContextGroupManager = ({
             expectations: prev.expectations.map((exp, i) =>
                 i === index ? { ...exp, [field]: value } : exp
             )
+        }));
+    };
+
+    const addVariation = () => {
+        setEditForm(prev => ({
+            ...prev,
+            systemPromptVariations: [
+                ...prev.systemPromptVariations,
+                { id: crypto.randomUUID(), name: "", systemPrompt: "" }
+            ]
+        }));
+    };
+
+    const removeVariation = (id: string) => {
+        setEditForm(prev => ({
+            ...prev,
+            systemPromptVariations: prev.systemPromptVariations.filter(v => v.id !== id)
+        }));
+    };
+
+    const updateVariation = (id: string, field: "name" | "systemPrompt", value: string) => {
+        setEditForm(prev => ({
+            ...prev,
+            systemPromptVariations: prev.systemPromptVariations.map(v =>
+                v.id === id ? { ...v, [field]: value } : v
+            )
+        }));
+    };
+
+    const addFromSet = (setId: string) => {
+        if (editForm.systemPromptSetIds.includes(setId)) return;
+        setEditForm(prev => ({
+            ...prev,
+            systemPromptSetIds: [...prev.systemPromptSetIds, setId]
+        }));
+    };
+
+    const addFromLibrary = (promptId: string) => {
+        if (editForm.systemPromptIds.includes(promptId)) return;
+        setEditForm(prev => ({
+            ...prev,
+            systemPromptIds: [...prev.systemPromptIds, promptId]
+        }));
+    };
+
+    const removeReference = (id: string, type: 'prompt' | 'set') => {
+        setEditForm(prev => ({
+            ...prev,
+            systemPromptIds: type === 'prompt' ? prev.systemPromptIds.filter(i => i !== id) : prev.systemPromptIds,
+            systemPromptSetIds: type === 'set' ? prev.systemPromptSetIds.filter(i => i !== id) : prev.systemPromptSetIds
         }));
     };
 
@@ -235,6 +301,140 @@ export const ContextGroupManager = ({
                             />
                         </div>
 
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-semibold uppercase text-foreground/40">System Prompt Variations</label>
+                                <div className="flex gap-2">
+                                    {promptSets.length > 0 && (
+                                        <select
+                                            className="text-[10px] bg-purple-500/10 text-purple-600 px-2 py-1 rounded hover:bg-purple-500/20 transition-all font-bold uppercase border-none outline-none appearance-none cursor-pointer"
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    addFromSet(e.target.value);
+                                                    e.target.value = "";
+                                                }
+                                            }}
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled>+ From Set</option>
+                                            {promptSets.map(set => (
+                                                <option key={set.id} value={set.id}>{set.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    {prompts.length > 0 && (
+                                        <select
+                                            className="text-[10px] bg-purple-500/10 text-purple-600 px-2 py-1 rounded hover:bg-purple-500/20 transition-all font-bold uppercase border-none outline-none appearance-none cursor-pointer"
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    addFromLibrary(e.target.value);
+                                                    e.target.value = "";
+                                                }
+                                            }}
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled>+ From Library</option>
+                                            {prompts.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={addVariation}
+                                        className="text-[10px] bg-purple-500/10 text-purple-600 px-2 py-1 rounded hover:bg-purple-500/20 transition-all font-bold uppercase"
+                                    >
+                                        + Manual
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                {/* Referenced Sets */}
+                                {editForm.systemPromptSetIds.map(setId => {
+                                    const set = promptSets.find(s => s.id === setId);
+                                    return (
+                                        <div key={setId} className="flex justify-between items-center p-3 bg-purple-500/5 rounded-xl border border-purple-500/20 animate-in fade-in slide-in-from-left-2 duration-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-500">📚</div>
+                                                <div>
+                                                    <div className="text-xs font-bold text-purple-600">{set?.name || 'Unknown Set'}</div>
+                                                    <div className="text-[10px] text-foreground/40 italic">System Prompt Set Reference</div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeReference(setId, 'set')}
+                                                className="p-1 text-foreground/20 hover:text-destructive transition-colors"
+                                            >
+                                                <span className="text-lg">×</span>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Referenced Prompts */}
+                                {editForm.systemPromptIds.map(promptId => {
+                                    const p = prompts.find(pr => pr.id === promptId);
+                                    return (
+                                        <div key={promptId} className="flex justify-between items-center p-3 bg-blue-500/5 rounded-xl border border-blue-500/20 animate-in fade-in slide-in-from-left-2 duration-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-500">👤</div>
+                                                <div>
+                                                    <div className="text-xs font-bold text-blue-600">{p?.name || 'Unknown Prompt'}</div>
+                                                    <div className="text-[10px] text-foreground/40 italic">System Prompt Reference</div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeReference(promptId, 'prompt')}
+                                                className="p-1 text-foreground/20 hover:text-destructive transition-colors"
+                                            >
+                                                <span className="text-lg">×</span>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Manual Variations */}
+                                {editForm.systemPromptVariations.map((v) => (
+                                    <div key={v.id} className="glass p-4 rounded-xl border border-purple-500/20 space-y-3 animate-in fade-in slide-in-from-left-2 duration-200">
+                                        <div className="flex justify-between items-center gap-2">
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500">✍️</div>
+                                                <input
+                                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-bold"
+                                                    value={v.name}
+                                                    onChange={e => updateVariation(v.id, "name", e.target.value)}
+                                                    placeholder="Variation Name (Manual)"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeVariation(v.id)}
+                                                className="p-1 text-foreground/20 hover:text-destructive transition-colors"
+                                            >
+                                                <span className="text-lg">×</span>
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs min-h-[80px] font-mono"
+                                            value={v.systemPrompt}
+                                            onChange={e => updateVariation(v.id, "systemPrompt", e.target.value)}
+                                            placeholder="System prompt for this manual variation..."
+                                        />
+                                    </div>
+                                ))}
+
+                                {editForm.systemPromptVariations.length === 0 &&
+                                    editForm.systemPromptIds.length === 0 &&
+                                    editForm.systemPromptSetIds.length === 0 && (
+                                        <div className="text-center py-4 border-2 border-dashed border-border/20 rounded-xl text-[10px] text-foreground/20 italic">
+                                            No variations defined. Uses base system context by default.
+                                        </div>
+                                    )}
+                            </div>
+                        </div>
+
 
                         <div className="space-y-2">
                             <label className="text-xs font-semibold uppercase text-foreground/40">Prompt Template</label>
@@ -325,13 +525,43 @@ export const ContextGroupManager = ({
                                                 {JSON.parse(group.expectations).length} Expectations
                                             </span>
                                         )}
+                                        {group.systemPromptVariations && (() => {
+                                            try {
+                                                const variations = JSON.parse(group.systemPromptVariations);
+                                                return Array.isArray(variations) && variations.length > 0 && (
+                                                    <span className="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-md uppercase">
+                                                        {variations.length} Manuals
+                                                    </span>
+                                                );
+                                            } catch { return null; }
+                                        })()}
+                                        {(() => {
+                                            try {
+                                                const pIds = group.systemPromptIds ? JSON.parse(group.systemPromptIds) : [];
+                                                const sIds = group.systemPromptSetIds ? JSON.parse(group.systemPromptSetIds) : [];
+                                                const count = (Array.isArray(pIds) ? pIds.length : 0) + (Array.isArray(sIds) ? sIds.length : 0);
+                                                if (count > 0) {
+                                                    return (
+                                                        <span className="text-[10px] bg-purple-500/10 text-purple-600 font-bold px-2 py-0.5 rounded-md uppercase">
+                                                            {count} References
+                                                        </span>
+                                                    );
+                                                }
+                                            } catch { }
+                                            return null;
+                                        })()}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {group.skillIds && JSON.parse(group.skillIds).length > 0 && (
-                                            <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                                                {JSON.parse(group.skillIds).length} Skills
-                                            </span>
-                                        )}
+                                        {group.skillIds && (() => {
+                                            try {
+                                                const ids = JSON.parse(group.skillIds);
+                                                return Array.isArray(ids) && ids.length > 0 && (
+                                                    <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
+                                                        {ids.length} Skills
+                                                    </span>
+                                                );
+                                            } catch { return null; }
+                                        })()}
                                         <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
                                             {group.promptTemplate.length} chars
                                         </span>

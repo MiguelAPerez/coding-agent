@@ -209,6 +209,8 @@ export const contextGroups = sqliteTable("context_group", {
     promptTemplate: text("promptTemplate").notNull(),
     skillIds: text("skillIds"), // JSON string array
     toolIds: text("toolIds"),   // JSON string array
+    systemPromptIds: text("systemPromptIds"), // JSON string array
+    systemPromptSetIds: text("systemPromptSetIds"), // JSON string array
     systemPromptVariations: text("systemPromptVariations"), // JSON string array of { id, name, systemPrompt }
     updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })

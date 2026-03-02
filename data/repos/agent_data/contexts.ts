@@ -9,7 +9,7 @@ interface ContextGroup {
     weight: number;
     maxSentences?: number;
     systemContext?: string;
-    systemPromptVariationIds: number[];
+    systemPromptSetIds?: number;
 }
 
 export const contextGroups: ContextGroup[] = [
@@ -23,7 +23,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "token" },
             { type: "contains", value: "message" }
         ],
-        systemPromptVariationIds: [1, 2, 3],
         weight: 1
     },
     {
@@ -36,7 +35,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "JSON.stringify" },
             { type: "contains", value: "localStorage.getItem" }
         ],
-        systemPromptVariationIds: [3, 4, 49, 50, 51],
         weight: 1.5
     },
     {
@@ -47,20 +45,7 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "192.168.1.45" },
             { type: "contains", value: "Connection refused" }
         ],
-        systemPromptVariationIds: [5, 6, 52, 53],
         weight: 1.2
-    },
-    {
-        category: "Data Extraction",
-        name: "Invoice Data",
-        prompt: "Extract the Invoice Number, Date, and Total Amount from this text: 'Invoice #INV-2024-001 issued on 2024-10-15. The total due is $1,250.50. Please pay by the end of the month.'",
-        expectations: [
-            { type: "contains", value: "INV-2024-001" },
-            { type: "contains", value: "2024-10-15" },
-            { type: "contains", value: "1,250.50" }
-        ],
-        systemPromptVariationIds: [],
-        weight: 1.5
     },
     {
         category: "Data Extraction",
@@ -70,7 +55,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "support@example.com" },
             { type: "contains", value: "+1-555-0199" }
         ],
-        systemPromptVariationIds: [96, 97, 98],
         weight: 1.2
     },
     {
@@ -84,7 +68,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Sonoma" },
             { type: "contains", value: "24.04" }
         ],
-        systemPromptVariationIds: [7, 8, 54, 55],
         weight: 1
     },
     {
@@ -94,7 +77,6 @@ export const contextGroups: ContextGroup[] = [
         expectations: [
             { type: "exact", value: "Yes" }
         ],
-        systemPromptVariationIds: [9, 10, 56, 57],
         maxSentences: 1,
         weight: 1
     },
@@ -107,34 +89,7 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Maintenance" },
             { type: "contains", value: "Notification" }
         ],
-        systemPromptVariationIds: [11, 12, 58, 59, 60],
         weight: 0.8
-    },
-    {
-        category: "Creative Writing",
-        name: "New Project README",
-        prompt: "Write a brief README.md for a project called 'Skyline'. It's a weather tracking app. Include a description and a 'Getting Started' section with npm commands.",
-        expectations: [
-            { type: "contains", value: "Skyline" },
-            { type: "contains", value: "weather" },
-            { type: "contains", value: "Getting Started" },
-            { type: "contains", value: "npm install" },
-            { type: "contains", value: "npm start" }
-        ],
-        systemPromptVariationIds: [99, 100, 101],
-        weight: 1.5
-    },
-    {
-        category: "Creative Writing",
-        name: "Feature Announcement",
-        prompt: "Write a short social media post (max 280 characters) announcing a new 'Dark Mode' feature for an app called 'Brightly'.",
-        expectations: [
-            { type: "contains", value: "Dark Mode" },
-            { type: "contains", value: "Brightly" },
-            { type: "contains", value: "new feature" }
-        ],
-        systemPromptVariationIds: [102, 103, 104],
-        weight: 1
     },
     {
         category: "Code Debugging",
@@ -146,7 +101,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "shallow" },
             { type: "contains", value: "copy" }
         ],
-        systemPromptVariationIds: [105, 106, 107],
         weight: 1.5
     },
     {
@@ -159,7 +113,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "generator" },
             { type: "contains", value: "react" }
         ],
-        systemPromptVariationIds: [13, 14, 85, 86],
         maxSentences: 1,
         weight: 1
     },
@@ -172,7 +125,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "simultaneously" },
             { type: "contains", value: "qubit" }
         ],
-        systemPromptVariationIds: [108, 109, 110],
         maxSentences: 3,
         weight: 1.5
     },
@@ -187,7 +139,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Berners-Lee" },
             { type: "contains", value: "World Wide Web" }
         ],
-        systemPromptVariationIds: [111, 112, 113],
         weight: 1.5
     },
     {
@@ -200,7 +151,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "passwords" },
             { type: "contains", value: "security" }
         ],
-        systemPromptVariationIds: [114, 115, 116],
         weight: 1.2
     },
     {
@@ -213,7 +163,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "destructive" },
             { type: "contains", value: "history" }
         ],
-        systemPromptVariationIds: [117, 118, 119],
         weight: 1.3
     },
     {
@@ -253,7 +202,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Sarah Chen" },
             { type: "contains", value: "AES-256-GCM" }
         ],
-        systemPromptVariationIds: [120, 121, 122],
         weight: 2.0
     },
     {
@@ -276,7 +224,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "performance" },
             { type: "contains", value: "native" }
         ],
-        systemPromptVariationIds: [123, 124, 125],
         weight: 2.0
     },
     {
@@ -289,7 +236,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "flake.nix" },
             { type: "contains", value: "nixpkgs" }
         ],
-        systemPromptVariationIds: [15, 16, 87, 88],
         weight: 1.5
     },
     {
@@ -301,7 +247,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "FALCON-001" },
             { type: "contains", value: "15th" }
         ],
-        systemPromptVariationIds: [126, 127, 128],
         weight: 1.5
     },
     {
@@ -314,7 +259,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "var" },
             { type: "contains", value: "add" }
         ],
-        systemPromptVariationIds: [17, 18, 89, 90],
         weight: 1.5
     },
     {
@@ -327,7 +271,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "status" },
             { type: "contains", value: "ok" }
         ],
-        systemPromptVariationIds: [129, 130, 131],
         weight: 1.5
     },
     {
@@ -338,7 +281,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "default" },
             { type: "contains", value: "return state" }
         ],
-        systemPromptVariationIds: [132, 133, 134],
         weight: 1.2
     },
     {
@@ -349,7 +291,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "redis:" },
             { type: "contains", value: "image: redis:alpine" }
         ],
-        systemPromptVariationIds: [135, 136, 137],
         weight: 1.4
     },
     {
@@ -362,7 +303,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Mounted" },
             { type: "contains", value: "[]" }
         ],
-        systemPromptVariationIds: [138, 139, 140],
         weight: 1.5
     },
     {
@@ -372,7 +312,6 @@ export const contextGroups: ContextGroup[] = [
         expectations: [
             { type: "contains", value: "DATABASE_URL=" }
         ],
-        systemPromptVariationIds: [141, 142, 143],
         weight: 1.0
     },
     {
@@ -384,7 +323,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "return" },
             { type: "contains", value: "this.name" }
         ],
-        systemPromptVariationIds: [144, 145, 146],
         weight: 1.2
     },
     {
@@ -396,7 +334,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "z.string()" },
             { type: "contains", value: "email()" }
         ],
-        systemPromptVariationIds: [147, 148, 149],
         weight: 1.3
     },
     {
@@ -407,7 +344,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "@app.route" },
             { type: "contains", value: "/api" }
         ],
-        systemPromptVariationIds: [150, 151, 152],
         weight: 1.1
     },
     {
@@ -418,7 +354,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "test:watch" },
             { type: "contains", value: "jest --watch" }
         ],
-        systemPromptVariationIds: [153, 154, 155],
         weight: 1.2
     },
     {
@@ -430,7 +365,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "active" },
             { type: "contains", value: "true" }
         ],
-        systemPromptVariationIds: [156, 157, 158],
         weight: 1.0
     },
     {
@@ -441,7 +375,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "--primary-color" },
             { type: "contains", value: "#3B82F6" }
         ],
-        systemPromptVariationIds: [159, 160, 161],
         weight: 1.0
     },
     {
@@ -454,7 +387,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "console.log" },
             { type: "contains", value: "message" }
         ],
-        systemPromptVariationIds: [162, 163, 164],
         weight: 1.3
     },
     {
@@ -465,7 +397,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "age?:" },
             { type: "contains", value: "number" }
         ],
-        systemPromptVariationIds: [165, 166, 167],
         weight: 1.2
     },
     {
@@ -476,7 +407,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "ports:" },
             { type: "contains", value: "containerPort: 8080" }
         ],
-        systemPromptVariationIds: [168, 169, 170],
         weight: 1.4
     },
     {
@@ -489,7 +419,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "/ /g" },
             { type: "contains", value: "-" }
         ],
-        systemPromptVariationIds: [171, 172, 173],
         weight: 1.5
     },
     {
@@ -526,7 +455,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "performance" },
             { type: "contains", value: "Playwright" }
         ],
-        systemPromptVariationIds: [174, 175, 176],
         weight: 2.5
     },
     {
@@ -555,7 +483,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "X-API-Key" },
             { type: "contains", value: "JSON.stringify" }
         ],
-        systemPromptVariationIds: [177, 178, 179],
         weight: 2.2
     },
     {
@@ -579,7 +506,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "packages/ui" },
             { type: "contains", value: "Fastify" }
         ],
-        systemPromptVariationIds: [180, 181, 182],
         weight: 2.0
     },
     {
@@ -604,7 +530,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "nexus-logic" },
             { type: "contains", value: "Upgrade" }
         ],
-        systemPromptVariationIds: [183, 184, 185],
         weight: 2.5
     },
     {
@@ -617,19 +542,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "CRDT" },
             { type: "contains", value: "OT" }
         ],
-        systemPromptVariationIds: [19, 20, 61, 62],
-        weight: 2.0
-    },
-    {
-        category: "Architecture",
-        name: "Database Selection",
-        prompt: "Choose between PostgreSQL and MongoDB for a financial transaction system requiring high ACID compliance and complex joining. Justify your choice.",
-        expectations: [
-            { type: "contains", value: "PostgreSQL" },
-            { type: "contains", value: "ACID" },
-            { type: "contains", value: "Relational" }
-        ],
-        systemPromptVariationIds: [21, 22, 63, 64],
         weight: 1.8
     },
     {
@@ -642,7 +554,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "active" },
             { type: "contains", value: "isMounted" }
         ],
-        systemPromptVariationIds: [23, 24, 65, 66],
         weight: 2.2
     },
     {
@@ -654,7 +565,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "cache" },
             { type: "contains", value: "leak" }
         ],
-        systemPromptVariationIds: [25, 26, 67, 68],
         weight: 2.0
     },
     {
@@ -666,7 +576,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "parameterized" },
             { type: "contains", value: "prepared statements" }
         ],
-        systemPromptVariationIds: [27, 28, 69, 70],
         weight: 1.8
     },
     {
@@ -679,7 +588,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Cookie" },
             { type: "contains", value: "CSRF" }
         ],
-        systemPromptVariationIds: [29, 30, 71, 72],
         weight: 1.5
     },
     {
@@ -691,7 +599,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "DynamoDB" },
             { type: "contains", value: "lock" }
         ],
-        systemPromptVariationIds: [31, 32, 73, 74],
         weight: 1.7
     },
     {
@@ -705,7 +612,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "alpine" },
             { type: "contains", value: "scratch" }
         ],
-        systemPromptVariationIds: [33, 34, 75, 76],
         weight: 1.9
     },
     {
@@ -716,7 +622,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "validate" },
             { type: "contains", value: "function" }
         ],
-        systemPromptVariationIds: [35, 36, 77, 78],
         weight: 1.6
     },
     {
@@ -728,7 +633,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "generic" },
             { type: "contains", value: "parameter" }
         ],
-        systemPromptVariationIds: [37, 38, 79, 80],
         weight: 1.4
     },
     {
@@ -741,7 +645,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Metrics Server" },
             { type: "contains", value: "replica" }
         ],
-        systemPromptVariationIds: [39, 40, 81, 82],
         weight: 1.8
     },
     {
@@ -754,7 +657,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "username" },
             { type: "contains", value: "age" }
         ],
-        systemPromptVariationIds: [41, 42, 83, 84],
         weight: 1.5
     },
     {
@@ -767,7 +669,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "continuous deployment" },
             { type: "contains", value: "stable" }
         ],
-        systemPromptVariationIds: [43, 44, 186, 187],
         weight: 1.3
     },
     {
@@ -780,7 +681,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "Search" },
             { type: "contains", value: "2.0" }
         ],
-        systemPromptVariationIds: [45, 46, 91, 92],
         weight: 1.0
     },
     {
@@ -792,7 +692,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "/message" },
             { type: "contains", value: "token" }
         ],
-        systemPromptVariationIds: [],
         weight: 1
     },
     {
@@ -804,7 +703,6 @@ export const contextGroups: ContextGroup[] = [
             { type: "contains", value: "useEffect" },
             { type: "contains", value: "localStorage" }
         ],
-        systemPromptVariationIds: [],
         weight: 1.5
     },
     {
@@ -814,7 +712,6 @@ export const contextGroups: ContextGroup[] = [
         expectations: [
             { type: "exact", value: "Yes" }
         ],
-        systemPromptVariationIds: [],
         maxSentences: 1,
         weight: 1
     }
