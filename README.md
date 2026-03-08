@@ -11,6 +11,7 @@ around self-hosted tools and AI models.
 - [ ] Code Update
 - [ ] Code Generation
 - [ ] Prompt&Model Evaluation
+- [ ] Documentation Lookup
 
 ## Tools
 
