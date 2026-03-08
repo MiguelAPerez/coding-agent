@@ -76,6 +76,7 @@ export async function getRepoMarkdownFiles(repoId: string) {
     }
 
     const mdfiles: string[] = [];
+    const blocklist = [".agent", "AGENT.md"];
 
     async function walk(dir: string) {
         let files;
@@ -89,6 +90,11 @@ export async function getRepoMarkdownFiles(repoId: string) {
             const fullPath = path.join(dir, file.name);
             const relPath = path.relative(repoDir, fullPath);
             
+            // Apply blocklist checks
+            if (blocklist.some(blocked => relPath.startsWith(blocked) || file.name === blocked)) {
+                continue;
+            }
+
             // Skip .git and node_modules
             if (file.isDirectory()) {
                 if (file.name === ".git" || file.name === "node_modules") continue;

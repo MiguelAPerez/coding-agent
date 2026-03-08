@@ -145,25 +145,31 @@ export default function DocsSidebar({
         return acc;
     }, {} as Record<string, Repository[]>);
 
-    const handleRepoClick = async (repo: Repository) => {
+    const handleRepoClick = (repo: Repository) => {
         onSelectRepo(repo);
-        
-        // Only load if we haven't loaded files for this repo yet
-        if (!repoFiles[repo.id]) {
-            setLoadingRepo(repo.id);
-            try {
-                await cloneOrUpdateRepository(repo.id);
-                const files = await getRepoMarkdownFiles(repo.id);
-                setRepoFiles(prev => ({ ...prev, [repo.id]: files || [] }));
-            } catch (error) {
-                console.error("Failed to load repo files:", error);
-                // In a robust implementation, you might show a toast or error UI here
-                setRepoFiles(prev => ({ ...prev, [repo.id]: [] })); // Set empty to avoid infinite loading
-            } finally {
-                setLoadingRepo(null);
-            }
-        }
     };
+
+    React.useEffect(() => {
+        if (!selectedRepo) return;
+        const repoId = selectedRepo.id;
+        
+        if (!repoFiles[repoId] && loadingRepo !== repoId) {
+            setLoadingRepo(repoId);
+            cloneOrUpdateRepository(repoId)
+                .then(() => getRepoMarkdownFiles(repoId))
+                .then(files => {
+                    setRepoFiles(prev => ({ ...prev, [repoId]: files || [] }));
+                })
+                .catch(err => {
+                    console.error("Failed to load repo files:", err);
+                    setRepoFiles(prev => ({ ...prev, [repoId]: [] })); // Set empty to avoid infinite loading
+                })
+                .finally(() => {
+                    setLoadingRepo(null);
+                });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedRepo?.id]);
 
     return (
         <div className="flex flex-col h-full">

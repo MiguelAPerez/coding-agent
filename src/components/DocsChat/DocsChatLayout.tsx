@@ -14,6 +14,38 @@ export default function DocsChatLayout({ repositories }: DocsChatLayoutProps) {
     const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
+    React.useEffect(() => {
+        const hash = window.location.hash.replace(/^#/, "");
+        if (hash) {
+            const params = new URLSearchParams(hash);
+            const doc = params.get("doc");
+            const page = params.get("page");
+            if (doc) {
+                const repo = repositories.find(r => r.name === doc || r.id === doc);
+                if (repo && (!selectedRepo || selectedRepo.id !== repo.id)) {
+                    setSelectedRepo(repo);
+                }
+            }
+            if (page && selectedFilePath !== page) {
+                setSelectedFilePath(page);
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [repositories]); // Run once on mount to restore from URL
+
+    React.useEffect(() => {
+        if (!selectedRepo) return;
+        const params = new URLSearchParams();
+        params.set("doc", selectedRepo.name);
+        if (selectedFilePath) {
+            params.set("page", selectedFilePath);
+        }
+        const newHash = `#${params.toString()}`;
+        if (window.location.hash !== newHash) {
+            window.history.replaceState(null, "", newHash);
+        }
+    }, [selectedRepo, selectedFilePath]);
+
     const handleStartChat = () => {
         setIsChatting(true);
     };
