@@ -43,7 +43,7 @@ export async function cloneOrUpdateRepository(repoId: string) {
     await fs.mkdir(REPOS_BASE_DIR, { recursive: true });
 
     const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
-    
+
     try {
         await fs.access(repoDir);
         // Exists, pull
@@ -52,7 +52,7 @@ export async function cloneOrUpdateRepository(repoId: string) {
         // Doesn't exist, clone
         const repoParentDir = path.dirname(repoDir);
         await fs.mkdir(repoParentDir, { recursive: true });
-        
+
         await execAsync(`git clone "${cloneUrl}.git" "${repoDir}"`);
     }
 
@@ -68,7 +68,7 @@ export async function getRepoMarkdownFiles(repoId: string) {
     if (repo.userId !== session.user.id) throw new Error("Forbidden");
 
     const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
-    
+
     try {
         await fs.access(repoDir);
     } catch {
@@ -77,6 +77,7 @@ export async function getRepoMarkdownFiles(repoId: string) {
 
     const mdfiles: string[] = [];
     const blocklist = [".agent", "AGENT.md"];
+    const allowlist = [".md", ".mdx"];
 
     async function walk(dir: string) {
         let files;
@@ -89,7 +90,7 @@ export async function getRepoMarkdownFiles(repoId: string) {
         for (const file of files) {
             const fullPath = path.join(dir, file.name);
             const relPath = path.relative(repoDir, fullPath);
-            
+
             // Apply blocklist checks
             if (blocklist.some(blocked => relPath.startsWith(blocked) || file.name === blocked)) {
                 continue;
@@ -100,7 +101,7 @@ export async function getRepoMarkdownFiles(repoId: string) {
                 if (file.name === ".git" || file.name === "node_modules") continue;
                 await walk(fullPath);
             } else {
-                if (file.name.endsWith(".md") || file.name.endsWith(".mdx")) {
+                if (allowlist.some(allowed => file.name.endsWith(allowed))) {
                     mdfiles.push(relPath);
                 }
             }
