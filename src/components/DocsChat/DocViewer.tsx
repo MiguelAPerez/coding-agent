@@ -118,55 +118,38 @@ export default function DocViewer({ selectedRepo, selectedFilePath, isChatting, 
         }
     }), []);
     
-    if (!isChatting && !selectedFilePath) {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center p-8">
-                <div className="max-w-xl w-full text-center space-y-8">
-                    <div>
-                        <h1 className="text-4xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/60">
-                            Chat with your Docs
-                        </h1>
-                        <p className="text-lg text-foreground/50">
-                            Select a repository and document on the left, or ask a question below to get started.
-                        </p>
-                    </div>
-
-                    <form onSubmit={handleFormSubmit} className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-foreground/20 to-foreground/0 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-                        <div className="relative bg-background rounded-2xl shadow-xl border border-border/50 flex">
-                            <input
-                                type="text"
-                                value={initialMessage}
-                                onChange={(e) => setInitialMessage(e.target.value)}
-                                placeholder="E.g., How do I deploy this application?"
-                                className="flex-1 bg-transparent px-6 py-4 text-lg focus:outline-none rounded-l-2xl placeholder:text-foreground/30"
-                            />
-                            <button
-                                type="submit"
-                                className="px-6 py-4 font-medium hover:bg-foreground/5 rounded-r-2xl transition-colors shrink-0"
-                            >
-                                Ask Agent
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        );
-    }
-
     if (!selectedRepo) {
         return (
-            <div className="flex-1 flex items-center justify-center text-foreground/40">
-                Please select a document from the sidebar to view it here.
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="w-16 h-16 bg-foreground/5 rounded-2xl flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+                <div className="max-w-md">
+                    <h1 className="text-2xl font-bold tracking-tight mb-2">Welcome to DocsChat</h1>
+                    <p className="text-foreground/50">
+                        Select a repository and a document from the sidebar to start chat context and view content.
+                    </p>
+                </div>
             </div>
         );
     }
 
     if (!selectedFilePath) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center text-foreground/40">
-                <p>Repository: <strong>{selectedRepo.fullName}</strong> selected.</p>
-                <p className="mt-2 text-sm">Please select a specific markdown file from the sidebar.</p>
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="w-16 h-16 bg-foreground/5 rounded-2xl flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <div className="max-w-md">
+                    <h1 className="text-xl font-semibold">Repository: {selectedRepo.fullName}</h1>
+                    <p className="text-foreground/50 mt-2">
+                        Great! Now select a specific markdown file from the sidebar to begin.
+                    </p>
+                </div>
             </div>
         );
     }

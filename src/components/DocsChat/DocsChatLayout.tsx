@@ -10,7 +10,7 @@ interface DocsChatLayoutProps {
 }
 
 export default function DocsChatLayout({ repositories }: DocsChatLayoutProps) {
-    const [isChatting, setIsChatting] = useState(false);
+    const [isChatting, setIsChatting] = useState(true);
     const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
@@ -113,7 +113,18 @@ export default function DocsChatLayout({ repositories }: DocsChatLayoutProps) {
                         isChatting ? "translate-x-0" : "translate-x-full"
                     }`}
                 >
-                    {isChatting && <ChatPanel />}
+                    {isChatting && selectedRepo && (
+                        <ChatPanel 
+                            repo={selectedRepo} 
+                            filePath={selectedFilePath} 
+                            onSelectFile={handleSelectFile} 
+                        />
+                    )}
+                    {isChatting && !selectedRepo && (
+                        <div className="flex items-center justify-center h-full text-foreground/40 p-8 text-center">
+                            Please select a repository to enable chat context.
+                        </div>
+                    )}
                 </div>
 
             </div>
