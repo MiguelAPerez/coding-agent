@@ -21,6 +21,20 @@ export async function getCachedRepositories() {
     }));
 }
 
+export async function toggleRepositoryEnabled(repoId: string, enabled: boolean) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+        throw new Error("Unauthorized");
+    }
+
+    db.update(repositories)
+        .set({ enabled })
+        .where(and(eq(repositories.id, repoId), eq(repositories.userId, session.user.id)))
+        .run();
+
+    return { success: true };
+}
+
 export async function syncRepositories() {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

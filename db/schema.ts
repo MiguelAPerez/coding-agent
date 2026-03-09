@@ -141,6 +141,7 @@ export const repositories = sqliteTable("repository", {
     analyzedAt: integer("analyzedAt", { mode: "timestamp_ms" }),
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
     cachedAt: integer("cachedAt", { mode: "timestamp_ms" }).notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
 })
 
 export const agentConfigurations = sqliteTable("agent_configuration", {

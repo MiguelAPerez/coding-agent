@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import RepositoryCard from "./RepositoryCard";
+import { toggleRepositoryEnabled } from "@/app/actions/repositories";
 
 interface Repository {
     id: string;
@@ -15,20 +16,43 @@ interface Repository {
     topics: string | null;
     docsMetadata: Record<string, unknown>;
     agentMetadata: Record<string, unknown>;
+    enabled: boolean;
 }
 
 export default function RepositoryList({ initialRepos }: { initialRepos: Repository[] }) {
     const [search, setSearch] = useState("");
     const [sourceFilter, setSourceFilter] = useState<string>("all");
+    const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(() =>
+        Object.fromEntries(initialRepos.map((r) => [r.id, r.enabled]))
+    );
+    const [, startTransition] = useTransition();
 
-    const filteredRepos = initialRepos.filter(repo => {
-        const matchesSearch = repo.fullName.toLowerCase().includes(search.toLowerCase()) ||
+    const handleToggle = (id: string, newEnabled: boolean) => {
+        // Optimistic update
+        setEnabledMap((prev) => ({ ...prev, [id]: newEnabled }));
+        startTransition(async () => {
+            try {
+                await toggleRepositoryEnabled(id, newEnabled);
+            } catch {
+                // Revert on error
+                setEnabledMap((prev) => ({ ...prev, [id]: !newEnabled }));
+            }
+        });
+    };
+
+    const repos = initialRepos.map((r) => ({ ...r, enabled: enabledMap[r.id] ?? r.enabled }));
+
+    const filteredRepos = repos.filter((repo) => {
+        const matchesSearch =
+            repo.fullName.toLowerCase().includes(search.toLowerCase()) ||
             (repo.description?.toLowerCase() || "").includes(search.toLowerCase());
         const matchesSource = sourceFilter === "all" || repo.source === sourceFilter;
         return matchesSearch && matchesSource;
     });
 
-    const sources = Array.from(new Set(initialRepos.map(r => r.source)));
+    const sources = Array.from(new Set(initialRepos.map((r) => r.source)));
+
+    const enabledCount = Object.values(enabledMap).filter(Boolean).length;
 
     return (
         <div className="space-y-8">
@@ -49,26 +73,29 @@ export default function RepositoryList({ initialRepos }: { initialRepos: Reposit
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full md:w-auto">
                     <button
                         onClick={() => setSourceFilter("all")}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border ${sourceFilter === "all" ? 'bg-primary text-primary-foreground border-primary' : 'bg-foreground/5 text-foreground/60 border-border hover:border-primary/30'}`}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border ${sourceFilter === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-foreground/5 text-foreground/60 border-border hover:border-primary/30"}`}
                     >
                         All Sources
                     </button>
-                    {sources.map(source => (
+                    {sources.map((source) => (
                         <button
                             key={source}
                             onClick={() => setSourceFilter(source)}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border capitalize ${sourceFilter === source ? 'bg-primary text-primary-foreground border-primary' : 'bg-foreground/5 text-foreground/60 border-border hover:border-primary/30'}`}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border capitalize ${sourceFilter === source ? "bg-primary text-primary-foreground border-primary" : "bg-foreground/5 text-foreground/60 border-border hover:border-primary/30"}`}
                         >
                             {source}
                         </button>
                     ))}
+                    <span className="ml-2 text-xs text-foreground/40 whitespace-nowrap">
+                        {enabledCount} / {initialRepos.length} enabled
+                    </span>
                 </div>
             </div>
 
             {filteredRepos.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredRepos.map(repo => (
-                        <RepositoryCard key={repo.id} repo={repo} />
+                    {filteredRepos.map((repo) => (
+                        <RepositoryCard key={repo.id} repo={repo} onToggle={handleToggle} />
                     ))}
                 </div>
             ) : (

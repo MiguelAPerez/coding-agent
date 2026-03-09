@@ -16,10 +16,10 @@ export async function analyzeRepoDocs(filter?: (repo: unknown) => boolean) {
     try {
         let allRepos = db.select().from(repositories).all();
 
-        // Filter for repos with "docs" or "documentation" topics
+        // Filter for enabled repos with "docs" or "documentation" topics
         allRepos = allRepos.filter(repo => {
             const topics = repo.topics ? JSON.parse(repo.topics) : [];
-            return topics.some((t: string) => t === "docs" || t === "documentation");
+            return repo.enabled !== false && topics.some((t: string) => t === "docs" || t === "documentation");
         });
 
         if (filter) {

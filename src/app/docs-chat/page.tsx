@@ -12,10 +12,10 @@ export default async function DocsChatPage() {
         getAgentConfigs()
     ]);
 
-    // Filter by topics
+    // Filter by topics and enabled status
     const docsRepos = allRepos.filter(repo => {
         const topics = repo.topics ? JSON.parse(repo.topics) : [];
-        return topics.some((t: string) => t === "docs" || t === "documentation");
+        return repo.enabled !== false && topics.some((t: string) => t === "docs" || t === "documentation");
     });
 
     return (

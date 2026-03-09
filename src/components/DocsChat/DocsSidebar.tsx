@@ -13,6 +13,7 @@ export interface Repository {
     topics?: string | null;
     docsMetadata?: Record<string, unknown>;
     agentMetadata?: Record<string, unknown>;
+    enabled?: boolean;
 }
 
 interface TreeNode {
@@ -197,7 +198,7 @@ export default function DocsSidebar({
                         </h3>
                         <div className="space-y-1">
                             {repos.map((repo) => (
-                                <div key={repo.id}>
+                                <div key={repo.id} className={repo.enabled === false ? "opacity-40 pointer-events-none" : ""}>
                                     <button
                                         onClick={() => handleRepoClick(repo)}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
