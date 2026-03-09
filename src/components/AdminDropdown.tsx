@@ -32,13 +32,6 @@ export const AdminDropdown = () => {
             {isOpen && (
                 <div className="absolute left-0 mt-2 w-48 bg-background/95 backdrop-blur-xl border border-border shadow-lg rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-1.5 flex flex-col gap-0.5">
-                        <Link
-                            href="/repositories"
-                            onClick={() => setIsOpen(false)}
-                            className="px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all"
-                        >
-                            Repositories
-                        </Link>
 
                         <Link
                             href="/agent"
@@ -46,6 +39,14 @@ export const AdminDropdown = () => {
                             className="px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all"
                         >
                             Agents
+                        </Link>
+
+                        <Link
+                            href="/repositories"
+                            onClick={() => setIsOpen(false)}
+                            className="px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all"
+                        >
+                            Repositories
                         </Link>
 
                         <Link

@@ -5,13 +5,13 @@ around self-hosted tools and AI models.
 
 ## Features
 
-- [ ] Repository Management (create, read, update)
-- [ ] Code Review (based on skills and context)
-- [ ] Code Lookup
-- [ ] Code Update
-- [ ] Code Generation
-- [ ] Prompt&Model Evaluation
-- [ ] Documentation Lookup
+- [Repository Management](https://github.com/MiguelAPerez/coding-agent/issues/3) (create, read, update)
+- [Code Review](https://github.com/MiguelAPerez/coding-agent/issues/4) (based on skills and context)
+- [Code Lookup](https://github.com/MiguelAPerez/coding-agent/issues/5)
+- [Code Update](https://github.com/MiguelAPerez/coding-agent/issues/6)
+- [Code Generation](https://github.com/MiguelAPerez/coding-agent/issues/7)
+- [Prompt & Model Evaluation](https://github.com/MiguelAPerez/coding-agent/issues/8)
+- [Documentation Lookup](https://github.com/MiguelAPerez/coding-agent/issues/9)
 
 ## Tools
 
@@ -27,10 +27,11 @@ Start container:
 docker run -it --rm \
     -v $DATASTORE:/data \
     -v $DATABASE:/sqlite.db \
+    -p 3000:3000 \
     coding-agent
 ```
 
-Once started login and set your configurations: `http://localhost:8000`
+Once started login and set your configurations: `http://localhost:3000`
 By default the username/password is `admin/admin`
 
 ## Contribution
