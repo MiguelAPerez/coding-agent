@@ -9,7 +9,7 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       checks: write
 
@@ -33,9 +33,19 @@ jobs:
       
     - name: Jest coverage report
       if: github.event_name == 'pull_request'
-      uses: artiomtr/jest-coverage-report-action@v2
+      uses: MishaKav/jest-coverage-comment@main
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        test-script: npm test
-        annotations: failed-tests
-        package-manager: npm
+        coverage-summary-path: ./coverage/coverage-summary.json
+        title: Code Coverage Report
+        summary-title: Coverage Summary
+        badge-title: Coverage Badge
+
+    - name: Update README with coverage badges
+      if: github.ref == 'refs/heads/main-test'
+      uses: MishaKav/jest-coverage-comment@main
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        coverage-summary-path: ./coverage/coverage-summary.json
+        badge-actions-enabled: true
+        update-readme-with-badge: true
