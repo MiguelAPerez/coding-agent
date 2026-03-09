@@ -126,10 +126,13 @@ export async function getRepoMarkdownFiles(repoId: string) {
 export async function getRepoFileContent(repoId: string, filePath: string) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
+    return getRepoFileContentInternal(repoId, filePath, session.user.id);
+}
 
+export async function getRepoFileContentInternal(repoId: string, filePath: string, userId: string) {
     const repo = db.select().from(repositories).where(eq(repositories.id, repoId)).get();
     if (!repo) throw new Error("Repository not found");
-    if (repo.userId !== session.user.id) throw new Error("Forbidden");
+    if (repo.userId !== userId) throw new Error("Forbidden");
 
     // Basic security check to prevent directory traversal
     const normalizedPath = path.normalize(filePath);

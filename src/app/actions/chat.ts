@@ -5,14 +5,16 @@ import { agentConfigurations, skills, tools, repositories, systemPrompts } from 
 import { eq, and, isNull } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
-import { getRepoFileContent } from "./files";
+import { getRepoFileContent, getRepoFileContentInternal } from "./files";
 import { ollamaConfigurations } from "@/../db/schema";
 
 export async function chatWithDoc(repoId: string, filePath: string | null, prompt: string, agentId?: string) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
+    return chatWithDocInternal(repoId, filePath, prompt, session.user.id, agentId);
+}
 
-    const userId = session.user.id;
+export async function chatWithDocInternal(repoId: string, filePath: string | null, prompt: string, userId: string, agentId?: string) {
 
     // 1. Get Agent Config
     let agentConfig;
@@ -81,76 +83,112 @@ export async function chatWithDoc(repoId: string, filePath: string | null, promp
 
     fullSystemPrompt += `\n\nContext:\nRepository: ${repo.fullName}\n`;
 
-    // Inform the AI about the repository structure if it needs to find a file
-    if (!filePath && fileList.length > 0) {
+    // Inform the AI about the repository structure for discovery
+    if (fileList.length > 0) {
         fullSystemPrompt += "\nAvailable Documentation Files:\n";
         fullSystemPrompt += fileList.map((f: { path: string; title?: string; description?: string }) =>
             `- ${f.path}${f.title ? ` (${f.title})` : ""}${f.description ? `: ${f.description}` : ""}`
         ).join("\n");
-        fullSystemPrompt += "\n\nSince no specific file is currently open, use the list above to guide the user or suggest a relevant file to read.";
     }
 
     if (filePath) {
-        fullSystemPrompt += `Current File: ${filePath}\nContent:\n${fileContent}\n`;
+        fullSystemPrompt += `\nCurrently viewed file: ${filePath}\nContent:\n${fileContent}\n`;
     }
 
     fullSystemPrompt += `
 CRITICAL INSTRUCTIONS:
 1. Provide helpful answers based on the documentation provided.
-2. If you suggest navigating to another file within the same repository, you MUST respond with a JSON object.
-3. The JSON object should have two fields: "message" (your explanation) and "redirect" (the relative path to the suggested file).
-4. If NO redirect is needed, just respond with plain text.
-5. Example JSON response: {"message": "You can find more details in the installation guide.", "redirect": "docs/install.md"}
+2. If you identify a relevant file in the "Available Documentation Files" list that could help answer the user's question, you MUST navigate to it first using the "redirect" field.
+3. DO NOT attempt to answer detailed questions based ONLY on the file titles or descriptions in the list. The descriptions are just summaries; the full details are inside the files.
+4. "Read Before You Lead": If you haven't seen the full content of a relevant file yet, navigate to it, read it, and THEN provide your final answer in the subsequent turn.
+5. Your FINAL response after gathering enough information should be helpful plain text (Markdown is encouraged). 
+6. If you want to point the user to a specific file as your final recommendation, include the "redirect" field in your final JSON response.
+7. JSON format for both intermediate navigation and final recommendations: {"message": "Your thoughts or final answer", "redirect": "path/to/file.md"}
+8. ALWAYS respond with valid JSON if you use the "redirect" field.
 `;
 
-    // 6. Call Ollama
+    // 6. Call Ollama with Multi-Step Inference
     const ollamaConfig = db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, userId)).get();
     if (!ollamaConfig) throw new Error("Ollama not configured in settings.");
 
+    const currentMessages = [
+        { role: "system", content: fullSystemPrompt },
+        { role: "user", content: prompt }
+    ];
+    let finalRedirect = filePath;
+
     try {
-        const response = await fetch(`${ollamaConfig.url}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                model: agentConfig.model,
-                messages: [
-                    { role: "system", content: fullSystemPrompt },
-                    { role: "user", content: prompt }
-                ],
-                stream: false,
-                options: {
-                    temperature: agentConfig.temperature / 100
-                }
-            }),
-        });
+        for (let step = 0; step < 3; step++) {
+            console.log(`[Chat Inference] Step ${step + 1}/3...`);
+            const response = await fetch(`${ollamaConfig.url}/api/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: agentConfig.model,
+                    messages: currentMessages,
+                    stream: false,
+                    options: {
+                        temperature: agentConfig.temperature / 100
+                    }
+                }),
+            });
 
-        if (!response.ok) {
-            throw new Error(`Ollama API error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const content = data.message.content;
-
-        // Try to parse as JSON if it looks like JSON
-        if (content.trim().startsWith("{") && content.trim().endsWith("}")) {
-            try {
-                const parsed = JSON.parse(content);
-                if (parsed.message) {
-                    return {
-                        message: parsed.message,
-                        redirect: parsed.redirect || null
-                    };
-                }
-            } catch (e) {
-                // Not valid JSON, treat as plain text
-                console.warn("Failed to parse AI response as JSON:", e);
+            if (!response.ok) {
+                throw new Error(`Ollama API error: ${response.statusText}`);
             }
+
+            const data = await response.json();
+            const content = data.message.content;
+
+            // Robust JSON extraction (handles markdown blocks)
+            let parsed = null;
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                try {
+                    parsed = JSON.parse(jsonMatch[0]);
+                } catch (e) {
+                    console.warn("Found JSON-like content but failed to parse:", e);
+                }
+            }
+
+            if (parsed) {
+                if (parsed.redirect && step < 2) { 
+                    const newFilePath = parsed.redirect;
+                    // Avoid navigating to the same file we already have in context
+                    if (newFilePath !== filePath && newFilePath !== finalRedirect) {
+                        console.log(`[Chat Inference] Navigating to: ${newFilePath}`);
+                        try {
+                            const newContent = await getRepoFileContentInternal(repoId, newFilePath, userId);
+                            const cleanedContent = newContent.replace(/^---\s*[\s\S]*?---\s*/, '');
+                            
+                            currentMessages.push({ role: "assistant", content }); 
+                            currentMessages.push({ 
+                                role: "user", 
+                                content: `Observation: You are now seeing the FULL content of "${newFilePath}".\n\nContent:\n${cleanedContent}\n\nPlease provide your final answer based on this new information.` 
+                            });
+                            
+                            finalRedirect = newFilePath;
+                            continue; 
+                        } catch (e) {
+                            console.error(`Failed to navigate to ${newFilePath} internally:`, e);
+                        }
+                    }
+                }
+                
+                return {
+                    message: parsed.message || content,
+                    redirect: parsed.redirect || finalRedirect
+                };
+            }
+
+            // If it's plain text or we reached max steps
+            return {
+                message: content,
+                redirect: finalRedirect
+            };
         }
 
-        return {
-            message: content,
-            redirect: null
-        };
+        throw new Error("Maximum inference steps reached without response.");
 
     } catch (error) {
         console.error("Chat error:", error);
