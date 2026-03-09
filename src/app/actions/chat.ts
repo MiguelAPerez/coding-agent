@@ -67,6 +67,10 @@ export async function chatWithDoc(repoId: string, filePath: string | null, promp
     // 5. Construct System Prompt
     let fullSystemPrompt = personalityPrompt || "You are a helpful coding assistant.";
 
+    // Parse repository metadata for structure
+    const docsMetadata = repo.docsMetadata ? JSON.parse(repo.docsMetadata) : {};
+    const fileList = docsMetadata.fileList || [];
+
     if (enabledSkills.length > 0) {
         fullSystemPrompt += "\n\nAvailable Skills:\n" + enabledSkills.map(s => `- ${s.name}: ${s.description}\n${s.content}`).join("\n\n");
     }
@@ -76,6 +80,16 @@ export async function chatWithDoc(repoId: string, filePath: string | null, promp
     }
 
     fullSystemPrompt += `\n\nContext:\nRepository: ${repo.fullName}\n`;
+
+    // Inform the AI about the repository structure if it needs to find a file
+    if (!filePath && fileList.length > 0) {
+        fullSystemPrompt += "\nAvailable Documentation Files:\n";
+        fullSystemPrompt += fileList.map((f: { path: string; title?: string; description?: string }) =>
+            `- ${f.path}${f.title ? ` (${f.title})` : ""}${f.description ? `: ${f.description}` : ""}`
+        ).join("\n");
+        fullSystemPrompt += "\n\nSince no specific file is currently open, use the list above to guide the user or suggest a relevant file to read.";
+    }
+
     if (filePath) {
         fullSystemPrompt += `Current File: ${filePath}\nContent:\n${fileContent}\n`;
     }
@@ -94,17 +108,15 @@ CRITICAL INSTRUCTIONS:
     if (!ollamaConfig) throw new Error("Ollama not configured in settings.");
 
     try {
-        const sendingMessages = [
-            { role: "system", content: fullSystemPrompt },
-            { role: "user", content: prompt }
-        ];
-        console.log(sendingMessages);
         const response = await fetch(`${ollamaConfig.url}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 model: agentConfig.model,
-                messages: sendingMessages,
+                messages: [
+                    { role: "system", content: fullSystemPrompt },
+                    { role: "user", content: prompt }
+                ],
                 stream: false,
                 options: {
                     temperature: agentConfig.temperature / 100
@@ -119,7 +131,6 @@ CRITICAL INSTRUCTIONS:
         const data = await response.json();
         const content = data.message.content;
 
-        console.log(content);
         // Try to parse as JSON if it looks like JSON
         if (content.trim().startsWith("{") && content.trim().endsWith("}")) {
             try {
@@ -136,7 +147,6 @@ CRITICAL INSTRUCTIONS:
             }
         }
 
-        console.log(content);
         return {
             message: content,
             redirect: null

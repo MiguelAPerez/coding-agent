@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import yaml from "js-yaml";
 
 const execAsync = promisify(exec);
 const REPOS_BASE_DIR = path.join(process.cwd(), "data", "repos");
@@ -79,16 +80,48 @@ export async function analyzeRepoDocs(filter?: (repo: unknown) => boolean) {
                     continue;
                 }
 
-                // Metadata extraction: Count markdown files
-                let mdCount = 0;
-                async function countMd(dir: string) {
+                // Metadata extraction: Detailed file list with frontmatter
+                const fileList: Array<{ path: string; title?: string; description?: string; tags?: string[]; keywords?: string[] }> = [];
+                
+                interface FrontmatterDetails {
+                    title?: string;
+                    name?: string;
+                    description?: string;
+                    summary?: string;
+                    tags?: string | string[];
+                    keywords?: string | string[];
+                }
+
+                async function extractMetadata(dir: string) {
                     try {
                         const files = await fs.readdir(dir, { withFileTypes: true });
                         for (const file of files) {
+                            const fullPath = path.join(dir, file.name);
                             if (file.isDirectory() && file.name !== ".git" && file.name !== "node_modules") {
-                                await countMd(path.join(dir, file.name));
+                                await extractMetadata(fullPath);
                             } else if (file.name.endsWith(".md") || file.name.endsWith(".mdx")) {
-                                mdCount++;
+                                const relPath = path.relative(repoDir, fullPath);
+                                try {
+                                    const content = await fs.readFile(fullPath, "utf-8");
+                                    const frontmatterMatch = content.match(/^---\s*[\s\S]*?---\s*/);
+                                    let details: FrontmatterDetails = {};
+                                    
+                                    if (frontmatterMatch) {
+                                        const yamlStr = frontmatterMatch[0].replace(/---/g, "").trim();
+                                        details = (yaml.load(yamlStr) as FrontmatterDetails) || {};
+                                    }
+
+                                    fileList.push({
+                                        path: relPath,
+                                        title: details.title || details.name || path.basename(relPath, path.extname(relPath)),
+                                        description: details.description || details.summary,
+                                        tags: Array.isArray(details.tags) ? details.tags : details.tags ? [details.tags] : [],
+                                        keywords: Array.isArray(details.keywords) ? details.keywords : details.keywords ? [details.keywords] : []
+                                    });
+                                } catch (e) {
+                                    console.error(`Error parsing frontmatter for ${relPath}:`, e);
+                                    fileList.push({ path: relPath });
+                                }
                             }
                         }
                     } catch {
@@ -96,21 +129,23 @@ export async function analyzeRepoDocs(filter?: (repo: unknown) => boolean) {
                     }
                 }
 
-                await countMd(repoDir);
+                await extractMetadata(repoDir);
                 const metadata = {
-                    markdown_file_count: mdCount,
+                    markdown_file_count: fileList.length,
+                    fileList: fileList
                 };
-                console.log(`Extracted metadata for ${repo.fullName}: ${JSON.stringify(metadata)}`);
+                console.log(`Extracted metadata for ${repo.fullName}: ${fileList.length} files found.`);
 
                 // Update main repo record with hash, metadata and timestamps
-                await db.update(repositories)
+                db.update(repositories)
                     .set({
                         lastAnalyzedHash: currentHash,
                         docsMetadata: JSON.stringify(metadata),
                         analyzedAt: new Date(),
                         updatedAt: new Date(),
                     })
-                    .where(eq(repositories.id, repo.id));
+                    .where(eq(repositories.id, repo.id))
+                    .run();
 
                 console.log(`Successfully updated analysis for ${repo.fullName}.`);
             } catch (err) {
