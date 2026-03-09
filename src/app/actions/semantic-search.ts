@@ -165,32 +165,13 @@ export async function semanticSearch(options: SemanticSearchOptions) {
 
         const repo = repoMap.get(res.repositoryId);
         if (repo) {
-            // For semantic search, instead of highlighting the whole chunk,
-            // we'll try to find the most relevant line or just show it without a full highlight
-            // If the query has specific words, try to highlight the first occurrence
-            const queryWords = query.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-            let matchStart = 0;
-            let matchEnd = 0;
-
-            if (queryWords.length > 0) {
-                const contentLower = res.contentChunk.toLowerCase();
-                for (const word of queryWords) {
-                    const idx = contentLower.indexOf(word);
-                    if (idx !== -1) {
-                        matchStart = idx;
-                        matchEnd = idx + word.length;
-                        break;
-                    }
-                }
-            }
-
             repo.matches.push({
                 filePath: res.filePath,
                 lineNumber: res.lineNumber,
                 lineContent: res.contentChunk,
                 similarity: res.similarity,
-                matchStart,
-                matchEnd
+                matchStart: 0,
+                matchEnd: 0
             });
         }
     }

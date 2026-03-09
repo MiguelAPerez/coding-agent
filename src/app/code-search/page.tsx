@@ -49,10 +49,42 @@ function ErrorBanner({ message, onClose }: { message: string; onClose: () => voi
     );
 }
 
-function MatchLine({ line, matchStart, matchEnd }: { line: string; matchStart: number; matchEnd: number }) {
-    const before = line.slice(0, matchStart);
-    const match = line.slice(matchStart, matchEnd);
-    const after = line.slice(matchEnd);
+function MatchLine({ line, query, matchStart, matchEnd }: { line: string; query?: string; matchStart?: number; matchEnd?: number }) {
+    if (query && (!matchStart || !matchEnd || matchStart === matchEnd)) {
+        // Multi-word highlight (Semantic mode or fallback)
+        const words = query
+            .replace(/([a-z])([A-Z])/g, "$1 $2")
+            .split(/[^a-zA-Z0-9]/)
+            .filter(w => w.length >= 3);
+        
+        if (words.length === 0) return <span>{line}</span>;
+        
+        // Escape and create flexible regex (allows underscores/dashes between letters)
+        const flexible = words.map(w => 
+            w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+             .split("")
+             .join("[^a-zA-Z0-9]*")
+        );
+        const regex = new RegExp(`(${flexible.join("|")})`, "gi");
+        const parts = line.split(regex);
+        
+        return (
+            <span>
+                {parts.map((part, i) => 
+                    regex.test(part) 
+                        ? <mark key={i} className="bg-primary/25 text-primary rounded px-0.5 font-semibold not-italic">{part}</mark>
+                        : <span key={i} className="text-foreground/70">{part}</span>
+                )}
+            </span>
+        );
+    }
+
+    const start = matchStart ?? 0;
+    const end = matchEnd ?? 0;
+    const before = line.slice(0, start);
+    const match = line.slice(start, end);
+    const after = line.slice(end);
+    
     return (
         <span>
             <span className="text-foreground/60">{before}</span>
@@ -510,7 +542,7 @@ export default function CodeSearchPage() {
 
                     {/* Per-repo results */}
                     {results.filter((r) => r.matches.length > 0).map((result) => (
-                        <RepoResults key={result.repoId} result={result} />
+                        <RepoResults key={result.repoId} result={result} query={pattern} />
                     ))}
 
                     {totalMatches === 0 && (
@@ -532,7 +564,7 @@ export default function CodeSearchPage() {
     );
 }
 
-function RepoResults({ result }: { result: RepoSearchResult }) {
+function RepoResults({ result, query }: { result: RepoSearchResult; query: string }) {
     const [collapsed, setCollapsed] = useState(false);
 
     // Group matches by file
@@ -577,7 +609,7 @@ function RepoResults({ result }: { result: RepoSearchResult }) {
             {!collapsed && (
                 <div className="divide-y divide-border border-t border-border">
                     {Object.entries(byFile).map(([filePath, matches]) => (
-                        <FileResults key={filePath} filePath={filePath} matches={matches} />
+                        <FileResults key={filePath} filePath={filePath} matches={matches} query={query} />
                     ))}
                 </div>
             )}
@@ -585,7 +617,7 @@ function RepoResults({ result }: { result: RepoSearchResult }) {
     );
 }
 
-function FileResults({ filePath, matches }: { filePath: string; matches: RepoSearchResult["matches"] }) {
+function FileResults({ filePath, matches, query }: { filePath: string; matches: RepoSearchResult["matches"]; query: string }) {
     const [collapsed, setCollapsed] = useState(false);
     const parts = filePath.split("/");
     const fileName = parts.pop() ?? filePath;
@@ -637,6 +669,7 @@ function FileResults({ filePath, matches }: { filePath: string; matches: RepoSea
                                 <pre className="px-4 pb-2 pt-1 whitespace-pre-wrap break-all text-foreground/70 leading-relaxed">
                                     <MatchLine
                                         line={match.lineContent}
+                                        query={query}
                                         matchStart={match.matchStart}
                                         matchEnd={match.matchEnd}
                                     />
