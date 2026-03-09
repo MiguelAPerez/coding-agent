@@ -57,7 +57,10 @@ export default function DocViewer({ selectedRepo, selectedFilePath, isChatting, 
             setIsLoadingFile(true);
             getRepoFileContent(selectedRepo.id, selectedFilePath)
                 .then(content => {
-                    setFileContent(content);
+                    // Logic to strip YAML frontmatter (--- ... ---)
+                    const frontmatterRegex = /^---\s*[\s\S]*?---\s*/;
+                    const strippedContent = content.replace(frontmatterRegex, '');
+                    setFileContent(strippedContent);
                 })
                 .catch(err => {
                     console.error("Error loading file content:", err);
