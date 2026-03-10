@@ -3,12 +3,8 @@
 A simple repository manager for your coding projects. Its used to make quick updates or submit simple reviews for your pull requests. Its focused
 around self-hosted tools and AI models.
 
-![Coverage Lines](https://img.shields.io/badge/Coverage-Lines-5.75%25-red)
-![Coverage Statements](https://img.shields.io/badge/Coverage-Statements-5.67%25-red)
-![Coverage Branches](https://img.shields.io/badge/Coverage-Branches-7.4%25-red)
-![Coverage Functions](https://img.shields.io/badge/Coverage-Functions-6.7%25-red)
-
 <!-- jest_coverage_badge_start -->
+![Coverage Total](https://img.shields.io/badge/Coverage-6.61%25-red)
 <!-- jest_coverage_badge_end -->
 
 ## Features
