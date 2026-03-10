@@ -21,6 +21,7 @@ export interface SemanticSearchOptions {
     limit?: number;
     includeExtensions?: string[];
     excludePatterns?: string[];
+    extraBlocklist?: string[];
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
@@ -110,7 +111,7 @@ export async function semanticSearch(options: SemanticSearchOptions) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
-    const { repoIds, query, limit = 20, includeExtensions, excludePatterns } = options;
+    const { repoIds, query, limit = 20, includeExtensions, excludePatterns, extraBlocklist } = options;
     if (!query.trim()) return [];
 
     const queryVector = await generateEmbedding(query);
@@ -122,13 +123,19 @@ export async function semanticSearch(options: SemanticSearchOptions) {
         .all();
 
     // Filter by extensions and patterns if provided
-    if (includeExtensions || excludePatterns) {
+    if (includeExtensions || excludePatterns || extraBlocklist) {
         embeddings = embeddings.filter(emb => {
             if (includeExtensions && !includeExtensions.some(ext => emb.filePath.endsWith(ext))) {
                 return false;
             }
             if (excludePatterns && excludePatterns.some(pattern => emb.filePath.includes(pattern))) {
                 return false;
+            }
+            if (extraBlocklist && extraBlocklist.length > 0) {
+                const segments = emb.filePath.split(path.sep);
+                if (segments.some(segment => extraBlocklist.includes(segment))) {
+                    return false;
+                }
             }
             return true;
         });

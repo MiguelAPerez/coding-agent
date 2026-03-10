@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { cloneOrUpdateRepository, getRepoMarkdownFiles } from "@/app/actions/files";
 import { semanticSearch } from "@/app/actions/semantic-search";
 import { RepoSearchResult } from "@/app/actions/search";
+import { BLOCKLIST } from "@/lib/constants";
 
 export interface Repository {
     id: string;
@@ -163,7 +164,7 @@ export default function DocsSidebar({
             query: debouncedQuery,
             limit: 10,
             includeExtensions: [".md", ".mdx"],
-            excludePatterns: [".agent", "AGENT.md"]
+            extraBlocklist: BLOCKLIST
         })
         .then(results => {
             setSemanticResults(results as RepoSearchResult[]);

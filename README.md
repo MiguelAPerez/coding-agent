@@ -9,7 +9,7 @@ around self-hosted tools and AI models.
 
 ## Features
 
-- [ ] [Repository Management](https://github.com/MiguelAPerez/coding-agent/issues/3) (create, read, update)
+- [x] [Repository Management](https://github.com/MiguelAPerez/coding-agent/issues/3) (create, read, update)
 - [x] [Code Lookup](https://github.com/MiguelAPerez/coding-agent/issues/5)
 - [ ] [Code Review](https://github.com/MiguelAPerez/coding-agent/issues/4) (based on skills and context)
 - [ ] [Code Update](https://github.com/MiguelAPerez/coding-agent/issues/6)

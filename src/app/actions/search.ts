@@ -7,7 +7,6 @@ import { repositories } from "@/../db/schema";
 import { inArray } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
-import { isPathBlocked } from "@/lib/constants";
 
 const REPOS_BASE_DIR = path.join(process.cwd(), "data", "repos");
 
@@ -34,6 +33,7 @@ export interface CodeSearchOptions {
     wholeWord?: boolean;
     includeExtensions?: string[]; // e.g., [".ts", ".tsx"]
     excludePatterns?: string[];   // e.g., ["node_modules", ".git"]
+    extraBlocklist?: string[];
     maxMatchesPerFile?: number;
     maxFiles?: number;
 }
@@ -49,6 +49,7 @@ export async function searchCode(options: CodeSearchOptions): Promise<RepoSearch
         wholeWord = false,
         includeExtensions = [],
         excludePatterns = ["node_modules", ".git", "dist", "build", ".next"],
+        extraBlocklist = [],
         maxMatchesPerFile = 50,
         maxFiles = 500,
     } = options;
@@ -108,9 +109,12 @@ export async function searchCode(options: CodeSearchOptions): Promise<RepoSearch
                 const fullPath = path.join(dir, entry.name);
                 const relPath = path.relative(repoDir, fullPath);
 
-                // Apply centralized blocklist
-                if (isPathBlocked(relPath)) {
-                    continue;
+                // Apply extra blocklist if provided
+                if (extraBlocklist.length > 0) {
+                    const segments = relPath.split(path.sep);
+                    if (segments.some(segment => extraBlocklist.includes(segment))) {
+                        continue;
+                    }
                 }
 
                 // Exclude patterns

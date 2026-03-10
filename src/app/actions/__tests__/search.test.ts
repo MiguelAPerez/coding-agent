@@ -81,4 +81,43 @@ describe('searchCode action', () => {
     expect(results[0].matches[0].lineContent).toContain('test code');
     expect(results[0].matches[0].lineNumber).toBe(1);
   });
+
+  it('filters results based on extraBlocklist', async () => {
+    // Mock DB response
+    (db.select as jest.Mock).mockReturnValue({
+      from: jest.fn(() => ({
+        where: jest.fn(() => ({
+          all: jest.fn(() => mockRepos),
+        })),
+      })),
+    });
+
+    // Mock FS
+    (fs.access as jest.Mock).mockResolvedValue(undefined);
+    (fs.readdir as jest.Mock).mockResolvedValue([
+      { name: '.agent', isDirectory: () => true },
+      { name: 'src', isDirectory: () => true },
+    ]);
+    
+    // For the walk recursion
+    // 1. Root readdir -> [.agent, src]
+    // 2. .agent readdir -> [config.json] (BLOCKED)
+    // 3. src readdir -> [app.ts]
+    (fs.readdir as jest.Mock)
+      .mockResolvedValueOnce([{ name: '.agent', isDirectory: () => true }, { name: 'src', isDirectory: () => true }]) // Root
+      .mockResolvedValueOnce([{ name: 'app.ts', isDirectory: () => false }]); // src dir (since .agent is skipped)
+
+    (fs.readFile as jest.Mock).mockResolvedValue('test content');
+
+    const results = await searchCode({
+      repoIds: ['1'],
+      pattern: 'test',
+      extraBlocklist: ['.agent'],
+    });
+
+    // Should only have results from src/app.ts, not .agent/config.json
+    const allFilePaths = results[0].matches.map(m => m.filePath);
+    expect(allFilePaths).toContain('src/app.ts');
+    expect(allFilePaths).not.toContain('.agent/config.json');
+  });
 });
