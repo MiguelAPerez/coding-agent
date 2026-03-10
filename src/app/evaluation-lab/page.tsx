@@ -2,18 +2,40 @@ import React from "react";
 import { getSkills } from "@/app/actions/skills";
 import { getSystemPrompts, getSystemPromptSets } from "@/app/actions/prompts";
 import { getContextGroups, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks } from "@/app/actions/benchmarks";
+import { getCachedRepositories } from "@/app/actions/repositories";
 import { EvaluationLabClient } from "@/components/EvaluationLab/EvaluationLabClient";
 import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
+import { loadRepoData } from "@/lib/mockDataLoader";
 
-export default async function EvaluationLabPage() {
-    const contextGroups = await getContextGroups();
+export default async function EvaluationLabPage({
+    searchParams
+}: {
+    searchParams: Promise<{ repo?: string }>
+}) {
+    const params = await searchParams;
+    const repoPath = params.repo;
+
+    let contextGroups = await getContextGroups();
+    let systemPrompts = await getSystemPrompts();
+    let systemPromptSets = await getSystemPromptSets();
+
+    if (repoPath) {
+        try {
+            const repoData = await loadRepoData(repoPath);
+            contextGroups = repoData.contextGroups as unknown as typeof contextGroups;
+            systemPrompts = repoData.systemPrompts as unknown as typeof systemPrompts;
+            systemPromptSets = repoData.systemPromptSets as unknown as typeof systemPromptSets;
+        } catch (error) {
+            console.error("Failed to load repo data:", error);
+        }
+    }
+
     const skills = await getSkills();
     const latestBenchmark = await getLatestBenchmark();
     const benchmarkRuns = await getBenchmarkRuns();
     const completedBenchmarks = await getCompletedBenchmarks();
     const activeBenchmarks = await getActiveBenchmarks();
-    const systemPrompts = await getSystemPrompts();
-    const systemPromptSets = await getSystemPromptSets();
+    const repositories = await getCachedRepositories();
 
     return (
         <div className="container mx-auto px-6 py-12 space-y-12 min-h-screen">
@@ -35,6 +57,7 @@ export default async function EvaluationLabPage() {
                 initialActiveBenchmarks={activeBenchmarks as Benchmark[]}
                 initialSystemPrompts={systemPrompts as SystemPrompt[]}
                 initialSystemPromptSets={systemPromptSets as SystemPromptSet[]}
+                repositories={repositories}
             />
         </div>
     );

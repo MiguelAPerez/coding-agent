@@ -1,9 +1,13 @@
 import { db } from "./index"
 import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
-import { contextGroups as mockContexts } from "../data/repos/agent_data/contexts"
-import { systemPrompts as mockPrompts, systemPromptSets as mockSets } from "../data/repos/agent_data/systemPrompts"
+import fs from "fs"
+import path from "path"
 import { systemPrompts, systemPromptSets, contextGroups, permissions, users, userPermissions } from "./schema"
+
+const repoDataPath = path.join(process.cwd(), "data", "repos", "mperez", "devtools")
+const mockContexts = JSON.parse(fs.readFileSync(path.join(repoDataPath, "contexts.json"), "utf8"))
+const { systemPrompts: mockPrompts, systemPromptSets: mockSets } = JSON.parse(fs.readFileSync(path.join(repoDataPath, "systemPrompts.json"), "utf8"))
 
 // The default permissions we want every environment to have
 const DEFAULT_PERMISSIONS = [
