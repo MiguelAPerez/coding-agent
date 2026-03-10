@@ -4,7 +4,7 @@ A simple repository manager for your coding projects. Its used to make quick upd
 around self-hosted tools and AI models.
 
 <!-- jest_coverage_badge_start -->
-![Coverage Total](https://img.shields.io/badge/Coverage-12.63%25-red)
+![Coverage Total](https://img.shields.io/badge/Coverage-13.59%25-red)
 <!-- jest_coverage_badge_end -->
 
 ## Features
