@@ -476,7 +476,7 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
                 prompt: prompt,
                 system: systemContext,
                 stream: false,
-                keep_alive: 0
+                keep_alive: "5m"
             };
 
             const startTime = Date.now();
@@ -487,7 +487,7 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
                 },
                 body: JSON.stringify(requestBody),
                 cache: "no-store",
-                signal: AbortSignal.timeout(300000),
+                signal: AbortSignal.timeout(300000), // 5 minutes
             });
 
             duration = Date.now() - startTime;
