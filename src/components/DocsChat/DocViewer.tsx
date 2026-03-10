@@ -46,7 +46,6 @@ interface DocViewerProps {
 }
 
 export default function DocViewer({ selectedRepo, selectedFilePath, isChatting, onStartChat }: DocViewerProps) {
-    const [initialMessage, setInitialMessage] = useState("");
     const [fileContent, setFileContent] = useState<string | null>(null);
     const [isLoadingFile, setIsLoadingFile] = useState(false);
 
@@ -72,14 +71,6 @@ export default function DocViewer({ selectedRepo, selectedFilePath, isChatting, 
         }
     }, [selectedRepo, selectedFilePath]);
 
-    const handleFormSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (initialMessage.trim()) {
-            onStartChat();
-            // In a real implementation we would also pass this message to the chat panel state
-            // For now, it just triggers the layout shift
-        }
-    };
 
     const markdownComponents = React.useMemo(() => ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

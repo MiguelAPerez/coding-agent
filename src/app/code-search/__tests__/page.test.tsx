@@ -94,9 +94,6 @@ describe('CodeSearchPage', () => {
     
     await waitFor(() => screen.getByText('repo1'));
     
-    // Deselect all (initial state is empty if not in URL, but let's be sure)
-    // Actually the code initializes with empty selectedRepoIds
-    
     const input = screen.getByPlaceholderText(/e.g. useEffect\\\(.*\\\[\\\]\\\)/i);
     fireEvent.change(input, { target: { value: 'test' } });
     

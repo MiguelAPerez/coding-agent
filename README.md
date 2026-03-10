@@ -3,11 +3,19 @@
 A simple repository manager for your coding projects. Its used to make quick updates or submit simple reviews for your pull requests. Its focused
 around self-hosted tools and AI models.
 
+![Coverage Lines](https://img.shields.io/badge/Coverage-Lines-brightgreen)
+![Coverage Statements](https://img.shields.io/badge/Coverage-Statements-brightgreen)
+![Coverage Branches](https://img.shields.io/badge/Coverage-Branches-brightgreen)
+![Coverage Functions](https://img.shields.io/badge/Coverage-Functions-brightgreen)
+
+<!-- jest_coverage_badge_start -->
+<!-- jest_coverage_badge_end -->
+
 ## Features
 
 - [Repository Management](https://github.com/MiguelAPerez/coding-agent/issues/3) (create, read, update)
-- [Code Review](https://github.com/MiguelAPerez/coding-agent/issues/4) (based on skills and context)
 - [Code Lookup](https://github.com/MiguelAPerez/coding-agent/issues/5)
+- [Code Review](https://github.com/MiguelAPerez/coding-agent/issues/4) (based on skills and context)
 - [Code Update](https://github.com/MiguelAPerez/coding-agent/issues/6)
 - [Code Generation](https://github.com/MiguelAPerez/coding-agent/issues/7)
 - [Prompt & Model Evaluation](https://github.com/MiguelAPerez/coding-agent/issues/8)
