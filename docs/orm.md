@@ -57,7 +57,7 @@ npm run db:seed
 
 If you encounter issues with the schema itself and want a total reset:
 
-1. **Delete the database file**: Remove `sqlite.db` from the root of the project.
+1. **Delete the database file**: Remove `data/sqlite.db` from the root of the project.
 2. **Push the schema**: Recreate the database structure.
 
    ```bash

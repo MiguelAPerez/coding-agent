@@ -29,8 +29,7 @@ Start container:
 
 ```bash
 docker run -it --rm \
-    -v $DATASTORE:/data \
-    -v $DATABASE:/sqlite.db \
+    -v $DATASTORE:/app/data \
     -p 3000:3000 \
     coding-agent
 ```

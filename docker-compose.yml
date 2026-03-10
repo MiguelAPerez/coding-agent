@@ -8,7 +8,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./sqlite.db:/app/sqlite.db
       - ./data:/app/data
     environment:
       - NODE_ENV=production

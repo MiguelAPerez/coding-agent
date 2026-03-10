@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const dbPath = path.join(process.cwd(), 'sqlite.db');
+const dbPath = path.join(process.cwd(), 'data', 'sqlite.db');
 
 /**
  * Cache the database connection in a global variable to maintain a singleton

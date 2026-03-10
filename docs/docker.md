@@ -30,8 +30,8 @@ The Docker setup uses a multi-stage `Dockerfile` to produce a small, secure prod
 The `docker-compose.yml` file is configured to persist your data:
 
 - **`.env`**: Mounted into the container so you can manage environment variables on your host.
-- **`sqlite.db`**: The main database file is mounted directly, allowing data to persist across container restarts.
-- **`/data`**: The directory used for repository analysis and other assets is also mounted.
+- **`data/sqlite.db`**: The main database file is stored within the `data` volume to allow data to persist across container restarts.
+- **`/data`**: The directory used for the database, repository analysis, and other assets is mounted.
 
 ## Environment Variables
 
@@ -39,5 +39,5 @@ Ensure your `.env` file contains the necessary secrets and configuration before 
 
 ## Troubleshooting
 
-- **Database Locks**: If you encounter SQLite database locks, ensure only one instance of the application (either inside or outside Docker) is accessing the `sqlite.db` file at a time.
+- **Database Locks**: If you encounter SQLite database locks, ensure only one instance of the application (either inside or outside Docker) is accessing the `data/sqlite.db` file at a time.
 - **Build Errors**: If the build fails during dependency installation, ensure you have sufficient disk space and a stable internet connection for downloading Alpine packages and npm dependencies.
