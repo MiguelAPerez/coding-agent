@@ -2,8 +2,8 @@ export const CRON_DEFINITIONS = [
     {
         id: "repository_sync",
         name: "Repository Sync",
-        schedule: "*/15 * * * *", // Every 15 minutes
-        displaySchedule: "Every 15 minutes",
+        schedule: "*/5 * * * *", // Every 15 minutes
+        displaySchedule: "Every 5 minutes",
         description: "Clones and pulls updates for enabled repositories."
     },
     {
