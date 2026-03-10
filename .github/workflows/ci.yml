@@ -37,14 +37,10 @@ jobs:
       
     - name: Jest coverage report
       if: github.event_name == 'pull_request'
-      uses: MishaKav/jest-coverage-comment@main
+      uses: ArtiomTr/jest-coverage-report-action@v2
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        coverage-summary-path: ./coverage/coverage-summary.json
-        title: Code Coverage Report
-        summary-title: Coverage Summary
-        badge-title: Coverage Badge
-
+        test-script: npm run test:coverage
     - name: Update README with coverage badges
       if: github.ref == 'refs/heads/main'
       run: |
