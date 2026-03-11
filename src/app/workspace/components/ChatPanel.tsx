@@ -26,7 +26,7 @@ export default function ChatPanel({ changedFiles }: ChatPanelProps) {
             {/* Changed Files Footer Area */}
             {changedFiles.length > 0 && (
                 <div className="border-t border-border p-3 bg-foreground/[0.02]">
-                    <h4 className="text-xs font-semibold text-foreground/50 uppercase tracking-wider mb-2">Local Changes</h4>
+                    <h4 className="text-xs font-semibold text-foreground/50 uppercase tracking-wider mb-2">In Context</h4>
                     <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto">
                         {changedFiles.map(file => (
                             <div 

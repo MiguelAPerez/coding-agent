@@ -191,7 +191,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 
                 <PanelGroup orientation="horizontal">
                     <Panel defaultSize={20} minSize={10} className="border-r border-border bg-foreground/[0.02]">
-                        <FileTree tree={fileTree} onSelectFile={handleFileSelect} />
+                        <FileTree tree={fileTree} onSelectFile={handleFileSelect} changedFiles={changedFiles} />
                     </Panel>
                     
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />

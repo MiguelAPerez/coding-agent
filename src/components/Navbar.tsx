@@ -27,6 +27,9 @@ export const Navbar = async () => {
                             <Link href="/dashboard" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
                                 Dashboard
                             </Link>
+                            <Link href="/workspace" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
+                                Workspaces
+                            </Link>
                             <Link href="/docs-chat" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
                                 Knowledge Base
                             </Link>
