@@ -6,7 +6,6 @@ import WorkspaceTopBar from "./components/WorkspaceTopBar";
 import FileTree from "./components/FileTree";
 import EditorArea from "./components/EditorArea";
 import ChatPanel from "./components/ChatPanel";
-import SuggestionReview, { PendingSuggestion } from "./components/SuggestionReview";
 
 import {
     initWorkspace,
@@ -19,6 +18,21 @@ import {
     getGitFileContent,
     revertWorkspaceFile
 } from "@/app/actions/workspace";
+
+export interface FileChange {
+    startLine: number;
+    endLine: number;
+    column: number;
+    originalContent: string;
+    suggestedContent: string;
+}
+
+export interface PendingSuggestion {
+    chatId: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: any[];
+    filesChanged: Record<string, FileChange>;
+}
 
 interface Repo {
     id: string;
@@ -55,6 +69,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     // Files used as reference by our agent
     const [contextFiles, setContextFiles] = useState<string[]>([]);
     const [pendingSuggestion, setPendingSuggestion] = useState<PendingSuggestion | null>(null);
+    const [chatTab, setChatTab] = useState<"context" | "suggestions" | null>(null);
 
     const [isLoadingInit, setIsLoadingInit] = useState(false);
 
@@ -179,6 +194,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
 
         setPendingSuggestion(changeRequest);
+        setChatTab("suggestions");
 
         // Update all affected tab contents that are already open
         Object.entries(changeRequest.filesChanged).forEach(([path, change]) => {
@@ -194,7 +210,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
     const handleApproveSuggestion = async () => {
         if (pendingSuggestion) {
-            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged)) {
+            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
                 const isOpen = openTabs.some(t => t.path === path);
                 if (isOpen) {
                     await handleSaveFile(path);
@@ -211,17 +227,19 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             await loadChangedFiles(selectedRepoId);
         }
         setPendingSuggestion(null);
+        setChatTab(null);
     };
 
     const handleRejectSuggestion = () => {
         if (pendingSuggestion) {
-            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged)) {
+            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
                 const isOpen = openTabs.some(t => t.path === path);
                 if (isOpen) {
                     handleContentChange(path, change.originalContent);
                 }
             }
             setPendingSuggestion(null);
+            setChatTab(null);
         }
     };
 
@@ -291,6 +309,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
     };
 
+    const handleRemoveContext = (path: string) => {
+        setContextFiles(prev => prev.filter(p => p !== path));
+    };
+
     return (
         <div className="flex flex-col flex-1 h-full bg-background border-t border-border">
             <WorkspaceTopBar
@@ -308,12 +330,6 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
                 )}
-
-                <SuggestionReview
-                    suggestion={pendingSuggestion}
-                    onApprove={handleApproveSuggestion}
-                    onReject={handleRejectSuggestion}
-                />
 
                 <PanelGroup orientation="horizontal">
                     <Panel defaultSize={20} minSize={10} className="border-r border-border bg-foreground/[0.02]">
@@ -337,11 +353,17 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />
 
                     <Panel defaultSize={25} minSize={15} className="border-l border-border bg-foreground/[0.02]">
-                        <ChatPanel
-                            contextFiles={contextFiles}
-                            onRemoveContext={(path: string) => setContextFiles(prev => prev.filter(p => p !== path))}
-                            onSendMessage={handleSendMessage}
-                        />
+                            <ChatPanel 
+                                contextFiles={contextFiles} 
+                                onRemoveContext={handleRemoveContext}
+                                onSendMessage={handleSendMessage}
+                                pendingSuggestion={pendingSuggestion}
+                                onApproveSuggestion={handleApproveSuggestion}
+                                onRejectSuggestion={handleRejectSuggestion}
+                                onJumpToFile={handleFileSelect}
+                                activeTab={chatTab}
+                                onTabChange={setChatTab}
+                            />
                     </Panel>
                 </PanelGroup>
             </div>
