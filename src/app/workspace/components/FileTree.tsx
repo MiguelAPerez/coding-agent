@@ -7,9 +7,10 @@ interface FileTreeProps {
     tree: FileNode[];
     changedFiles?: { path: string, status: string }[];
     onSelectFile: (path: string) => void;
+    onRevertFile: (path: string) => void;
 }
 
-export default function FileTree({ tree, changedFiles = [], onSelectFile }: FileTreeProps) {
+export default function FileTree({ tree, changedFiles = [], onSelectFile, onRevertFile }: FileTreeProps) {
     if (!tree || tree.length === 0) {
         return <div className="p-4 text-sm text-foreground/50 italic">No files found.</div>;
     }
@@ -23,7 +24,7 @@ export default function FileTree({ tree, changedFiles = [], onSelectFile }: File
                         {changedFiles.map(file => (
                             <div
                                 key={file.path}
-                                className="flex items-center gap-1.5 px-2 py-1 hover:bg-foreground/5 cursor-pointer rounded text-sm text-foreground/80"
+                                className="group flex items-center gap-1.5 px-2 py-1 hover:bg-foreground/5 cursor-pointer rounded text-sm text-foreground/80"
                                 onClick={() => onSelectFile(file.path)}
                                 title={file.path}
                             >
@@ -32,7 +33,17 @@ export default function FileTree({ tree, changedFiles = [], onSelectFile }: File
                                 `}>
                                     {file.status.trim().charAt(0)}
                                 </span>
-                                <span className="truncate">{file.path.split("/").pop()}</span>
+                                <span className="truncate flex-1">{file.path.split("/").pop()}</span>
+                                <button 
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-foreground/10 rounded text-foreground/50 hover:text-red-400 transition-all flex-shrink-0"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRevertFile(file.path);
+                                    }}
+                                    title="Revert Change"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                </button>
                             </div>
                         ))}
                     </div>

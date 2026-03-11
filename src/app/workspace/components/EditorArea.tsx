@@ -5,6 +5,7 @@ import Editor, { Monaco } from "@monaco-editor/react";
 import { diffLines } from "diff";
 import { Tab } from "../WorkspaceClient";
 import RevertPrompt, { DiffBlock } from "./RevertPrompt";
+import { PendingSuggestion } from "../WorkspaceClient";
 
 interface EditorAreaProps {
     tabs: Tab[];
@@ -13,6 +14,7 @@ interface EditorAreaProps {
     onTabClose: (path: string) => void;
     onContentChange: (path: string, content: string) => void;
     onSaveFile: (path: string) => void;
+    pendingSuggestion?: PendingSuggestion | null;
 }
 
 export default function EditorArea({
@@ -21,7 +23,8 @@ export default function EditorArea({
     onTabSelect,
     onTabClose,
     onContentChange,
-    onSaveFile
+    onSaveFile,
+    pendingSuggestion
 }: EditorAreaProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
@@ -118,10 +121,35 @@ export default function EditorArea({
             }
         }
 
+        if (pendingSuggestion && pendingSuggestion.filesChanged[activeTab.path]) {
+            const fileChange = pendingSuggestion.filesChanged[activeTab.path];
+            const diffs = diffLines(fileChange.originalContent, fileChange.suggestedContent);
+            let currentLine = 1;
+            for (let i = 0; i < diffs.length; i++) {
+                const part = diffs[i];
+                if (part.added) {
+                    const start = currentLine;
+                    const end = currentLine + part.count! - 1;
+                    
+                    decorations.push({
+                        range: new monaco.Range(start, 1, end, 1),
+                        options: {
+                            isWholeLine: true,
+                            className: "pending-suggestion-line",
+                            marginClassName: "pending-suggestion-margin"
+                        }
+                    });
+                    currentLine += part.count!;
+                } else if (!part.removed) {
+                    currentLine += part.count!;
+                }
+            }
+        }
+
         diffBlocksRef.current = newBlocks;
         decorationsRef.current = editor.deltaDecorations(decorationsRef.current, decorations);
 
-    }, [activeTab, activeTab?.content, activeTab?.gitHeadContent, activeTab?.path, editorMountCount]);
+    }, [activeTab, activeTab?.content, activeTab?.gitHeadContent, activeTab?.path, editorMountCount, pendingSuggestion]);
 
     if (tabs.length === 0) {
         return (
@@ -244,6 +272,13 @@ export default function EditorArea({
                     margin-left: 5px;
                 }
                 .git-diff-modified-margin {
+                    border-left: 3px solid #3b82f6;
+                    margin-left: 5px;
+                }
+                .pending-suggestion-line {
+                    background-color: rgba(59, 130, 246, 0.15);
+                }
+                .pending-suggestion-margin {
                     border-left: 3px solid #3b82f6;
                     margin-left: 5px;
                 }

@@ -4,7 +4,10 @@ import {
     checkoutBranch,
     getWorkspaceFileContent,
     saveWorkspaceFile,
-    getWorkspaceChangedFiles
+    getWorkspaceChangedFiles,
+    getRepoFileTree,
+    getGitFileContent,
+    revertWorkspaceFile
 } from "../workspace";
 
 
@@ -56,16 +59,18 @@ jest.mock("fs/promises", () => {
     const readFile = jest.fn();
     const writeFile = jest.fn();
     const mkdir = jest.fn();
+    const unlink = jest.fn();
     return {
         access,
         readdir,
         readFile,
         writeFile,
         mkdir,
-        _mocks: { mockAccess: access, mockReaddir: readdir, mockReadFile: readFile, mockWriteFile: writeFile, mockMkdir: mkdir }
+        unlink,
+        _mocks: { mockAccess: access, mockReaddir: readdir, mockReadFile: readFile, mockWriteFile: writeFile, mockMkdir: mkdir, mockUnlink: unlink }
     };
 });
-const { mockAccess, mockReadFile, mockWriteFile, mockMkdir } = (jest.requireMock("fs/promises") as { _mocks: Record<string, jest.Mock> })._mocks;
+const { mockAccess, mockReadFile, mockWriteFile, mockMkdir, mockReaddir, mockUnlink } = (jest.requireMock("fs/promises") as { _mocks: Record<string, jest.Mock> })._mocks;
 
 describe("Workspace Actions", () => {
     beforeEach(() => {
@@ -157,6 +162,85 @@ describe("Workspace Actions", () => {
                 { status: "M", path: "src/index.ts" },
                 { status: "??", path: "new-file.txt" }
             ]);
+        });
+    });
+
+    describe("getRepoFileTree", () => {
+        it("should return a recursive file tree", async () => {
+            mockReaddir
+                .mockResolvedValueOnce([
+                    { name: "src", isDirectory: () => true },
+                    { name: "package.json", isDirectory: () => false }
+                ])
+                .mockResolvedValueOnce([
+                    { name: "app.ts", isDirectory: () => false }
+                ]);
+
+            const tree = await getRepoFileTree("repo-1");
+            expect(tree).toEqual([
+                {
+                    name: "src",
+                    path: "src",
+                    type: "directory",
+                    children: [
+                        { name: "app.ts", path: "src/app.ts", type: "file" }
+                    ]
+                },
+                { name: "package.json", path: "package.json", type: "file" }
+            ]);
+        });
+
+        it("should skip blocked paths", async () => {
+            mockReaddir.mockResolvedValueOnce([
+                { name: ".git", isDirectory: () => true },
+                { name: "index.ts", isDirectory: () => false }
+            ]);
+
+            const tree = await getRepoFileTree("repo-1");
+            expect(tree).toEqual([
+                { name: "index.ts", path: "index.ts", type: "file" }
+            ]);
+            expect(mockReaddir).toHaveBeenCalledTimes(1); // Should not walk into .git
+        });
+    });
+
+    describe("getGitFileContent", () => {
+        it("should return file content from git HEAD", async () => {
+            mockExecAsync.mockResolvedValue({ stdout: "git content" });
+            const res = await getGitFileContent("repo-1", "src/index.ts");
+            expect(res).toBe("git content");
+            expect(mockExecAsync).toHaveBeenCalledWith(expect.stringContaining('show "HEAD:src/index.ts"'), expect.any(Object));
+        });
+
+        it("should return null if file is not in HEAD", async () => {
+            mockExecAsync.mockRejectedValue(new Error("Git error"));
+            const res = await getGitFileContent("repo-1", "new-file.ts");
+            expect(res).toBeNull();
+        });
+    });
+
+    describe("revertWorkspaceFile", () => {
+        it("should checkout file from HEAD if it exists in HEAD", async () => {
+            mockExecAsync
+                .mockResolvedValueOnce({}) // cat-file succeeds
+                .mockResolvedValueOnce({}); // checkout succeeds
+
+            const res = await revertWorkspaceFile("repo-1", "src/index.ts");
+            expect(res).toEqual({ success: true, action: "restored" });
+            expect(mockExecAsync).toHaveBeenCalledWith(expect.stringContaining('checkout HEAD -- "src/index.ts"'));
+        });
+
+        it("should delete file if it does not exist in HEAD (untracked)", async () => {
+            mockExecAsync.mockRejectedValueOnce(new Error("Not in HEAD"));
+            mockUnlink.mockResolvedValueOnce(undefined);
+
+            const res = await revertWorkspaceFile("repo-1", "new-file.ts");
+            expect(res).toEqual({ success: true, action: "deleted" });
+            expect(mockUnlink).toHaveBeenCalled();
+        });
+
+        it("should throw error if path is blocked", async () => {
+            await expect(revertWorkspaceFile("repo-1", ".git/config")).rejects.toThrow("Access denied");
         });
     });
 });

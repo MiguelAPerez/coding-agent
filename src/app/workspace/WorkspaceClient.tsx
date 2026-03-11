@@ -15,8 +15,24 @@ import {
     getWorkspaceFileContent,
     saveWorkspaceFile,
     getWorkspaceChangedFiles,
-    getGitFileContent
+    getGitFileContent,
+    revertWorkspaceFile
 } from "@/app/actions/workspace";
+
+export interface FileChange {
+    startLine: number;
+    endLine: number;
+    column: number;
+    originalContent: string;
+    suggestedContent: string;
+}
+
+export interface PendingSuggestion {
+    chatId: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: any[];
+    filesChanged: Record<string, FileChange>;
+}
 
 interface Repo {
     id: string;
@@ -52,6 +68,8 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const [changedFiles, setChangedFiles] = useState<{ path: string, status: string }[]>([]);
     // Files used as reference by our agent
     const [contextFiles, setContextFiles] = useState<string[]>([]);
+    const [pendingSuggestion, setPendingSuggestion] = useState<PendingSuggestion | null>(null);
+    const [chatTab, setChatTab] = useState<"context" | "suggestions" | null>(null);
 
     const [isLoadingInit, setIsLoadingInit] = useState(false);
 
@@ -144,6 +162,87 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
     };
 
+    const handleSendMessage = (message: string) => {
+        if (!activeTabPath || openTabs.length === 0) {
+            alert("Please open a file first to mock a suggestion.");
+            return;
+        }
+
+        const activeTab = openTabs.find(t => t.path === activeTabPath);
+        if (!activeTab) return;
+
+        // Mock Ai editing lines in multiple files
+        const changeRequest = {
+            chatId: 0,
+            messages: [],
+            filesChanged: {
+                [activeTabPath]: {
+                    'startLine': 0,
+                    'endLine': 0,
+                    'column': 0,
+                    'originalContent': activeTab.content,
+                    'suggestedContent': activeTab.content + `\n// 🤖 AI Suggestion applied here for: ${message}`
+                },
+                'Dockerfile': {
+                    'startLine': 0,
+                    'endLine': 0,
+                    'column': 0,
+                    'originalContent': '',
+                    'suggestedContent': 'FROM ubuntu:24.04'
+                }
+            }
+        }
+
+        setPendingSuggestion(changeRequest);
+        setChatTab("suggestions");
+
+        // Update all affected tab contents that are already open
+        Object.entries(changeRequest.filesChanged).forEach(([path, change]) => {
+            const isOpen = openTabs.some(t => t.path === path);
+            if (isOpen) {
+                handleContentChange(path, change.suggestedContent);
+            }
+            if (!contextFiles.includes(path)) {
+                setContextFiles(prev => [...prev, path]);
+            }
+        });
+    };
+
+    const handleApproveSuggestion = async () => {
+        if (pendingSuggestion) {
+            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
+                const isOpen = openTabs.some(t => t.path === path);
+                if (isOpen) {
+                    await handleSaveFile(path);
+                } else {
+                    // For files not currently open, we save directly to disk
+                    try {
+                        await saveWorkspaceFile(selectedRepoId, path, change.suggestedContent);
+                    } catch (e) {
+                        console.error("Failed to save background file", e);
+                    }
+                }
+            }
+            // Trigger a refresh of changed files
+            await loadChangedFiles(selectedRepoId);
+        }
+        setPendingSuggestion(null);
+        setChatTab(null);
+    };
+
+    const handleRejectSuggestion = () => {
+        if (pendingSuggestion) {
+            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
+                const isOpen = openTabs.some(t => t.path === path);
+                if (isOpen) {
+                    handleContentChange(path, change.originalContent);
+                }
+            }
+            setPendingSuggestion(null);
+            setChatTab(null);
+        }
+    };
+
     const handleTabClose = (path: string) => {
         setOpenTabs(prev => {
             const newTabs = prev.filter(t => t.path !== path);
@@ -182,6 +281,38 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
     };
 
+    const handleRevertFile = async (path: string) => {
+        if (!confirm(`Are you sure you want to revert changes to ${path}?`)) return;
+
+        try {
+            const res = await revertWorkspaceFile(selectedRepoId, path);
+            if (res.success) {
+                // If it was restored, we fetch the latest content to update tabs.
+                if (res.action === "restored") {
+                    const content = await getWorkspaceFileContent(selectedRepoId, path);
+                    const gitContent = await getGitFileContent(selectedRepoId, path);
+                    setOpenTabs(prev => prev.map(t => {
+                        if (t.path === path) {
+                            return { ...t, content, originalContent: content, gitHeadContent: gitContent, isDirty: false };
+                        }
+                        return t;
+                    }));
+                } else if (res.action === "deleted") {
+                    // It was an untracked file and got deleted; close it
+                    handleTabClose(path);
+                }
+                await loadChangedFiles(selectedRepoId);
+            }
+        } catch (e) {
+            console.error("Failed to revert file", e);
+            alert("Failed to revert file");
+        }
+    };
+
+    const handleRemoveContext = (path: string) => {
+        setContextFiles(prev => prev.filter(p => p !== path));
+    };
+
     return (
         <div className="flex flex-col flex-1 h-full bg-background border-t border-border">
             <WorkspaceTopBar
@@ -202,7 +333,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
                 <PanelGroup orientation="horizontal">
                     <Panel defaultSize={20} minSize={10} className="border-r border-border bg-foreground/[0.02]">
-                        <FileTree tree={fileTree} onSelectFile={handleFileSelect} changedFiles={changedFiles} />
+                        <FileTree tree={fileTree} onSelectFile={handleFileSelect} changedFiles={changedFiles} onRevertFile={handleRevertFile} />
                     </Panel>
 
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />
@@ -215,16 +346,24 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                             onTabClose={handleTabClose}
                             onContentChange={handleContentChange}
                             onSaveFile={handleSaveFile}
+                            pendingSuggestion={pendingSuggestion}
                         />
                     </Panel>
 
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />
 
                     <Panel defaultSize={25} minSize={15} className="border-l border-border bg-foreground/[0.02]">
-                        <ChatPanel
-                            contextFiles={contextFiles}
-                            onRemoveContext={(path: string) => setContextFiles(prev => prev.filter(p => p !== path))}
-                        />
+                            <ChatPanel 
+                                contextFiles={contextFiles} 
+                                onRemoveContext={handleRemoveContext}
+                                onSendMessage={handleSendMessage}
+                                pendingSuggestion={pendingSuggestion}
+                                onApproveSuggestion={handleApproveSuggestion}
+                                onRejectSuggestion={handleRejectSuggestion}
+                                onJumpToFile={handleFileSelect}
+                                activeTab={chatTab}
+                                onTabChange={setChatTab}
+                            />
                     </Panel>
                 </PanelGroup>
             </div>

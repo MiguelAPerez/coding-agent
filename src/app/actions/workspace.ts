@@ -300,3 +300,42 @@ export async function getGitFileContent(repoId: string, filePath: string) {
         return null;
     }
 }
+
+// Reverts a specific file in the workspace to its HEAD state, or removes it if untracked.
+export async function revertWorkspaceFile(repoId: string, filePath: string) {
+    const user = await getUserSession();
+    if (isPathBlocked(filePath)) throw new Error("Access denied: file is in blocklist.");
+
+    const repo = db.select().from(repositories).where(eq(repositories.id, repoId)).get();
+    if (!repo) throw new Error("Repository not found");
+
+    const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
+    const normalizedPath = path.normalize(filePath);
+    if (normalizedPath.startsWith("..") || path.isAbsolute(normalizedPath)) {
+        throw new Error("Invalid file path");
+    }
+
+    const fullPath = path.join(workspaceRepoDir, normalizedPath);
+    const gitPath = filePath.split(path.sep).join('/');
+
+    try {
+        // Find if file exists in HEAD
+        await execAsync(`git -C "${workspaceRepoDir}" cat-file -e HEAD:"${gitPath}"`);
+        
+        // Exists in HEAD: restore it
+        await execAsync(`git -C "${workspaceRepoDir}" checkout HEAD -- "${gitPath}"`);
+        return { success: true, action: "restored" };
+    } catch {
+        // Doesn't exist in HEAD (untracked): delete the file securely
+        try {
+            await fs.unlink(fullPath);
+            return { success: true, action: "deleted" };
+        } catch (e: unknown) {
+            // Already gone or error
+            if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+                return { success: true, action: "deleted" };
+            }
+            throw new Error("Failed to delete untracked file");
+        }
+    }
+}
