@@ -22,6 +22,7 @@ This project is a premium Next.js application bootstrapped with the `nextjs_app_
   - [context-groups](context-groups.md): Explains the benchmarking evaluation system and test case structures.
   - [docs-chat](docs-chat.md): Explains the DocsChat architecture and document parsing layout.
   - [background-jobs](background-jobs.md): Instructions on how to add and manage scheduled cron tasks.
+  - [workspaces](workspaces.md): A place to pair program and make quick modifications
 
 ## Running Locally
 
