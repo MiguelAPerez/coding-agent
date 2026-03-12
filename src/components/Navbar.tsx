@@ -5,6 +5,7 @@ import { AdminDropdown } from "./AdminDropdown";
 import { config } from '@/config';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
+import { NavLinks } from "./NavLinks";
 
 export const Navbar = async () => {
     const session = await getServerSession(authOptions);
@@ -23,23 +24,11 @@ export const Navbar = async () => {
                     </Link>
 
                     {session?.user && (
-                        <div className="hidden md:flex items-center gap-6">
-                            <Link href="/dashboard" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
-                                Dashboard
-                            </Link>
-                            <Link href="/workspace" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
-                                Workspaces
-                            </Link>
-                            <Link href="/docs-chat" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
-                                Knowledge Base
-                            </Link>
-                            <Link href="/code-search" className="text-sm font-medium text-foreground/60 hover:text-foreground transition-colors">
-                                Code Search
-                            </Link>
+                        <>
+                            <NavLinks />
                             <AdminDropdown />
-                        </div>
+                        </>
                     )}
-
                 </div>
 
                 <div className="flex items-center gap-4">
