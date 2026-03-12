@@ -64,7 +64,7 @@ describe("BenchmarkProgress", () => {
         mockedGetBenchmarkProgress.mockReturnValue(new Promise(() => {}));
         
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} allBenchmarks={[]} />);
         });
         
         expect(screen.getByText("Loading benchmark progress...")).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("BenchmarkProgress", () => {
         mockedGetBenchmarkProgress.mockResolvedValue(null);
         
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} allBenchmarks={[]} />);
         });
         
         await waitFor(() => {
@@ -103,7 +103,7 @@ describe("BenchmarkProgress", () => {
         mockedGetBenchmarkProgress.mockResolvedValue(mockBenchmark);
 
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} allBenchmarks={[]} />);
         });
 
         await waitFor(() => {
@@ -157,7 +157,7 @@ describe("BenchmarkProgress", () => {
         mockedGetBenchmarkProgress.mockResolvedValue(mockBenchmark);
         
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} allBenchmarks={[]} />);
         });
 
         await waitFor(() => {
@@ -171,31 +171,4 @@ describe("BenchmarkProgress", () => {
         expect(mockedGetBenchmarkProgress).toHaveBeenCalledTimes(2);
     });
 
-    it("spawns fetch steps when running", async () => {
-        const mockBenchmark: MockBenchmark = {
-            id: "123",
-            userId: "u1",
-            runId: "r1",
-            name: "Test Benchmark",
-            status: "running",
-            parallelWorkers: 1,
-            totalEntries: 1,
-            completedEntries: 0,
-            entries: [],
-            startedAt: new Date(),
-            completedAt: null
-        };
-
-        mockedGetBenchmarkProgress.mockResolvedValue(mockBenchmark);
-        // We do not resolve fetch to avoid infinite microtask loop
-        // global.fetch is already mocked to return pending promise in beforeEach
-
-        await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
-        });
-
-        await waitFor(() => {
-            expect(global.fetch).toHaveBeenCalledWith("/api/benchmark/step", expect.any(Object));
-        });
-    });
 });

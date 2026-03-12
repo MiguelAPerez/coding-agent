@@ -10,7 +10,8 @@ import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { getCachedRepositories } from "./repositories";
 import { loadRepoData } from "@/lib/mockDataLoader";
-import { ContextGroup, SystemPrompt, SystemPromptSet } from "@/types/agent";
+import { ContextGroup, SystemPrompt, SystemPromptSet, BenchmarkEntry } from "@/types/agent";
+import { runBackgroundJob } from "@/lib/background-jobs";
 
 export async function getContextGroups() {
     const session = await getServerSession(authOptions);
@@ -315,6 +316,7 @@ export async function triggerBenchmark(runId: string) {
         .run();
 
     revalidatePath("/evaluation-lab");
+    startBackgroundBenchmark(benchmarkId);
     return benchmarkId;
 }
 
@@ -352,6 +354,7 @@ export async function runBenchmark(name: string, models: string[], contextGroupI
     }
 
     revalidatePath("/evaluation-lab");
+    startBackgroundBenchmark(benchmarkId);
     return benchmarkId;
 }
 
@@ -407,10 +410,7 @@ export async function cancelBenchmark(benchmarkId: string) {
     revalidatePath("/evaluation-lab");
 }
 
-export async function simulateBenchmarkStep(benchmarkId: string) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) throw new Error("Unauthorized");
-
+export async function executeBenchmarkTask(benchmarkId: string): Promise<{ finished: boolean; throttled?: boolean; entry?: BenchmarkEntry }> {
     const benchmark = db.select().from(benchmarks).where(eq(benchmarks.id, benchmarkId)).get();
     if (!benchmark || benchmark.status !== "running") {
         return { finished: true };
@@ -620,7 +620,7 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
 
         const updatedEntry = db.select().from(benchmarkEntries).where(eq(benchmarkEntries.id, nextPendingEntry.id)).get();
 
-        return { finished: false, entry: updatedEntry };
+        return { finished: false, entry: updatedEntry as BenchmarkEntry };
     }
 
     // If there are no pending items, check if any are still running
@@ -634,8 +634,6 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         ).limit(1).all();
 
     if (runningEntries.length > 0) {
-        // Other parallel workers are still processing jobs, so we shouldn't complete the benchmark yet.
-        // However, this specific worker loop is done, so it can rest.
         return { finished: true };
     }
 
@@ -647,6 +645,31 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
 
     revalidatePath("/evaluation-lab");
     return { finished: true };
+}
+
+export async function simulateBenchmarkStep(benchmarkId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    return executeBenchmarkTask(benchmarkId);
+}
+
+async function runBenchmarkWorker(benchmarkId: string) {
+    let finished = false;
+    while (!finished) {
+        const result = await executeBenchmarkTask(benchmarkId);
+        finished = result.finished;
+        if (result.throttled) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+}
+
+export async function startBackgroundBenchmark(benchmarkId: string) {
+    // Fire and forget background job
+    runBackgroundJob(`benchmark-${benchmarkId}`, () => runBenchmarkWorker(benchmarkId)).catch(err => {
+        console.error("Background benchmark failed:", err);
+    });
 }
 
 export async function getCompletedBenchmarks() {
