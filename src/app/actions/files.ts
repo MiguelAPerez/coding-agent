@@ -93,7 +93,7 @@ export async function cloneOrUpdateRepository(repoId: string) {
     // Ensure base dir exists
     await fs.mkdir(REPOS_BASE_DIR, { recursive: true });
 
-    const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+    const repoDir = path.join(REPOS_BASE_DIR, session.user.id, repo.fullName);
 
     try {
         await fs.access(repoDir);
@@ -129,7 +129,7 @@ export async function getRepoMarkdownFiles(repoId: string) {
     if (!repo) throw new Error("Repository not found");
     if (repo.userId !== session.user.id) throw new Error("Forbidden");
 
-    const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+    const repoDir = path.join(REPOS_BASE_DIR, session.user.id, repo.fullName);
 
     try {
         await fs.access(repoDir);
@@ -199,7 +199,7 @@ export async function getRepoFileContentInternal(repoId: string, filePath: strin
         throw new Error("Invalid file path");
     }
 
-    const fullPath = path.join(REPOS_BASE_DIR, repo.fullName, normalizedPath);
+    const fullPath = path.join(REPOS_BASE_DIR, userId, repo.fullName, normalizedPath);
     const content = await fs.readFile(fullPath, "utf-8");
     return content;
 }

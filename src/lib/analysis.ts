@@ -33,7 +33,7 @@ export async function analyzeRepoDocs(repoIds?: string[]) {
         for (const repo of allRepos) {
             console.log(`Analyzing ${repo.fullName}...`);
             try {
-                const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+                const repoDir = path.join(REPOS_BASE_DIR, repo.userId, repo.fullName);
 
                 try {
                     await fs.access(repoDir);

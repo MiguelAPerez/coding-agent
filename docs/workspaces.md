@@ -4,9 +4,9 @@
 
 The Coding Agent uses a dual-directory system for handling repositories to ensure that system-wide analysis processes don't interfere with individual user edits.
 
-### `data/repos/`
+### `data/repos/<userId>/`
 
-This is the **read-only source of truth** for the system. Repositories cloned here are used by the system for:
+This is the **read-only source of truth** for the system, isolated by user. Repositories cloned here are used by the system for:
 
 - Markdown and source code analysis.
 - Semantic search embeddings.

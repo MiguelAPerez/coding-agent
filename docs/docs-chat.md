@@ -18,6 +18,6 @@ The feature is built within `src/components/DocsChat` and integrated into the `s
 
 To populate these documents without checking them directly into the codebase, we rely on custom server actions inside `src/app/actions/files.ts`:
 
-- **`cloneOrUpdateRepository`**: Authenticates and performs a `git pull` or `git clone` of the remote origin directly to `data/repos/`.
+- **`cloneOrUpdateRepository`**: Authenticates and performs a `git pull` or `git clone` of the remote origin directly to `data/repos/<userId>/`.
 - **`getRepoMarkdownFiles`**: Recursively crawls the cloned repository skipping blocklists (like `.agent/` and `.git/`) to construct the file allowlist mapping shown in `DocsSidebar`.
 - **`getRepoFileContent`**: Safely retrieves the source string representation of an end-user document for injection into the `DocViewer`.

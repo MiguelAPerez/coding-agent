@@ -216,7 +216,7 @@ export async function indexRepositoryCore(repoId: string) {
     const repo = db.select().from(repositories).where(eq(repositories.id, repoId)).get();
     if (!repo) throw new Error("Repository not found");
 
-    const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+    const repoDir = path.join(REPOS_BASE_DIR, repo.userId, repo.fullName);
 
     try {
         await fs.access(repoDir);

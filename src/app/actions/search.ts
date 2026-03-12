@@ -81,7 +81,7 @@ export async function searchCode(options: CodeSearchOptions): Promise<RepoSearch
     const results: RepoSearchResult[] = [];
 
     for (const repo of userRepos) {
-        const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+        const repoDir = path.join(REPOS_BASE_DIR, repo.userId, repo.fullName);
 
         try {
             await fs.access(repoDir);

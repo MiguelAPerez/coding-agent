@@ -67,7 +67,7 @@ export async function syncRepositories(repoIds?: string[]) {
 
         for (const repo of allRepos) {
             console.log(`Syncing ${repo.fullName}...`);
-            const repoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+            const repoDir = path.join(REPOS_BASE_DIR, repo.userId, repo.fullName);
             const cloneUrl = await getAuthenticatedCloneUrl(repo);
 
             try {

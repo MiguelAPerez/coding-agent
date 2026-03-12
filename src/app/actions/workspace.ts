@@ -51,7 +51,7 @@ export async function initWorkspace(repoId: string) {
     if (!repo) throw new Error("Repository not found");
     if (repo.userId !== user.id) throw new Error("Forbidden");
 
-    const sourceRepoDir = path.join(REPOS_BASE_DIR, repo.fullName);
+    const sourceRepoDir = path.join(REPOS_BASE_DIR, user.id, repo.fullName);
     const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
 
     try {
