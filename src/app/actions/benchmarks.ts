@@ -712,6 +712,16 @@ export async function getActiveBenchmarks() {
         )
         .all();
 }
+export async function getAllBenchmarksMetadata() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return [];
+
+    return db.select()
+        .from(benchmarks)
+        .where(eq(benchmarks.userId, session.user.id))
+        .orderBy(desc(benchmarks.startedAt))
+        .all();
+}
 
 export async function clearBenchmarkData() {
     const session = await getServerSession(authOptions);

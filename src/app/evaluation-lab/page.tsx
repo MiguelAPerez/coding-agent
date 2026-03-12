@@ -1,7 +1,7 @@
 import React from "react";
 // import { getSkills } from "@/app/actions/skills";
 import { getSystemPrompts, getSystemPromptSets } from "@/app/actions/prompts";
-import { getContextGroups, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks } from "@/app/actions/benchmarks";
+import { getContextGroups, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks, getAllBenchmarksMetadata } from "@/app/actions/benchmarks";
 import { getCachedRepositories } from "@/app/actions/repositories";
 import { EvaluationLabClient } from "@/components/EvaluationLab/EvaluationLabClient";
 import { ContextGroup, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
@@ -39,6 +39,7 @@ export default async function EvaluationLabPage({
     const benchmarkRuns = await getBenchmarkRuns();
     const completedBenchmarks = await getCompletedBenchmarks();
     const activeBenchmarks = await getActiveBenchmarks();
+    const allBenchmarks = await getAllBenchmarksMetadata();
 
     return (
         <div className="container mx-auto px-6 py-12 space-y-12 min-h-screen">
@@ -57,6 +58,7 @@ export default async function EvaluationLabPage({
                 initialRuns={benchmarkRuns as BenchmarkRun[]}
                 completedBenchmarks={completedBenchmarks as (Benchmark & { entries: BenchmarkEntry[] })[]}
                 initialActiveBenchmarks={activeBenchmarks as Benchmark[]}
+                allBenchmarks={allBenchmarks as Benchmark[]}
                 initialSystemPrompts={systemPrompts as SystemPrompt[]}
                 initialSystemPromptSets={systemPromptSets as SystemPromptSet[]}
             />

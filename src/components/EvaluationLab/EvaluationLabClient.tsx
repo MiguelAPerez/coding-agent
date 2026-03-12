@@ -16,6 +16,7 @@ export const EvaluationLabClient = ({
     initialRuns,
     completedBenchmarks,
     initialActiveBenchmarks,
+    allBenchmarks,
     initialSystemPrompts,
     initialSystemPromptSets
 }: {
@@ -24,6 +25,7 @@ export const EvaluationLabClient = ({
     initialRuns: BenchmarkRun[];
     completedBenchmarks: (Benchmark & { entries: BenchmarkEntry[] })[];
     initialActiveBenchmarks: Benchmark[];
+    allBenchmarks: Benchmark[];
     initialSystemPrompts: SystemPrompt[];
     initialSystemPromptSets: SystemPromptSet[];
 }) => {
@@ -86,6 +88,7 @@ export const EvaluationLabClient = ({
                     <BenchmarkProgress 
                         initialBenchmarkId={currentBenchmarkId} 
                         contextGroups={initialGroups}
+                        allBenchmarks={allBenchmarks}
                     />
                 )}
                 {activeTab === "groups" && (

@@ -10,16 +10,20 @@ import { EntryDetails } from "./EntryDetails";
 
 export const BenchmarkProgress = ({
     initialBenchmarkId,
-    contextGroups
+    contextGroups,
+    allBenchmarks
 }: {
     initialBenchmarkId: string | null;
     contextGroups: ContextGroup[];
+    allBenchmarks: Benchmark[];
 }) => {
+    const [benchmarkId, setBenchmarkId] = useState<string | null>(initialBenchmarkId);
     const [benchmark, setBenchmark] = useState<(Benchmark & { entries: BenchmarkEntry[] }) | null>(null);
-    const [isLoading, setIsLoading] = useState(!!initialBenchmarkId);
+    const [isLoading, setIsLoading] = useState(!!benchmarkId);
     const [modelCapabilities, setModelCapabilities] = useState<Record<string, string[]>>({});
     const [isCancelling, setIsCancelling] = useState(false);
     const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+    const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -44,18 +48,18 @@ export const BenchmarkProgress = ({
     }, []);
 
     useEffect(() => {
-        if (!initialBenchmarkId) return;
+        if (!benchmarkId) return;
 
         const fetchData = async () => {
-            const data = await getBenchmarkProgress(initialBenchmarkId) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
+            const data = await getBenchmarkProgress(benchmarkId) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
             setBenchmark(data);
             setIsLoading(false);
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 5000); // Increased from 3000ms to 5000ms
+        const interval = setInterval(fetchData, 5000); // Polling every 5 seconds
         return () => clearInterval(interval);
-    }, [initialBenchmarkId]);
+    }, [benchmarkId]);
 
     // Refresh server state once when benchmark completes
     useEffect(() => {
@@ -139,154 +143,239 @@ export const BenchmarkProgress = ({
     const pendingProgress = (pendingCount / benchmark.totalEntries) * 100;
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="lg:col-span-2 space-y-8">
-                <div className="glass p-8 rounded-3xl border border-primary/20 shadow-2xl bg-gradient-to-br from-background/40 to-primary/5">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-3">
-                                <span className={`w-3 h-3 rounded-full animate-pulse ${benchmark.status === "running" ? "bg-green-500 shadow-green-500/50" : "bg-primary shadow-primary/50"
-                                    }`} />
-                                <h2 className="text-2xl font-bold text-foreground/90">{benchmark.name}</h2>
-                            </div>
-                            <p className="text-sm text-foreground/40 font-mono uppercase tracking-widest pl-6">
-                                ID: {benchmark.id.slice(0, 8)}... • Status: {benchmark.status}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {benchmark.status === "running" && (
-                                <div className="flex items-center gap-2">
-                                    {showConfirmCancel ? (
-                                        <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
-                                            <span className="text-[10px] font-bold text-red-500/60 uppercase">Are you sure?</span>
-                                            <button
-                                                onClick={async () => {
-                                                    setIsCancelling(true);
-                                                    setShowConfirmCancel(false);
-                                                    try {
-                                                        await cancelBenchmark(benchmark.id);
-                                                        const data = await getBenchmarkProgress(benchmark.id) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
-                                                        setBenchmark(data);
-                                                        router.refresh();
-                                                    } catch (err) {
-                                                        console.error("Failed to cancel benchmark", err);
-                                                        alert("Failed to cancel benchmark run.");
-                                                    } finally {
-                                                        setIsCancelling(false);
-                                                    }
-                                                }}
-                                                disabled={isCancelling}
-                                                className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[10px] font-bold uppercase transition-all hover:bg-red-600 disabled:opacity-50"
-                                            >
-                                                Yes, Cancel
-                                            </button>
-                                            <button
-                                                onClick={() => setShowConfirmCancel(false)}
-                                                className="px-3 py-1.5 bg-foreground/5 hover:bg-foreground/10 text-foreground/60 rounded-lg text-[10px] font-bold uppercase transition-all"
-                                            >
-                                                No
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setShowConfirmCancel(true)}
-                                            disabled={isCancelling}
-                                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                            {isCancelling ? (
-                                                <>
-                                                    <div className="w-3 h-3 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
-                                                    Cancelling...
-                                                </>
-                                            ) : (
-                                                "Cancel Run"
-                                            )}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                            <div className="text-right px-6 py-4 glass bg-background/40 rounded-2xl border border-border/50">
-                                <span className="text-3xl font-black text-primary font-mono">{Math.round(completedProgress)}%</span>
-                                <p className="text-[10px] font-bold uppercase tracking-tighter text-foreground/30">Total Progress</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="w-full bg-foreground/5 h-4 rounded-full overflow-hidden mb-4 p-1 border border-border/30 flex">
-                        {completedProgress > 0 && (
-                            <div
-                                className={`h-full bg-gradient-to-r from-primary via-primary/80 to-primary/40 transition-all duration-1000 shadow-lg shadow-primary/20 ${completedProgress === 100 ? "rounded-full" : "rounded-l-full"
-                                    }`}
-                                style={{ width: `${completedProgress}%` }}
-                            />
-                        )}
-                        {executionProgress > 0 && (
-                            <div
-                                className={`h-full bg-primary/30 animate-pulse transition-all duration-1000 ${completedProgress === 0 && pendingProgress === 0 ? "rounded-full" :
-                                    completedProgress === 0 ? "rounded-l-full" :
-                                        pendingProgress === 0 ? "rounded-r-full" : ""
-                                    }`}
-                                style={{ width: `${executionProgress}%` }}
-                            />
-                        )}
-                        {pendingProgress > 0 && (
-                            <div
-                                className={`h-full bg-foreground/10 transition-all duration-1000 ${completedProgress === 0 && executionProgress === 0 ? "rounded-full" : "rounded-r-full"
-                                    }`}
-                                style={{ width: `${pendingProgress}%` }}
-                            />
-                        )}
-                    </div>
-                    <div className="flex justify-between px-2">
-                        <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest flex items-center gap-4">
-                            <span>{completedCount} / {benchmark.totalEntries} Evaluated</span>
-                            {(runningCount > 0 || preparingCount > 0) && <span className="text-primary animate-pulse">• {runningCount + preparingCount} In Progress</span>}
-                            {pendingCount > 0 && <span className="opacity-50">• {pendingCount} Pending</span>}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-foreground/40 flex items-center gap-2">
-                        Evaluation Queue
-                        <span className="text-[10px] lowercase italic opacity-50 px-2">(Click an entry to view details)</span>
-                    </h3>
-                    <button
-                        onClick={toggleAllModels}
-                        className="p-1.5 bg-background/40 hover:bg-background/60 border border-border/50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-widest text-foreground/40 hover:text-primary flex items-center gap-2"
+        <div className="flex flex-col xl:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* History Sidebar */}
+            <div className={`flex-shrink-0 space-y-4 transition-all duration-300 ${isHistoryCollapsed ? "xl:w-12" : "xl:w-80"}`}>
+                <div className="flex items-center justify-between px-2 min-h-[24px]">
+                    {!isHistoryCollapsed && (
+                        <>
+                            <h3 className="text-xs font-bold uppercase tracking-widest text-foreground/40">Recent Runs</h3>
+                            <span className="text-[10px] bg-foreground/5 px-2 py-0.5 rounded-full text-foreground/30 font-mono">{allBenchmarks.length}</span>
+                        </>
+                    )}
+                    <button 
+                        onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+                        className={`p-1.5 hover:bg-foreground/5 rounded-lg transition-colors text-foreground/30 hover:text-primary ${isHistoryCollapsed ? "mx-auto" : ""}`}
+                        title={isHistoryCollapsed ? "Expand History" : "Collapse History"}
                     >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                        Toggle All
+                        {isHistoryCollapsed ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                        ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
+                            </svg>
+                        )}
                     </button>
                 </div>
-
-                <EvaluationQueue
-                    benchmark={benchmark}
-                    collapsedModels={collapsedModels}
-                    toggleModelCollapse={toggleModelCollapse}
-                    selectedEntryId={selectedEntryId}
-                    setSelectedEntryId={setSelectedEntryId}
-                    modelCapabilities={modelCapabilities}
-                    contextGroups={contextGroups}
-                    globalCollapseSignal={globalSubgroupCollapseSignal}
-                />
+                
+                <div className={`glass rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/20 max-h-[800px] overflow-y-auto transition-all ${isHistoryCollapsed ? "opacity-0 invisible" : "opacity-100 visible"}`}>
+                    {!isHistoryCollapsed && allBenchmarks.map(b => {
+                        const isSelected = b.id === benchmarkId;
+                        const duration = b.completedAt && b.startedAt 
+                            ? new Date(b.completedAt).getTime() - new Date(b.startedAt).getTime()
+                            : b.startedAt ? Date.now() - new Date(b.startedAt).getTime() : 0;
+                        
+                        return (
+                            <button
+                                key={b.id}
+                                onClick={() => {
+                                    setBenchmarkId(b.id);
+                                    setIsLoading(true);
+                                }}
+                                className={`w-full text-left p-4 transition-all hover:bg-foreground/5 group ${isSelected ? "bg-primary/5 border-l-2 border-primary" : "border-l-2 border-transparent"}`}
+                            >
+                                <div className="flex justify-between items-start mb-1">
+                                    <span className={`text-xs font-bold truncate pr-2 ${isSelected ? "text-primary" : "text-foreground/70"}`}>
+                                        {b.name}
+                                    </span>
+                                    <span className="text-[10px] font-mono opacity-30 whitespace-nowrap">
+                                        {formatDuration(duration)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-mono opacity-30">
+                                        {b.startedAt ? new Date(b.startedAt).toLocaleDateString() : "Unknown date"}
+                                    </span>
+                                    <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                                        b.status === "completed" ? "bg-green-500/10 text-green-500" :
+                                        b.status === "running" ? "bg-primary/10 text-primary animate-pulse" :
+                                        b.status === "failed" ? "bg-red-500/10 text-red-500" :
+                                        "bg-foreground/10 text-foreground/40"
+                                    }`}>
+                                        {b.status}
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
-            {/* Sticky detailed view column */}
-            <div className="lg:col-span-1">
-                <div className="sticky top-8">
-                    {selectedEntry ? (
-                        <EntryDetails selectedEntry={selectedEntry} />
-                    ) : (
-                        <div className="h-full min-h-[400px] flex flex-col items-center justify-center p-12 glass border border-dashed border-border/30 rounded-3xl text-center space-y-4 opacity-50">
-                            <span className="text-4xl grayscale">📄</span>
-                            <p className="text-sm text-foreground/40">Select an execution from the queue to view its results.</p>
+            {/* Main Content */}
+            <div className="flex-grow space-y-8 min-w-0">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-8">
+                        <div className="glass p-8 rounded-3xl border border-primary/20 shadow-2xl bg-gradient-to-br from-background/40 to-primary/5">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`w-3 h-3 rounded-full animate-pulse ${benchmark.status === "running" ? "bg-green-500 shadow-green-500/50" : "bg-primary shadow-primary/50"
+                                            }`} />
+                                        <h2 className="text-2xl font-bold text-foreground/90">{benchmark.name}</h2>
+                                    </div>
+                                    <p className="text-sm text-foreground/40 font-mono uppercase tracking-widest pl-6">
+                                        ID: {benchmark.id.slice(0, 8)}... • Status: {benchmark.status}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    {benchmark.status === "running" && (
+                                        <div className="flex items-center gap-2">
+                                            {showConfirmCancel ? (
+                                                <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+                                                    <span className="text-[10px] font-bold text-red-500/60 uppercase">Are you sure?</span>
+                                                    <button
+                                                        onClick={async () => {
+                                                            setIsCancelling(true);
+                                                            setShowConfirmCancel(false);
+                                                            try {
+                                                                await cancelBenchmark(benchmark.id);
+                                                                const data = await getBenchmarkProgress(benchmark.id) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
+                                                                setBenchmark(data);
+                                                                router.refresh();
+                                                            } catch (err) {
+                                                                console.error("Failed to cancel benchmark", err);
+                                                                alert("Failed to cancel benchmark run.");
+                                                            } finally {
+                                                                setIsCancelling(false);
+                                                            }
+                                                        }}
+                                                        disabled={isCancelling}
+                                                        className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[10px] font-bold uppercase transition-all hover:bg-red-600 disabled:opacity-50"
+                                                    >
+                                                        Yes, Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setShowConfirmCancel(false)}
+                                                        className="px-3 py-1.5 bg-foreground/5 hover:bg-foreground/10 text-foreground/60 rounded-lg text-[10px] font-bold uppercase transition-all"
+                                                    >
+                                                        No
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setShowConfirmCancel(true)}
+                                                    disabled={isCancelling}
+                                                    className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2"
+                                                >
+                                                    {isCancelling ? (
+                                                        <>
+                                                            <div className="w-3 h-3 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+                                                            Cancelling...
+                                                        </>
+                                                    ) : (
+                                                        "Cancel Run"
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="text-right px-6 py-4 glass bg-background/40 rounded-2xl border border-border/50">
+                                        <span className="text-3xl font-black text-primary font-mono">{Math.round(completedProgress)}%</span>
+                                        <p className="text-[10px] font-bold uppercase tracking-tighter text-foreground/30">Total Progress</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="w-full bg-foreground/5 h-4 rounded-full overflow-hidden mb-4 p-1 border border-border/30 flex">
+                                {completedProgress > 0 && (
+                                    <div
+                                        className={`h-full bg-gradient-to-r from-primary via-primary/80 to-primary/40 transition-all duration-1000 shadow-lg shadow-primary/20 ${completedProgress === 100 ? "rounded-full" : "rounded-l-full"
+                                            }`}
+                                        style={{ width: `${completedProgress}%` }}
+                                    />
+                                )}
+                                {executionProgress > 0 && (
+                                    <div
+                                        className={`h-full bg-primary/30 animate-pulse transition-all duration-1000 ${completedProgress === 0 && pendingProgress === 0 ? "rounded-full" :
+                                            completedProgress === 0 ? "rounded-l-full" :
+                                                pendingProgress === 0 ? "rounded-r-full" : ""
+                                            }`}
+                                        style={{ width: `${executionProgress}%` }}
+                                    />
+                                )}
+                                {pendingProgress > 0 && (
+                                    <div
+                                        className={`h-full bg-foreground/10 transition-all duration-1000 ${completedProgress === 0 && executionProgress === 0 ? "rounded-full" : "rounded-r-full"
+                                            }`}
+                                        style={{ width: `${pendingProgress}%` }}
+                                    />
+                                )}
+                            </div>
+                            <div className="flex justify-between px-2">
+                                <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest flex items-center gap-4">
+                                    <span>{completedCount} / {benchmark.totalEntries} Evaluated</span>
+                                    {(runningCount > 0 || preparingCount > 0) && <span className="text-primary animate-pulse">• {runningCount + preparingCount} In Progress</span>}
+                                    {pendingCount > 0 && <span className="opacity-50">• {pendingCount} Pending</span>}
+                                </span>
+                            </div>
                         </div>
-                    )}
+
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground/40 flex items-center gap-2">
+                                Evaluation Queue
+                                <span className="text-[10px] lowercase italic opacity-50 px-2">(Click an entry to view details)</span>
+                            </h3>
+                            <button
+                                onClick={toggleAllModels}
+                                className="p-1.5 bg-background/40 hover:bg-background/60 border border-border/50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-widest text-foreground/40 hover:text-primary flex items-center gap-2"
+                            >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                                Toggle All
+                            </button>
+                        </div>
+
+                        <EvaluationQueue
+                            benchmark={benchmark}
+                            collapsedModels={collapsedModels}
+                            toggleModelCollapse={toggleModelCollapse}
+                            selectedEntryId={selectedEntryId}
+                            setSelectedEntryId={setSelectedEntryId}
+                            modelCapabilities={modelCapabilities}
+                            contextGroups={contextGroups}
+                            globalCollapseSignal={globalSubgroupCollapseSignal}
+                        />
+                    </div>
+
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-8">
+                            {selectedEntry ? (
+                                <EntryDetails selectedEntry={selectedEntry} />
+                            ) : (
+                                <div className="h-full min-h-[400px] flex flex-col items-center justify-center p-12 glass border border-dashed border-border/30 rounded-3xl text-center space-y-4 opacity-50">
+                                    <span className="text-4xl grayscale">📄</span>
+                                    <p className="text-sm text-foreground/40">Select an execution from the queue to view its results.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
+};
+
+const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (min < 60) return `${min}m ${s}s`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${h}h ${m}m`;
 };
