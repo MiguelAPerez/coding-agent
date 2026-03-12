@@ -117,7 +117,7 @@ describe("BenchmarkRunManager", () => {
     it("handles trigger run", async () => {
         render(<BenchmarkRunManager {...defaultProps} />);
         
-        mockedTriggerBenchmark.mockResolvedValue("new-benchmark-id");
+        mockedTriggerBenchmark.mockResolvedValue("00000000-0000-0000-0000-000000000000");
         
         const runNowBtn = screen.getByText("🚀 Run Now");
         
@@ -126,6 +126,6 @@ describe("BenchmarkRunManager", () => {
         });
         
         expect(mockedTriggerBenchmark).toHaveBeenCalledWith("run-1");
-        expect(defaultProps.onBenchmarkStarted).toHaveBeenCalledWith("new-benchmark-id");
+        expect(defaultProps.onBenchmarkStarted).toHaveBeenCalledWith("00000000-0000-0000-0000-000000000000");
     });
 });

@@ -135,7 +135,7 @@ describe("BenchmarkRunner", () => {
         expect(runBtn).toBeEnabled();
         expect(screen.getByText(/Run 1 Batch Evaluations/)).toBeInTheDocument();
 
-        mockedRunBenchmark.mockResolvedValue("new-id");
+        mockedRunBenchmark.mockResolvedValue("00000000-0000-0000-0000-000000000000");
 
         await act(async () => {
             fireEvent.click(runBtn);

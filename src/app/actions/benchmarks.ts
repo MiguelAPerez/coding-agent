@@ -458,7 +458,7 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
             }
         }
 
-        let cg: any = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
+        let cg: ContextGroup | undefined = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get() as ContextGroup | undefined;
         if (!cg) {
             cg = repoContextGroups.find(c => c.id === nextPendingEntry.contextGroupId);
         }
