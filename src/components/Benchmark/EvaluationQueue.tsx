@@ -38,7 +38,7 @@ export const EvaluationQueue = ({
                     const modelCompletedProgress = entries.length > 0 ? (modelCompleted / entries.length) * 100 : 0;
                     const modelRunningProgress = entries.length > 0 ? (modelRunning / entries.length) * 100 : 0;
                     const modelPendingProgress = entries.length > 0 ? (modelPending / entries.length) * 100 : 0;
-                    const isCollapsed = collapsedModels[modelName] !== false;
+                    const isCollapsed = collapsedModels[modelName] === true;
 
                     return (
                         <div key={modelName} className="space-y-3 relative">

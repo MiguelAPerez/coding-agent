@@ -14,6 +14,7 @@ export const BenchmarkProgress = ({
     initialBenchmarkId: string | null
 }) => {
     const [benchmark, setBenchmark] = useState<(Benchmark & { entries: BenchmarkEntry[] }) | null>(null);
+    const [isLoading, setIsLoading] = useState(!!initialBenchmarkId);
     const [modelCapabilities, setModelCapabilities] = useState<Record<string, string[]>>({});
     const [isCancelling, setIsCancelling] = useState(false);
     const [showConfirmCancel, setShowConfirmCancel] = useState(false);
@@ -46,6 +47,7 @@ export const BenchmarkProgress = ({
         const fetchData = async () => {
             const data = await getBenchmarkProgress(initialBenchmarkId) as (Benchmark & { entries: BenchmarkEntry[] }) | null;
             setBenchmark(data);
+            setIsLoading(false);
         };
 
         fetchData();
@@ -144,7 +146,7 @@ export const BenchmarkProgress = ({
         return { ...entry, parsedMetrics };
     }, [benchmark, selectedEntryId]);
 
-    if (!benchmark && initialBenchmarkId) {
+    if (isLoading) {
         return <div className="p-8 text-center text-foreground/40 italic">Loading benchmark progress...</div>;
     }
 

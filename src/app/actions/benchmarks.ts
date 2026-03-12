@@ -507,26 +507,27 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         const completedAt = new Date(startedAt.getTime() + duration);
 
         let totalScore = 0;
-        const matchDetails = expectations.map((exp: { type: string; value: string }) => {
+        const matchedOutput = output.trim();
+        const matchDetails = (cg.expectations ? JSON.parse(cg.expectations) : []).map((exp: { type: string; value: string }) => {
             let found = false;
             switch (exp.type) {
                 case "contains":
-                    found = output.toLowerCase().includes(exp.value.toLowerCase());
+                    found = matchedOutput.toLowerCase().includes(exp.value.toLowerCase());
                     break;
                 case "not_contains":
-                    found = !output.toLowerCase().includes(exp.value.toLowerCase());
+                    found = !matchedOutput.toLowerCase().includes(exp.value.toLowerCase());
                     break;
                 case "regex":
                     try {
                         const match = exp.value.match(/^\/(.*)\/([gimuy]*)$/);
                         const regex = match ? new RegExp(match[1], match[2]) : new RegExp(exp.value, "i");
-                        found = regex.test(output);
+                        found = regex.test(matchedOutput);
                     } catch {
                         found = false;
                     }
                     break;
                 case "exact":
-                    found = output.trim().toLowerCase() === exp.value.trim().toLowerCase();
+                    found = matchedOutput.toLowerCase() === exp.value.trim().toLowerCase();
                     break;
             }
             if (found && expectations.length > 0) totalScore += (100 / expectations.length);
