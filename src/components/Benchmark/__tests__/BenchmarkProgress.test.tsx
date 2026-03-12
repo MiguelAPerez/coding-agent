@@ -139,7 +139,7 @@ describe("BenchmarkProgress", () => {
         });
     });
 
-    it("polls for progress every 3 seconds", async () => {
+    it("polls for progress every 5 seconds", async () => {
         const mockBenchmark: MockBenchmark = {
             id: "123",
             userId: "u1",
@@ -165,7 +165,7 @@ describe("BenchmarkProgress", () => {
         });
 
         await act(async () => {
-            jest.advanceTimersByTime(3000);
+            jest.advanceTimersByTime(5000);
         });
 
         expect(mockedGetBenchmarkProgress).toHaveBeenCalledTimes(2);

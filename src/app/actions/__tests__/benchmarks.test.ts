@@ -197,6 +197,13 @@ describe('simulateBenchmarkStep concurrency limits', () => {
                         get: jest.fn().mockReturnValueOnce({ completedEntries: 0 })
                     })
                 })
+            })
+            .mockReturnValueOnce({ // get updated entry for return (newly added)
+                from: jest.fn().mockReturnValueOnce({
+                    where: jest.fn().mockReturnValueOnce({
+                        get: jest.fn().mockReturnValueOnce({ id: 'entry-2', status: 'completed' })
+                    })
+                })
             });
 
         (db.select as jest.Mock).mockImplementation(selectMock);
@@ -221,7 +228,10 @@ describe('simulateBenchmarkStep concurrency limits', () => {
         const result = await simulateBenchmarkStep(mockBenchmarkId);
         
         // Assert it made it past the throttle check and executed the generation process
-        expect(result).toEqual({ finished: false });
+        expect(result).toEqual({ 
+            finished: false, 
+            entry: { id: 'entry-2', status: 'completed' } 
+        });
         expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 });

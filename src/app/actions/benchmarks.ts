@@ -573,8 +573,9 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
                 .run();
         }
 
-        revalidatePath("/evaluation-lab");
-        return { finished: false };
+        const updatedEntry = db.select().from(benchmarkEntries).where(eq(benchmarkEntries.id, nextPendingEntry.id)).get();
+
+        return { finished: false, entry: updatedEntry };
     }
 
     // If there are no pending items, check if any are still running
@@ -599,6 +600,7 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         .where(eq(benchmarks.id, benchmarkId))
         .run();
 
+    revalidatePath("/evaluation-lab");
     return { finished: true };
 }
 

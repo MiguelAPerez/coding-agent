@@ -53,7 +53,7 @@ export const BenchmarkProgress = ({
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 3000);
+        const interval = setInterval(fetchData, 5000); // Increased from 3000ms to 5000ms
         return () => clearInterval(interval);
     }, [initialBenchmarkId]);
 
@@ -80,25 +80,43 @@ export const BenchmarkProgress = ({
                 
                 // Fire and forget fetch loop
                 (async () => {
+                    let shouldContinue = true;
                     try {
-                        await fetch('/api/benchmark/step', {
+                        const response = await fetch('/api/benchmark/step', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ benchmarkId: benchmark.id })
                         });
+                        const result = await response.json();
                         
-                        // Optimistic UI update immediately after an item finishes
-                        const data = await getBenchmarkProgress(benchmark.id);
-                        if (isActive && data) {
-                            setBenchmark(data as (Benchmark & { entries: BenchmarkEntry[] }) | null);
+                        if (result.finished) {
+                            // Backend reports no more work to do for this loop, so we stop checking.
+                            shouldContinue = false;
+                        } else if (result.throttled) {
+                            // Too many parallel workers; need to step back
+                            await new Promise(r => setTimeout(r, 4000)); // Increased from 2000ms
+                        } else if (!result.entry) {
+                            // Request claimed by another worker, brief pause to stagger
+                            await new Promise(r => setTimeout(r, 2000)); // Increased from 500ms
+                        }
+                        
+                        // Deep update of the local state with the returned entry
+                        if (isActive && result.entry) {
+                            setBenchmark(prev => {
+                                if (!prev) return null;
+                                return {
+                                    ...prev,
+                                    entries: prev.entries.map(e => e.id === result.entry.id ? result.entry : e)
+                                };
+                            });
                         }
                     } catch (err) {
                         console.error("Fetch step err:", err);
                         // Brief pause on error so we don't spam if backend is dead
-                        await new Promise(r => setTimeout(r, 2000));
+                        await new Promise(r => setTimeout(r, 5000)); // Increased from 2000ms
                     } finally {
                         activeFetches.current--;
-                        if (isActive) {
+                        if (isActive && shouldContinue) {
                             // Immediately prompt coordinator to fill the gap
                             checkAndSpawn();
                         }
@@ -107,7 +125,7 @@ export const BenchmarkProgress = ({
             }
             
             // Backup self-heal in case any loop completely stalled out (e.g. timeout)
-            timeoutId = setTimeout(checkAndSpawn, 2000);
+            timeoutId = setTimeout(checkAndSpawn, 5000); // Increased from 2000ms
         };
 
         if (benchmark?.status === "running") {
