@@ -2,15 +2,24 @@ import fs from "fs";
 import path from "path";
 import { ContextGroup, SystemPrompt, SystemPromptSet } from "@/types/agent";
 
-export async function loadRepoData(repoPath: string) {
+export async function loadRepoData(repoPath: string, feature?: string) {
     const fullPath = path.join(process.cwd(), "data", "repos", repoPath);
     
     if (!fs.existsSync(fullPath)) {
         throw new Error(`Repository path not found: ${fullPath}`);
     }
 
-    const contextsFile = path.join(fullPath, "contexts.json");
-    const systemPromptsFile = path.join(fullPath, "systemPrompts.json");
+    // Determine the base path to look for files. Try feature directory first if provided.
+    let searchPath = fullPath;
+    if (feature) {
+        const featurePath = path.join(fullPath, feature);
+        if (fs.existsSync(featurePath)) {
+            searchPath = featurePath;
+        }
+    }
+
+    const contextsFile = path.join(searchPath, "contexts.json");
+    const systemPromptsFile = path.join(searchPath, "systemPrompts.json");
 
     let contextGroups: ContextGroup[] = [];
     let systemPrompts: SystemPrompt[] = [];

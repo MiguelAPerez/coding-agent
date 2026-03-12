@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text, primaryKey, real } from "drizzle-orm/sqlite-core"
+import { relations } from "drizzle-orm"
 import type { AdapterAccount } from "next-auth/adapters"
 
 export const users = sqliteTable("user", {
@@ -11,7 +12,15 @@ export const users = sqliteTable("user", {
     emailVerified: integer("emailVerified", { mode: "timestamp_ms" }),
     image: text("image"),
     password: text("password"),
+    configRepositoryId: text("configRepositoryId"),
 })
+
+export const usersRelations = relations(users, ({ one }) => ({
+    configRepository: one(repositories, {
+        fields: [users.configRepositoryId],
+        references: [repositories.id],
+    }),
+}))
 
 export const accounts = sqliteTable(
     "account",

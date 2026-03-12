@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/../db";
-import { repositories, giteaConfigurations, githubConfigurations } from "@/../db/schema";
+import { repositories, giteaConfigurations, githubConfigurations, users } from "@/../db/schema";
 import { eq, and } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
@@ -11,6 +11,8 @@ export async function getCachedRepositories() {
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
     }
+
+    const userRecord = db.select({ configRepositoryId: users.configRepositoryId }).from(users).where(eq(users.id, session.user.id)).get();
 
     const repos = db.select({
         id: repositories.id,
@@ -41,8 +43,23 @@ export async function getCachedRepositories() {
     return repos.map(repo => ({
         ...repo,
         docsMetadata: repo.docsMetadata ? JSON.parse(repo.docsMetadata as string) : {},
-        agentMetadata: repo.agentMetadata ? JSON.parse(repo.agentMetadata as string) : {}
+        agentMetadata: repo.agentMetadata ? JSON.parse(repo.agentMetadata as string) : {},
+        isConfigRepository: userRecord?.configRepositoryId === repo.id
     }));
+}
+
+export async function setConfigRepository(repoId: string | null) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+        throw new Error("Unauthorized");
+    }
+
+    db.update(users)
+        .set({ configRepositoryId: repoId })
+        .where(eq(users.id, session.user.id))
+        .run();
+
+    return { success: true };
 }
 
 export async function toggleRepositoryEnabled(repoId: string, enabled: boolean) {

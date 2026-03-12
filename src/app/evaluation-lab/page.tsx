@@ -19,9 +19,13 @@ export default async function EvaluationLabPage({
     let systemPrompts = await getSystemPrompts();
     let systemPromptSets = await getSystemPromptSets();
 
-    if (repoPath) {
+    const repositories = await getCachedRepositories();
+    const activeRepo = repositories.find(r => r.isConfigRepository);
+    const targetRepo = repoPath || activeRepo?.fullName;
+
+    if (targetRepo) {
         try {
-            const repoData = await loadRepoData(repoPath);
+            const repoData = await loadRepoData(targetRepo, 'eval-lab');
             contextGroups = repoData.contextGroups as unknown as typeof contextGroups;
             systemPrompts = repoData.systemPrompts as unknown as typeof systemPrompts;
             systemPromptSets = repoData.systemPromptSets as unknown as typeof systemPromptSets;
@@ -35,7 +39,6 @@ export default async function EvaluationLabPage({
     const benchmarkRuns = await getBenchmarkRuns();
     const completedBenchmarks = await getCompletedBenchmarks();
     const activeBenchmarks = await getActiveBenchmarks();
-    const repositories = await getCachedRepositories();
 
     return (
         <div className="container mx-auto px-6 py-12 space-y-12 min-h-screen">
@@ -57,7 +60,6 @@ export default async function EvaluationLabPage({
                 initialActiveBenchmarks={activeBenchmarks as Benchmark[]}
                 initialSystemPrompts={systemPrompts as SystemPrompt[]}
                 initialSystemPromptSets={systemPromptSets as SystemPromptSet[]}
-                repositories={repositories}
             />
         </div>
     );
