@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act, waitFor } from "@testing-library/react"
 import { BenchmarkResults } from "../BenchmarkResults";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { clearBenchmarkData } from "@/app/actions/benchmarks";
+import { Benchmark, BenchmarkEntry } from "@/types/agent";
 
 jest.mock("@/app/actions/ollama", () => ({
     getOllamaModels: jest.fn()
@@ -12,8 +13,11 @@ jest.mock("@/app/actions/benchmarks", () => ({
     clearBenchmarkData: jest.fn()
 }));
 
+const mockedGetOllamaModels = jest.mocked(getOllamaModels);
+const mockedClearBenchmarkData = jest.mocked(clearBenchmarkData);
+
 describe("BenchmarkResults", () => {
-    const mockData = [
+    const mockData: (Benchmark & { entries: BenchmarkEntry[] })[] = [
         {
             id: "b-1",
             name: "Test Run 1",
@@ -23,48 +27,73 @@ describe("BenchmarkResults", () => {
             entries: [
                 {
                     id: "e-1",
-                    benchmarkId: 1,
+                    benchmarkId: "b-1",
                     model: "GPT-4",
                     status: "completed",
                     category: "Math",
-                    score: 95,
-                    duration: 1000,
                     metrics: JSON.stringify({ 
                         responseSize: 100, 
                         expectationResults: [{ found: true }, { found: true }],
                         variationName: "Prompt A"
                     }),
-                    createdAt: new Date().toISOString()
+                    startedAt: new Date(),
+                    completedAt: new Date(),
+                    systemPromptId: null,
+                    contextGroupId: "cg-1",
+                    prompt: null,
+                    systemContext: null,
+                    output: null,
+                    error: null,
+                    duration: 1000,
+                    score: 95
                 },
                 {
                     id: "e-2",
-                    benchmarkId: 1,
+                    benchmarkId: "b-1",
                     model: "Claude",
                     status: "completed",
                     category: "Math",
-                    score: 85,
-                    duration: 1200,
                     metrics: JSON.stringify({ 
                         responseSize: 150, 
                         expectationResults: [{ found: true }, { found: false }],
                         variationName: "Prompt A"
                     }),
-                    createdAt: new Date().toISOString()
+                    startedAt: new Date(),
+                    completedAt: new Date(),
+                    systemPromptId: null,
+                    contextGroupId: "cg-1",
+                    prompt: null,
+                    systemContext: null,
+                    output: null,
+                    error: null,
+                    duration: 1200,
+                    score: 85
                 }
-            ]
+            ],
+            userId: "u-1",
+            runId: "r-1",
+            completedEntries: 2,
+            startedAt: new Date(),
+            completedAt: new Date()
         }
-    ] as unknown as (import("@/types/agent").Benchmark & { entries: import("@/types/agent").BenchmarkEntry[] })[];
+    ];
 
     beforeEach(() => {
         jest.clearAllMocks();
-        (getOllamaModels as jest.Mock).mockResolvedValue([
-            { name: "GPT-4", details: JSON.stringify({ capabilities: ["thinking"] }) }
+        mockedGetOllamaModels.mockResolvedValue([
+            { 
+                id: "m-1", 
+                userId: "u-1", 
+                name: "GPT-4", 
+                details: JSON.stringify({ capabilities: ["thinking"] }), 
+                updatedAt: new Date() 
+            }
         ]);
         jest.spyOn(window, "alert").mockImplementation(() => {});
     });
 
     afterEach(() => {
-        (window.alert as jest.Mock).mockRestore();
+        jest.mocked(window.alert).mockRestore();
     });
 
     it("renders empty state when no data provided", async () => {
@@ -75,15 +104,39 @@ describe("BenchmarkResults", () => {
     });
 
     it("renders empty state when all entries are pending", async () => {
-        const pendingData = [
+        const pendingData: (Benchmark & { entries: BenchmarkEntry[] })[] = [
             {
                 id: "b-1",
+                userId: "u-1",
+                runId: "r-1",
                 name: "Pending Run",
+                status: "running",
+                totalEntries: 1,
+                completedEntries: 0,
+                startedAt: new Date(),
+                completedAt: null,
                 entries: [
-                    { status: "pending", score: null, model: "GPT-4" }
+                    { 
+                        id: "e-1",
+                        benchmarkId: "b-1",
+                        status: "pending", 
+                        score: null, 
+                        model: "GPT-4", 
+                        contextGroupId: "cg-1", 
+                        category: "Math",
+                        metrics: null,
+                        prompt: null,
+                        systemContext: null,
+                        output: null,
+                        error: null,
+                        duration: null,
+                        startedAt: null,
+                        completedAt: null,
+                        systemPromptId: null
+                    }
                 ]
             }
-        ] as unknown as (import("@/types/agent").Benchmark & { entries: import("@/types/agent").BenchmarkEntry[] })[];
+        ];
         
         await act(async () => {
             render(<BenchmarkResults data={pendingData} />);
@@ -156,7 +209,7 @@ describe("BenchmarkResults", () => {
 
         const confirmBtn = screen.getByText("Yes");
         
-        (clearBenchmarkData as jest.Mock).mockResolvedValue(undefined);
+        mockedClearBenchmarkData.mockResolvedValue(undefined);
 
         await act(async () => {
             fireEvent.click(confirmBtn);

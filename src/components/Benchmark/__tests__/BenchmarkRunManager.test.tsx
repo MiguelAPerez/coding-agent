@@ -3,6 +3,9 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { BenchmarkRunManager } from "../BenchmarkRunManager";
 import { triggerBenchmark, deleteBenchmarkRun, getActiveBenchmarks } from "@/app/actions/benchmarks";
 import { useRouter } from "next/navigation";
+import { BenchmarkRun } from "@/types/agent";
+
+type AppRouterInstance = ReturnType<typeof useRouter>;
 
 jest.mock("next/navigation", () => ({
     useRouter: jest.fn()
@@ -23,27 +26,33 @@ jest.mock("../BenchmarkRunForm", () => ({
     )
 }));
 
+const mockedUseRouter = jest.mocked(useRouter);
+const mockedTriggerBenchmark = jest.mocked(triggerBenchmark);
+const mockedDeleteBenchmarkRun = jest.mocked(deleteBenchmarkRun);
+const mockedGetActiveBenchmarks = jest.mocked(getActiveBenchmarks);
+
 describe("BenchmarkRunManager", () => {
-    const mockRouter = {
+    const mockRouter: AppRouterInstance = {
         refresh: jest.fn(),
-        push: jest.fn()
+        push: jest.fn(),
+        back: jest.fn(),
+        forward: jest.fn(),
+        replace: jest.fn(),
+        prefetch: jest.fn(),
     };
 
-    const mockRun = {
+    const mockRun: BenchmarkRun = {
         id: "run-1",
+        userId: "1",
         name: "Test Run",
         description: "A test run",
         models: JSON.stringify(["gpt-4"]),
         contextGroupIds: JSON.stringify(["cg-1"]),
-        parallelWorkers: 1,
-        systemPromptId: null,
-        systemPromptSetId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: "1",
         systemPromptIds: JSON.stringify([]),
-        systemPromptSetIds: JSON.stringify([])
-    } as unknown as import("@/types/agent").BenchmarkRun;
+        systemPromptSetIds: JSON.stringify([]),
+        parallelWorkers: 1,
+        updatedAt: new Date(),
+    };
 
     const defaultProps = {
         initialRuns: [mockRun],
@@ -56,8 +65,8 @@ describe("BenchmarkRunManager", () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        (useRouter as jest.Mock).mockReturnValue(mockRouter);
-        (getActiveBenchmarks as jest.Mock).mockResolvedValue([]);
+        mockedUseRouter.mockReturnValue(mockRouter);
+        mockedGetActiveBenchmarks.mockResolvedValue([]);
     });
 
     it("renders defined runs", () => {
@@ -94,13 +103,13 @@ describe("BenchmarkRunManager", () => {
         const deleteConfirmBtn = screen.getByText("Delete");
         expect(deleteConfirmBtn).toBeInTheDocument();
         
-        (deleteBenchmarkRun as jest.Mock).mockResolvedValue(undefined);
+        mockedDeleteBenchmarkRun.mockResolvedValue(undefined);
         
         await act(async () => {
             fireEvent.click(deleteConfirmBtn);
         });
         
-        expect(deleteBenchmarkRun).toHaveBeenCalledWith("run-1");
+        expect(mockedDeleteBenchmarkRun).toHaveBeenCalledWith("run-1");
         expect(mockRouter.refresh).toHaveBeenCalled();
         expect(screen.queryByText("Test Run")).not.toBeInTheDocument();
     });
@@ -108,7 +117,7 @@ describe("BenchmarkRunManager", () => {
     it("handles trigger run", async () => {
         render(<BenchmarkRunManager {...defaultProps} />);
         
-        (triggerBenchmark as jest.Mock).mockResolvedValue("new-benchmark-id");
+        mockedTriggerBenchmark.mockResolvedValue("new-benchmark-id");
         
         const runNowBtn = screen.getByText("🚀 Run Now");
         
@@ -116,7 +125,7 @@ describe("BenchmarkRunManager", () => {
             fireEvent.click(runNowBtn);
         });
         
-        expect(triggerBenchmark).toHaveBeenCalledWith("run-1");
+        expect(mockedTriggerBenchmark).toHaveBeenCalledWith("run-1");
         expect(defaultProps.onBenchmarkStarted).toHaveBeenCalledWith("new-benchmark-id");
     });
 });

@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { BenchmarkRunner } from "../BenchmarkRunner";
 import { runBenchmark } from "@/app/actions/benchmarks";
 import { getOllamaModels } from "@/app/actions/ollama";
+import { ContextGroup } from "@/types/agent";
 
 jest.mock("@/app/actions/benchmarks", () => ({
     runBenchmark: jest.fn()
@@ -12,48 +13,57 @@ jest.mock("@/app/actions/ollama", () => ({
     getOllamaModels: jest.fn()
 }));
 
-const mockContextGroups = [
+const mockedRunBenchmark = jest.mocked(runBenchmark);
+const mockedGetOllamaModels = jest.mocked(getOllamaModels);
+
+const mockContextGroups: ContextGroup[] = [
     {
         id: "cg-1",
+        userId: "1",
         name: "Test Group 1",
         description: "Group 1",
-        promptTemplate: "Hello",
         category: "Test",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        expectedSchema: null,
-        weight: 1,
-        userId: "1",
         expectations: "[]",
+        weight: 1,
         maxSentences: 1,
         systemContext: "",
-        isActive: true,
-        source: "manual"
+        promptTemplate: "Hello",
+        skillIds: null,
+        toolIds: null,
+        systemPromptIds: null,
+        systemPromptSetIds: null,
+        updatedAt: new Date(),
     },
     {
         id: "cg-2",
+        userId: "1",
         name: "Test Group 2",
         description: "Group 2",
-        promptTemplate: "World",
         category: "Test",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        expectedSchema: null,
-        weight: 1,
-        userId: "1",
         expectations: "[]",
+        weight: 1,
         maxSentences: 1,
         systemContext: "",
-        isActive: true,
-        source: "manual"
+        promptTemplate: "World",
+        skillIds: null,
+        toolIds: null,
+        systemPromptIds: null,
+        systemPromptSetIds: null,
+        updatedAt: new Date(),
     }
-] as unknown as import("@/types/agent").ContextGroup[];
+];
 
 describe("BenchmarkRunner", () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        (getOllamaModels as jest.Mock).mockResolvedValue([
-            { name: "llama3", details: JSON.stringify({ capabilities: ["tools"] }) }
+        mockedGetOllamaModels.mockResolvedValue([
+            { 
+                id: "m-1", 
+                userId: "u-1", 
+                name: "llama3", 
+                details: JSON.stringify({ capabilities: ["tools"] }), 
+                updatedAt: new Date() 
+            }
         ]);
     });
 
@@ -127,7 +137,7 @@ describe("BenchmarkRunner", () => {
         expect(runBtn).toBeEnabled();
         expect(screen.getByText(/Run 1 Batch Evaluations/)).toBeInTheDocument();
 
-        (runBenchmark as jest.Mock).mockResolvedValue("new-id");
+        mockedRunBenchmark.mockResolvedValue("new-id");
 
         await act(async () => {
             fireEvent.click(runBtn);

@@ -1,9 +1,19 @@
 import React from "react";
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
+import { useRouter } from "next/navigation";
 import { BenchmarkProgress } from "../BenchmarkProgress";
 import { getBenchmarkProgress, cancelBenchmark } from "@/app/actions/benchmarks";
 import { getOllamaModels } from "@/app/actions/ollama";
-import { useRouter } from "next/navigation";
+import { Benchmark, BenchmarkEntry } from "@/types/agent";
+
+type AppRouterInstance = ReturnType<typeof useRouter>;
+type MockBenchmark = Benchmark & { 
+    entries: BenchmarkEntry[];
+    startedAt: Date | null;
+    completedAt: Date | null;
+    completedEntries: number;
+    parallelWorkers: number;
+};
 
 // Mock dependencies
 jest.mock("next/navigation", () => ({
@@ -23,16 +33,26 @@ jest.mock("../EvaluationQueue", () => ({
     EvaluationQueue: () => <div data-testid="evaluation-queue" />
 }));
 
-const mockRouter = {
-    refresh: jest.fn()
+const mockedUseRouter = jest.mocked(useRouter);
+const mockedGetBenchmarkProgress = jest.mocked(getBenchmarkProgress);
+const mockedCancelBenchmark = jest.mocked(cancelBenchmark);
+const mockedGetOllamaModels = jest.mocked(getOllamaModels);
+
+const mockRouter: AppRouterInstance = {
+    refresh: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
 };
 
 describe("BenchmarkProgress", () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        (useRouter as jest.Mock).mockReturnValue(mockRouter);
-        (getOllamaModels as jest.Mock).mockResolvedValue([]);
-        global.fetch = jest.fn().mockReturnValue(new Promise(() => {})) as jest.Mock;
+        mockedUseRouter.mockReturnValue(mockRouter);
+        mockedGetOllamaModels.mockResolvedValue([]);
+        global.fetch = jest.fn().mockReturnValue(new Promise(() => {}));
         jest.useFakeTimers();
     });
 
@@ -41,20 +61,20 @@ describe("BenchmarkProgress", () => {
     });
 
     it("renders loading state initially if initialBenchmarkId is provided", async () => {
-        (getBenchmarkProgress as jest.Mock).mockReturnValue(new Promise(() => {}));
+        mockedGetBenchmarkProgress.mockReturnValue(new Promise(() => {}));
         
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
         });
         
         expect(screen.getByText("Loading benchmark progress...")).toBeInTheDocument();
     });
 
     it("renders empty state if no benchmark is found", async () => {
-        (getBenchmarkProgress as jest.Mock).mockResolvedValue(null);
+        mockedGetBenchmarkProgress.mockResolvedValue(null);
         
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
         });
         
         await waitFor(() => {
@@ -63,22 +83,27 @@ describe("BenchmarkProgress", () => {
     });
 
     it("renders benchmark details and handles cancellation", async () => {
-        const mockBenchmark = {
+        const mockBenchmark: MockBenchmark = {
             id: "123",
+            userId: "u1",
+            runId: "r1",
             name: "Test Benchmark",
             status: "running",
             parallelWorkers: 1,
             totalEntries: 2,
+            completedEntries: 1,
             entries: [
-                { id: "e1", status: "completed" },
-                { id: "e2", status: "pending" }
-            ]
+                { id: "e1", status: "completed", benchmarkId: "123", model: "gpt-4", contextGroupId: "cg1", category: "Logic", score: 100, metrics: null, prompt: null, systemContext: null, output: null, error: null, duration: null, startedAt: new Date(), completedAt: new Date(), systemPromptId: null },
+                { id: "e2", status: "pending", benchmarkId: "123", model: "gpt-4", contextGroupId: "cg1", category: "Logic", score: null, metrics: null, prompt: null, systemContext: null, output: null, error: null, duration: null, startedAt: null, completedAt: null, systemPromptId: null }
+            ],
+            startedAt: new Date(),
+            completedAt: null
         };
 
-        (getBenchmarkProgress as jest.Mock).mockResolvedValue(mockBenchmark);
+        mockedGetBenchmarkProgress.mockResolvedValue(mockBenchmark);
 
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
         });
 
         await waitFor(() => {
@@ -96,14 +121,17 @@ describe("BenchmarkProgress", () => {
         expect(confirmBtn).toBeInTheDocument();
         
         // Mock successful cancel
-        (cancelBenchmark as jest.Mock).mockResolvedValue(undefined);
-        const canceledBenchmark = { ...mockBenchmark, status: "canceled" };
-        (getBenchmarkProgress as jest.Mock).mockResolvedValue(canceledBenchmark);
+        mockedCancelBenchmark.mockResolvedValue(undefined);
+        const canceledBenchmark: MockBenchmark = { 
+            ...mockBenchmark, 
+            status: "cancelled" 
+        };
+        mockedGetBenchmarkProgress.mockResolvedValue(canceledBenchmark);
 
         fireEvent.click(confirmBtn);
 
         await waitFor(() => {
-            expect(cancelBenchmark).toHaveBeenCalledWith("123");
+            expect(mockedCancelBenchmark).toHaveBeenCalledWith("123");
         });
         
         await waitFor(() => {
@@ -112,48 +140,58 @@ describe("BenchmarkProgress", () => {
     });
 
     it("polls for progress every 3 seconds", async () => {
-        const mockBenchmark = {
+        const mockBenchmark: MockBenchmark = {
             id: "123",
+            userId: "u1",
+            runId: "r1",
             name: "Test Benchmark",
             status: "running",
             parallelWorkers: 1,
             totalEntries: 1,
-            entries: []
+            completedEntries: 0,
+            entries: [],
+            startedAt: new Date(),
+            completedAt: null
         };
 
-        (getBenchmarkProgress as jest.Mock).mockResolvedValue(mockBenchmark);
+        mockedGetBenchmarkProgress.mockResolvedValue(mockBenchmark);
         
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
         });
 
         await waitFor(() => {
-            expect(getBenchmarkProgress).toHaveBeenCalledTimes(1);
+            expect(mockedGetBenchmarkProgress).toHaveBeenCalledTimes(1);
         });
 
         await act(async () => {
             jest.advanceTimersByTime(3000);
         });
 
-        expect(getBenchmarkProgress).toHaveBeenCalledTimes(2);
+        expect(mockedGetBenchmarkProgress).toHaveBeenCalledTimes(2);
     });
 
     it("spawns fetch steps when running", async () => {
-        const mockBenchmark = {
+        const mockBenchmark: MockBenchmark = {
             id: "123",
+            userId: "u1",
+            runId: "r1",
             name: "Test Benchmark",
             status: "running",
             parallelWorkers: 1,
             totalEntries: 1,
-            entries: []
+            completedEntries: 0,
+            entries: [],
+            startedAt: new Date(),
+            completedAt: null
         };
 
-        (getBenchmarkProgress as jest.Mock).mockResolvedValue(mockBenchmark);
+        mockedGetBenchmarkProgress.mockResolvedValue(mockBenchmark);
         // We do not resolve fetch to avoid infinite microtask loop
         // global.fetch is already mocked to return pending promise in beforeEach
 
         await act(async () => {
-            render(<BenchmarkProgress initialBenchmarkId="123" />);
+            render(<BenchmarkProgress initialBenchmarkId="123" contextGroups={[]} />);
         });
 
         await waitFor(() => {

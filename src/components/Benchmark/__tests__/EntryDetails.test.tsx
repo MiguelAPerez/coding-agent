@@ -2,16 +2,27 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { EntryDetails } from "../EntryDetails";
 
+type EntryDetailsProps = React.ComponentProps<typeof EntryDetails>;
+type MockEntry = EntryDetailsProps["selectedEntry"];
+
 describe("EntryDetails", () => {
-    const mockEntry = {
-        id: 1,
-        benchmarkId: 1,
+    const mockEntry: MockEntry = {
+        id: "e-1",
+        benchmarkId: "b-1",
+        model: "gpt-4",
+        contextGroupId: "cg-1",
+        systemPromptId: null,
+        status: "completed",
         category: "Math",
         prompt: "What is 2 + 2?",
         output: "The answer is 4.",
         score: 100,
-        createdAt: new Date().toISOString(),
+        metrics: null,
+        systemContext: null,
         error: null,
+        duration: 1000,
+        startedAt: new Date(),
+        completedAt: new Date(),
         parsedMetrics: {
             responseSizeBytes: 16,
             expectationResults: [
@@ -19,13 +30,7 @@ describe("EntryDetails", () => {
             ],
             variationName: "Test Run"
         }
-    } as unknown as import("@/types/agent").BenchmarkEntry & { 
-        parsedMetrics: { 
-            responseSizeBytes?: number; 
-            expectationResults?: { type: string; value: string; found: boolean; }[]; 
-            variationName?: string; 
-        } | null; 
-    }; // Type assertion since testing properties
+    };
 
     it("renders the test category and variation name", () => {
         render(<EntryDetails selectedEntry={mockEntry} />);

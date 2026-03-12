@@ -49,7 +49,7 @@ export const EvaluationLabClient = ({
         { id: "progress", label: "Progress", icon: "📊" },
         { id: "system-prompts", label: "Personas", icon: "👤" },
         { id: "prompt-sets", label: "Sets", icon: "📑" },
-        { id: "groups", label: "Groups", icon: "📁" },
+        { id: "groups", label: "Response Tests", icon: "📁" },
         { id: "repo", label: "Repositories", icon: "📦" },
     ];
 
@@ -88,7 +88,10 @@ export const EvaluationLabClient = ({
                     />
                 )}
                 {activeTab === "progress" && (
-                    <BenchmarkProgress initialBenchmarkId={currentBenchmarkId} />
+                    <BenchmarkProgress 
+                        initialBenchmarkId={currentBenchmarkId} 
+                        contextGroups={initialGroups}
+                    />
                 )}
                 {activeTab === "groups" && (
                     <ContextGroupManager

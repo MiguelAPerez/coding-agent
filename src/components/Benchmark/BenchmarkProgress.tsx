@@ -2,16 +2,18 @@
 
 import React, { useEffect, useState } from "react";
 import { getBenchmarkProgress, cancelBenchmark } from "@/app/actions/benchmarks";
-import { Benchmark, BenchmarkEntry } from "@/types/agent";
+import { Benchmark, BenchmarkEntry, ContextGroup } from "@/types/agent";
 import { useRouter } from "next/navigation";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { EvaluationQueue } from "./EvaluationQueue";
 import { EntryDetails } from "./EntryDetails";
 
 export const BenchmarkProgress = ({
-    initialBenchmarkId
+    initialBenchmarkId,
+    contextGroups
 }: {
-    initialBenchmarkId: string | null
+    initialBenchmarkId: string | null;
+    contextGroups: ContextGroup[];
 }) => {
     const [benchmark, setBenchmark] = useState<(Benchmark & { entries: BenchmarkEntry[] }) | null>(null);
     const [isLoading, setIsLoading] = useState(!!initialBenchmarkId);
@@ -124,9 +126,26 @@ export const BenchmarkProgress = ({
     const toggleModelCollapse = (modelName: string) => {
         setCollapsedModels(prev => ({
             ...prev,
-            [modelName]: prev[modelName] === false ? true : false
+            [modelName]: !prev[modelName]
         }));
     };
+
+    const toggleAllModels = () => {
+        const allModelNames = [...new Set(benchmark?.entries.map(e => e.model) || [])];
+        const allCollapsed = allModelNames.every(name => collapsedModels[name]);
+        
+        if (allCollapsed) {
+            setCollapsedModels({});
+            setGlobalSubgroupCollapseSignal({ collapsed: false, timestamp: Date.now() });
+        } else {
+            const newState: Record<string, boolean> = {};
+            allModelNames.forEach(name => { newState[name] = true; });
+            setCollapsedModels(newState);
+            setGlobalSubgroupCollapseSignal({ collapsed: true, timestamp: Date.now() });
+        }
+    };
+
+    const [globalSubgroupCollapseSignal, setGlobalSubgroupCollapseSignal] = useState<{ collapsed: boolean; timestamp: number } | null>(null);
 
     const selectedEntry = React.useMemo(() => {
         if (!benchmark) return null;
@@ -283,6 +302,22 @@ export const BenchmarkProgress = ({
                     </div>
                 </div>
 
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-foreground/40 flex items-center gap-2">
+                        Evaluation Queue
+                        <span className="text-[10px] lowercase italic opacity-50 px-2">(Click an entry to view details)</span>
+                    </h3>
+                    <button
+                        onClick={toggleAllModels}
+                        className="p-1.5 bg-background/40 hover:bg-background/60 border border-border/50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-widest text-foreground/40 hover:text-primary flex items-center gap-2"
+                    >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        Toggle All
+                    </button>
+                </div>
+
                 <EvaluationQueue
                     benchmark={benchmark}
                     collapsedModels={collapsedModels}
@@ -290,6 +325,8 @@ export const BenchmarkProgress = ({
                     selectedEntryId={selectedEntryId}
                     setSelectedEntryId={setSelectedEntryId}
                     modelCapabilities={modelCapabilities}
+                    contextGroups={contextGroups}
+                    globalCollapseSignal={globalSubgroupCollapseSignal}
                 />
             </div>
 
