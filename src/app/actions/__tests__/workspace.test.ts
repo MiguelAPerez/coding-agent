@@ -40,7 +40,8 @@ jest.mock("@/../db", () => ({
 
 jest.mock("drizzle-orm", () => ({
     eq: jest.fn(),
-    and: jest.fn()
+    and: jest.fn(),
+    relations: jest.fn()
 }));
 
 jest.mock("util", () => {

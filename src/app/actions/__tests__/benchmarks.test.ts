@@ -51,6 +51,19 @@ jest.mock('next/cache', () => ({
     revalidatePath: jest.fn()
 }));
 
+// Mock Repositories and DataLoader
+jest.mock('../repositories', () => ({
+    getCachedRepositories: jest.fn(() => Promise.resolve([]))
+}));
+
+jest.mock('@/lib/mockDataLoader', () => ({
+    loadRepoData: jest.fn(() => Promise.resolve({
+        responseTests: [],
+        personas: [],
+        systemPromptSets: []
+    }))
+}));
+
 global.fetch = jest.fn();
 
 describe('simulateBenchmarkStep concurrency limits', () => {

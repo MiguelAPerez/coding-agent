@@ -307,8 +307,7 @@ export const benchmarkEntries = sqliteTable("benchmark_entry", {
         .references(() => benchmarks.id, { onDelete: "cascade" }),
     model: text("model").notNull(),
     contextGroupId: text("contextGroupId")
-        .notNull()
-        .references(() => contextGroups.id, { onDelete: "cascade" }),
+        .notNull(),
     category: text("category"),
     score: integer("score"),
     metrics: text("metrics"), // JSON string
@@ -318,8 +317,7 @@ export const benchmarkEntries = sqliteTable("benchmark_entry", {
     output: text("output"),
     error: text("error"),
     duration: integer("duration"), // in ms
-    systemPromptId: text("systemPromptId")
-        .references(() => systemPrompts.id),
+    systemPromptId: text("systemPromptId"),
     startedAt: integer("startedAt", { mode: "timestamp_ms" }),
     completedAt: integer("completedAt", { mode: "timestamp_ms" }),
 })

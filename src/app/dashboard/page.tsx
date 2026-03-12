@@ -3,9 +3,23 @@ import Link from "next/link";
 import { getCachedRepositories } from "@/app/actions/repositories";
 import { getAgentConfigs } from "@/app/actions/config";
 
+import { loadRepoData } from "@/lib/mockDataLoader";
+
 export default async function DashboardPage() {
   const repos = await getCachedRepositories();
-  const agents = await getAgentConfigs();
+  let agents = await getAgentConfigs();
+
+  const configRepo = repos.find(r => r.isConfigRepository);
+  if (configRepo) {
+    try {
+      const repoData = await loadRepoData(configRepo.fullName, 'agent-config');
+      if (repoData.agents.length > 0) {
+        agents = repoData.agents as unknown as typeof agents;
+      }
+    } catch (error) {
+      console.error("Failed to load repo data:", error);
+    }
+  }
 
   const primaryAgent = agents[0] || null;
 

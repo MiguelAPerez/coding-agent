@@ -20,8 +20,7 @@ describe("ContextGroupCard", () => {
         maxSentences: 5,
         systemContext: "system context",
         promptTemplate: "This is a test template",
-        skillIds: JSON.stringify(["s1", "s2"]),
-        toolIds: null,
+        toolIds: JSON.stringify(["t1"]),
         systemPromptIds: JSON.stringify(["p1"]),
         systemPromptSetIds: JSON.stringify(["set1"]),
         systemPromptVariations: JSON.stringify([{ id: "v1", name: "Var 1", systemPrompt: "sp" }]),
@@ -38,7 +37,6 @@ describe("ContextGroupCard", () => {
         expect(screen.getByText("1 Expectations")).toBeInTheDocument();
         expect(screen.getByText("1 Manuals")).toBeInTheDocument();
         expect(screen.getByText("2 References")).toBeInTheDocument();
-        expect(screen.getByText("2 Skills")).toBeInTheDocument();
         expect(screen.getByText("23 chars")).toBeInTheDocument(); // length of "This is a test template"
     });
 
@@ -73,7 +71,6 @@ describe("ContextGroupCard", () => {
         render(<ContextGroupCard group={groupInvalidJson} onEdit={onEdit} />);
         
         // Should not show the counts if JSON is invalid
-        expect(screen.queryByText("Expectations")).not.toBeInTheDocument();
         expect(screen.queryByText("Manuals")).not.toBeInTheDocument();
         expect(screen.queryByText("References")).not.toBeInTheDocument();
         expect(screen.queryByText("Skills")).not.toBeInTheDocument();

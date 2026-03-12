@@ -49,4 +49,25 @@ describe('loadRepoData', () => {
         expect(result).toHaveProperty('responseTests');
         expect(result).toHaveProperty('personas');
     });
+
+    it('should produce stable IDs for the same input data when IDs are missing', async () => {
+        (path.join as jest.Mock).mockImplementation((...args) => args.join('/'));
+        (fs.existsSync as jest.Mock).mockReturnValue(true);
+        
+        const mockResponseTests = [
+            { name: "Test 1", category: "Cat1", prompt: "Prompt 1", expectations: [] }
+        ];
+
+        (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockResponseTests));
+
+        const result1 = await loadRepoData('test-repo');
+        const id1 = result1.responseTests[0].id;
+
+        const result2 = await loadRepoData('test-repo');
+        const id2 = result2.responseTests[0].id;
+
+        expect(id1).toBe(id2);
+        expect(id1).toBeDefined();
+        expect(typeof id1).toBe('string');
+    });
 });

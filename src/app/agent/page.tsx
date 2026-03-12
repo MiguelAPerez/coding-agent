@@ -5,11 +5,38 @@ import { getTools } from "@/app/actions/tools";
 import { getSystemPrompts } from "@/app/actions/prompts";
 import { AgentPageClient } from "@/components/AgentConfiguration/AgentPageClient";
 
-export default async function AgentPage() {
-    const configs = await getAgentConfigs();
+import { getCachedRepositories } from "@/app/actions/repositories";
+import { loadRepoData } from "@/lib/mockDataLoader";
+import { SystemPrompt } from "@/types/agent";
+
+export default async function AgentPage({
+    searchParams
+}: {
+    searchParams: { repo?: string }
+}) {
+    let configs = await getAgentConfigs();
+    let systemPrompts = await getSystemPrompts();
+
+    const allRepos = await getCachedRepositories();
+    const configRepo = allRepos.find(r => r.isConfigRepository);
+    const targetRepo = searchParams.repo || configRepo?.fullName;
+
+    if (targetRepo) {
+        try {
+            const repoData = await loadRepoData(targetRepo, 'agent-config');
+            if (repoData.agents.length > 0) {
+                configs = repoData.agents as unknown as typeof configs;
+            }
+            if (repoData.personas.length > 0) {
+                systemPrompts = repoData.personas as unknown as SystemPrompt[];
+            }
+        } catch (error) {
+            console.error("Failed to load repo data:", error);
+        }
+    }
+
     const initialSkills = await getSkills();
     const initialTools = await getTools();
-    const systemPrompts = await getSystemPrompts();
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-12 md:py-20 animate-in fade-in duration-700">

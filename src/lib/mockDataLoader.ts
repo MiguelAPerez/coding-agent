@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { ContextGroup, SystemPrompt, SystemPromptSet, AgentConfig } from "@/types/agent";
+
+function generateStableId(seed: string): string {
+    return crypto.createHash("sha256").update(seed).digest("hex");
+}
 export async function loadRepoData(repoPath: string, feature?: string) {
     const fullPath = path.join(process.cwd(), "data", "repos", repoPath);
     
@@ -38,13 +43,17 @@ export async function loadRepoData(repoPath: string, feature?: string) {
             }
 
             const testData = Array.isArray(rawContexts) ? rawContexts : (rawContexts.responseTests || rawContexts.contexts || []);
-            responseTests = testData.map((cg: RawContextGroup) => ({
-                id: cg.id || crypto.randomUUID(),
-                ...cg,
-                promptTemplate: cg.promptTemplate || cg.prompt || "",
-                expectations: JSON.stringify(cg.expectations),
-                updatedAt: new Date(),
-            }));
+            responseTests = testData.map((cg: RawContextGroup) => {
+                const promptTemplate = cg.promptTemplate || cg.prompt || "";
+                const stableIdSource = `${cg.category || ""}:${cg.name}:${promptTemplate}`;
+                return {
+                    id: cg.id || generateStableId(stableIdSource),
+                    ...cg,
+                    promptTemplate,
+                    expectations: JSON.stringify(cg.expectations),
+                    updatedAt: new Date(),
+                };
+            });
         } catch (e) {
             console.error(`Failed to parse responseTests.json for ${repoPath}:`, e);
         }
@@ -56,14 +65,14 @@ export async function loadRepoData(repoPath: string, feature?: string) {
             const promptData = rawPrompts.personas || rawPrompts.systemPrompts || (Array.isArray(rawPrompts) ? rawPrompts : []);
             if (promptData) {
                 personas = promptData.map((sp: Omit<SystemPrompt, "id" | "updatedAt"> & { id?: string }) => ({
-                    id: sp.id || crypto.randomUUID(),
+                    id: sp.id || generateStableId(`${sp.name}:${sp.content}`),
                     ...sp,
                     updatedAt: new Date()
                 }));
             }
             if (rawPrompts.systemPromptSets) {
                 systemPromptSets = rawPrompts.systemPromptSets.map((sps: Omit<SystemPromptSet, "id" | "updatedAt" | "systemPromptIds"> & { id?: string, systemPromptIds: string[] }) => ({
-                    id: sps.id || crypto.randomUUID(),
+                    id: sps.id || generateStableId(`${sps.name}:${JSON.stringify(sps.systemPromptIds)}`),
                     ...sps,
                     systemPromptIds: JSON.stringify(sps.systemPromptIds),
                     updatedAt: new Date()
@@ -79,7 +88,7 @@ export async function loadRepoData(repoPath: string, feature?: string) {
             const rawAgents = JSON.parse(fs.readFileSync(agentsFile, "utf8"));
             const agentData = Array.isArray(rawAgents) ? rawAgents : (rawAgents.agents || []);
             agents = agentData.map((ag: Omit<AgentConfig, "id" | "updatedAt"> & { id?: string }) => ({
-                id: ag.id || crypto.randomUUID(),
+                id: ag.id || generateStableId(`${ag.name}:${ag.model}:${ag.systemPrompt}`),
                 ...ag,
                 updatedAt: new Date()
             }));

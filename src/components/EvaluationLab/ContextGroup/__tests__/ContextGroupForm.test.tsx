@@ -111,9 +111,6 @@ describe("ContextGroupForm", () => {
 
         // Check VariationItem
         expect(screen.getByDisplayValue("Var 1")).toBeInTheDocument();
-
-        // Check SkillSelector
-        expect(screen.getByText("Skill 1")).toBeInTheDocument();
     });
 
     it("shows empty states for expectations and variations", () => {

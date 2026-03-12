@@ -5,12 +5,27 @@ import DocsChatLayout from "@/components/DocsChat/DocsChatLayout";
 
 import { Repository } from "@/components/DocsChat/DocsSidebar";
 
+import { loadRepoData } from "@/lib/mockDataLoader";
+
 export default async function DocsChatPage() {
     // Fetch all repositories and agents for the current user
-    const [allRepos, agents] = await Promise.all([
+    const [allRepos, initialAgents] = await Promise.all([
         getCachedRepositories(),
         getAgentConfigs()
     ]);
+    let agents = initialAgents;
+
+    const configRepo = allRepos.find(r => r.isConfigRepository);
+    if (configRepo) {
+        try {
+            const repoData = await loadRepoData(configRepo.fullName, 'agent-config');
+            if (repoData.agents.length > 0) {
+                agents = repoData.agents as unknown as typeof agents;
+            }
+        } catch (error) {
+            console.error("Failed to load repo data:", error);
+        }
+    }
 
     // Filter by topics and enabled status
     const docsRepos = allRepos.filter(repo => {

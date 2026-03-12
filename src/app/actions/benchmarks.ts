@@ -1,12 +1,16 @@
 "use server";
 
 import { db } from "@/../db";
+import crypto from "crypto";
 import { contextGroups, benchmarkRuns, benchmarks, benchmarkEntries, systemPrompts, systemPromptSets } from "@/../db/schema";
 import { eq, desc, and, or, inArray } from "drizzle-orm";
 import { getOllamaConfig } from "./ollama";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { getCachedRepositories } from "./repositories";
+import { loadRepoData } from "@/lib/mockDataLoader";
+import { ContextGroup, SystemPrompt, SystemPromptSet } from "@/types/agent";
 
 export async function getContextGroups() {
     const session = await getServerSession(authOptions);
@@ -25,7 +29,6 @@ export async function saveContextGroup(data: {
     maxSentences?: number;
     systemContext?: string;
     promptTemplate: string;
-    skillIds?: string;
     toolIds?: string;
     systemPromptIds?: string;
     systemPromptSetIds?: string;
@@ -44,7 +47,6 @@ export async function saveContextGroup(data: {
         maxSentences: data.maxSentences,
         systemContext: data.systemContext,
         promptTemplate: data.promptTemplate,
-        skillIds: data.skillIds,
         toolIds: data.toolIds,
         systemPromptIds: data.systemPromptIds,
         systemPromptSetIds: data.systemPromptSetIds,
@@ -144,25 +146,46 @@ export async function triggerBenchmark(runId: string) {
     const systemPromptIds = run.systemPromptIds ? JSON.parse(run.systemPromptIds) as string[] : [];
     const systemPromptSetIds = run.systemPromptSetIds ? JSON.parse(run.systemPromptSetIds) as string[] : [];
 
-    const cgs = db.select().from(contextGroups).where(inArray(contextGroups.id, contextGroupIds)).all();
+    const repositories = await getCachedRepositories();
+    const activeRepo = repositories.find(r => r.isConfigRepository);
+    let repoContextGroups: ContextGroup[] = [];
+    let repoSystemPrompts: SystemPrompt[] = [];
+    let repoSystemPromptSets: SystemPromptSet[] = [];
+
+    if (activeRepo) {
+        try {
+            const repoData = await loadRepoData(activeRepo.fullName, 'eval-lab');
+            repoContextGroups = repoData.responseTests || [];
+            repoSystemPrompts = repoData.personas || [];
+            repoSystemPromptSets = repoData.systemPromptSets || [];
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    const dbCgs = contextGroupIds.length > 0 ? db.select().from(contextGroups).where(inArray(contextGroups.id, contextGroupIds)).all() : [];
+    const cgs = [...dbCgs, ...repoContextGroups.filter(cg => contextGroupIds.includes(cg.id))];
     const cgMap = new Map(cgs.map(cg => [cg.id, cg]));
 
     // eslint-disable-next-line prefer-const
     let resolvedSystemPromptIds = new Set<string>(systemPromptIds);
     if (systemPromptSetIds.length > 0) {
-        const sets = db.select().from(systemPromptSets).where(inArray(systemPromptSets.id, systemPromptSetIds)).all();
+        const dbSets = db.select().from(systemPromptSets).where(inArray(systemPromptSets.id, systemPromptSetIds)).all();
+        const sets = [...dbSets, ...repoSystemPromptSets.filter(set => systemPromptSetIds.includes(set.id))];
         sets.forEach(set => {
             try {
-                const ids = JSON.parse(set.systemPromptIds) as string[];
-                ids.forEach(id => resolvedSystemPromptIds.add(id));
+                // Determine if it is a JSON string or an array of primitive strings
+                const ids = typeof set.systemPromptIds === 'string' ? JSON.parse(set.systemPromptIds) as string[] : set.systemPromptIds;
+                ids.forEach((id: string) => resolvedSystemPromptIds.add(id));
             } catch { }
         });
     }
 
     const resolvedSystemPromptsList = Array.from(resolvedSystemPromptIds);
-    const systemPromptsData = resolvedSystemPromptsList.length > 0
+    const dbSps = resolvedSystemPromptsList.length > 0
         ? db.select().from(systemPrompts).where(inArray(systemPrompts.id, resolvedSystemPromptsList)).all()
         : [];
+    const systemPromptsData = [...dbSps, ...repoSystemPrompts.filter(sp => resolvedSystemPromptsList.includes(sp.id))];
     const spMap = new Map(systemPromptsData.map(sp => [sp.id, sp]));
 
     let actualTotalEntries = 0;
@@ -199,12 +222,13 @@ export async function triggerBenchmark(runId: string) {
             }
             if (cg.systemPromptSetIds) {
                 try {
-                    const setIds = JSON.parse(cg.systemPromptSetIds) as string[];
-                    const setsForCg = db.select().from(systemPromptSets).where(inArray(systemPromptSets.id, setIds)).all();
+                    const setIds = typeof cg.systemPromptSetIds === 'string' ? JSON.parse(cg.systemPromptSetIds) as string[] : cg.systemPromptSetIds;
+                    const dbSetsForCg = setIds.length > 0 ? db.select().from(systemPromptSets).where(inArray(systemPromptSets.id, setIds)).all() : [];
+                    const setsForCg = [...dbSetsForCg, ...repoSystemPromptSets.filter(set => setIds.includes(set.id))];
                     setsForCg.forEach(set => {
                         try {
-                            const ids = JSON.parse(set.systemPromptIds) as string[];
-                            ids.forEach(id => cgSystemPromptIds.add(id));
+                            const ids = typeof set.systemPromptIds === 'string' ? JSON.parse(set.systemPromptIds) as string[] : set.systemPromptIds;
+                            ids.forEach((id: string) => cgSystemPromptIds.add(id));
                         } catch { }
                     });
                 } catch { }
@@ -419,11 +443,29 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
     // Atomically claim the pending entry to prevent multiple concurrent requests grabbing it
     if (nextPendingEntry) {
 
-        const cg = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
+        const repositories = await getCachedRepositories();
+        const activeRepo = repositories.find(r => r.isConfigRepository);
+        let repoContextGroups: ContextGroup[] = [];
+        let repoSystemPrompts: SystemPrompt[] = [];
+
+        if (activeRepo) {
+            try {
+                const repoData = await loadRepoData(activeRepo.fullName, 'eval-lab');
+                repoContextGroups = repoData.responseTests || [];
+                repoSystemPrompts = repoData.personas || [];
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        let cg: any = db.select().from(contextGroups).where(eq(contextGroups.id, nextPendingEntry.contextGroupId)).get();
+        if (!cg) {
+            cg = repoContextGroups.find(c => c.id === nextPendingEntry.contextGroupId);
+        }
 
         if (!cg) throw new Error("Context group not found");
 
-        const expectations = cg.expectations ? JSON.parse(cg.expectations) : [];
+        const expectations = cg.expectations && typeof cg.expectations === 'string' ? JSON.parse(cg.expectations) : (cg.expectations || []);
         const prompt = cg.promptTemplate;
         const category = cg.category || "Uncategorized";
 
@@ -431,7 +473,10 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
         let variationName = null;
 
         if (nextPendingEntry.systemPromptId) {
-            const sp = db.select().from(systemPrompts).where(eq(systemPrompts.id, nextPendingEntry.systemPromptId)).get();
+            let sp = db.select().from(systemPrompts).where(eq(systemPrompts.id, nextPendingEntry.systemPromptId)).get();
+            if (!sp) {
+                sp = repoSystemPrompts.find(s => s.id === nextPendingEntry.systemPromptId);
+            }
             if (sp) {
                 systemContext = sp.content;
                 variationName = sp.name;
