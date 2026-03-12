@@ -655,14 +655,26 @@ export async function simulateBenchmarkStep(benchmarkId: string) {
 }
 
 async function runBenchmarkWorker(benchmarkId: string) {
-    let finished = false;
-    while (!finished) {
-        const result = await executeBenchmarkTask(benchmarkId);
-        finished = result.finished;
-        if (result.throttled) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+    const benchmark = db.select().from(benchmarks).where(eq(benchmarks.id, benchmarkId)).get();
+    const workerCount = benchmark?.parallelWorkers || 1;
+
+    console.log(`Starting background benchmark ${benchmarkId} with ${workerCount} workers`);
+
+    const workers = Array.from({ length: workerCount }).map(async (_, i) => {
+        let finished = false;
+        while (!finished) {
+            const result = await executeBenchmarkTask(benchmarkId);
+            finished = result.finished;
+            if (result.throttled) {
+                // Wait a bit before trying again if we hit the concurrency limit
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
-    }
+        console.log(`Worker ${i} finished for benchmark ${benchmarkId}`);
+    });
+
+    await Promise.all(workers);
+    console.log(`All workers finished for benchmark ${benchmarkId}`);
 }
 
 export async function startBackgroundBenchmark(benchmarkId: string) {

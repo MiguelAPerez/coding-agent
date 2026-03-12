@@ -23,7 +23,7 @@ export const BenchmarkProgress = ({
     const [modelCapabilities, setModelCapabilities] = useState<Record<string, string[]>>({});
     const [isCancelling, setIsCancelling] = useState(false);
     const [showConfirmCancel, setShowConfirmCancel] = useState(false);
-    const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
+    const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
@@ -81,7 +81,7 @@ export const BenchmarkProgress = ({
     const toggleAllModels = () => {
         const allModelNames = [...new Set(benchmark?.entries.map(e => e.model) || [])];
         const allCollapsed = allModelNames.every(name => collapsedModels[name]);
-        
+
         if (allCollapsed) {
             setCollapsedModels({});
             setGlobalSubgroupCollapseSignal({ collapsed: false, timestamp: Date.now() });
@@ -153,7 +153,7 @@ export const BenchmarkProgress = ({
                             <span className="text-[10px] bg-foreground/5 px-2 py-0.5 rounded-full text-foreground/30 font-mono">{allBenchmarks.length}</span>
                         </>
                     )}
-                    <button 
+                    <button
                         onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
                         className={`p-1.5 hover:bg-foreground/5 rounded-lg transition-colors text-foreground/30 hover:text-primary ${isHistoryCollapsed ? "mx-auto" : ""}`}
                         title={isHistoryCollapsed ? "Expand History" : "Collapse History"}
@@ -169,14 +169,14 @@ export const BenchmarkProgress = ({
                         )}
                     </button>
                 </div>
-                
+
                 <div className={`glass rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/20 max-h-[800px] overflow-y-auto transition-all ${isHistoryCollapsed ? "opacity-0 invisible" : "opacity-100 visible"}`}>
                     {!isHistoryCollapsed && allBenchmarks.map(b => {
                         const isSelected = b.id === benchmarkId;
-                        const duration = b.completedAt && b.startedAt 
+                        const duration = b.completedAt && b.startedAt
                             ? new Date(b.completedAt).getTime() - new Date(b.startedAt).getTime()
                             : b.startedAt ? Date.now() - new Date(b.startedAt).getTime() : 0;
-                        
+
                         return (
                             <button
                                 key={b.id}
@@ -198,12 +198,11 @@ export const BenchmarkProgress = ({
                                     <span className="text-[9px] font-mono opacity-30">
                                         {b.startedAt ? new Date(b.startedAt).toLocaleDateString() : "Unknown date"}
                                     </span>
-                                    <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                                        b.status === "completed" ? "bg-green-500/10 text-green-500" :
-                                        b.status === "running" ? "bg-primary/10 text-primary animate-pulse" :
-                                        b.status === "failed" ? "bg-red-500/10 text-red-500" :
-                                        "bg-foreground/10 text-foreground/40"
-                                    }`}>
+                                    <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${b.status === "completed" ? "bg-green-500/10 text-green-500" :
+                                            b.status === "running" ? "bg-primary/10 text-primary animate-pulse" :
+                                                b.status === "failed" ? "bg-red-500/10 text-red-500" :
+                                                    "bg-foreground/10 text-foreground/40"
+                                        }`}>
                                         {b.status}
                                     </span>
                                 </div>
