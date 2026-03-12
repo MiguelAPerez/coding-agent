@@ -49,7 +49,6 @@ describe("useContextGroupForm", () => {
             maxSentences: 5,
             systemContext: "system context",
             promptTemplate: "template",
-            skillIds: JSON.stringify(["skill1"]),
             toolIds: null,
             systemPromptIds: JSON.stringify(["p1"]),
             systemPromptSetIds: JSON.stringify(["s1"]),
@@ -65,7 +64,6 @@ describe("useContextGroupForm", () => {
         expect(result.current.editForm.name).toBe("Test Group");
         expect(result.current.editForm.weight).toBe(2);
         expect(result.current.editForm.expectations).toHaveLength(1);
-        expect(result.current.editForm.skillIds).toContain("skill1");
     });
 
     it("should update field values", () => {
@@ -76,20 +74,6 @@ describe("useContextGroupForm", () => {
         });
 
         expect(result.current.editForm.name).toBe("New Name");
-    });
-
-    it("should toggle skills", () => {
-        const { result } = renderHook(() => useContextGroupForm(onSuccess));
-
-        act(() => {
-            result.current.toggleSkill("skill1");
-        });
-        expect(result.current.editForm.skillIds).toContain("skill1");
-
-        act(() => {
-            result.current.toggleSkill("skill1");
-        });
-        expect(result.current.editForm.skillIds).not.toContain("skill1");
     });
 
     it("should handle expectations", () => {
@@ -164,7 +148,7 @@ describe("useContextGroupForm", () => {
     });
 
     it("should show alert on save failure", async () => {
-        const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => {});
+        const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => { });
         (saveContextGroup as jest.Mock).mockRejectedValue(new Error("error"));
         const { result } = renderHook(() => useContextGroupForm(onSuccess));
 

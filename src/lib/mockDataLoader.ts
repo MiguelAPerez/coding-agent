@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { ContextGroup, SystemPrompt, SystemPromptSet } from "@/types/agent";
-
+import { ContextGroup, SystemPrompt, SystemPromptSet, AgentConfig } from "@/types/agent";
 export async function loadRepoData(repoPath: string, feature?: string) {
     const fullPath = path.join(process.cwd(), "data", "repos", repoPath);
     
@@ -18,38 +17,45 @@ export async function loadRepoData(repoPath: string, feature?: string) {
         }
     }
 
-    const contextsFile = path.join(searchPath, "contexts.json");
-    const systemPromptsFile = path.join(searchPath, "systemPrompts.json");
+    const responseTestsFile = path.join(searchPath, "responseTests.json");
+    const personasFile = path.join(searchPath, "personas.json");
+    const agentsFile = path.join(searchPath, "agents.json");
 
-    let contextGroups: ContextGroup[] = [];
-    let systemPrompts: SystemPrompt[] = [];
+    let responseTests: ContextGroup[] = [];
+    let personas: SystemPrompt[] = [];
     let systemPromptSets: SystemPromptSet[] = [];
+    let agents: AgentConfig[] = [];
 
-    if (fs.existsSync(contextsFile)) {
+    if (fs.existsSync(responseTestsFile)) {
         try {
-            const rawContexts = JSON.parse(fs.readFileSync(contextsFile, "utf8"));
+            const rawContexts = JSON.parse(fs.readFileSync(responseTestsFile, "utf8"));
             
-            interface RawContextGroup extends Omit<ContextGroup, "id" | "updatedAt" | "expectations"> {
+            interface RawContextGroup extends Omit<ContextGroup, "id" | "updatedAt" | "expectations" | "promptTemplate"> {
                 id?: string;
                 expectations: unknown;
+                prompt?: string;
+                promptTemplate?: string;
             }
 
-            contextGroups = rawContexts.map((cg: RawContextGroup) => ({
+            const testData = Array.isArray(rawContexts) ? rawContexts : (rawContexts.responseTests || rawContexts.contexts || []);
+            responseTests = testData.map((cg: RawContextGroup) => ({
                 id: cg.id || crypto.randomUUID(),
                 ...cg,
+                promptTemplate: cg.promptTemplate || cg.prompt || "",
                 expectations: JSON.stringify(cg.expectations),
                 updatedAt: new Date(),
             }));
         } catch (e) {
-            console.error(`Failed to parse contexts.json for ${repoPath}:`, e);
+            console.error(`Failed to parse responseTests.json for ${repoPath}:`, e);
         }
     }
 
-    if (fs.existsSync(systemPromptsFile)) {
+    if (fs.existsSync(personasFile)) {
         try {
-            const rawPrompts = JSON.parse(fs.readFileSync(systemPromptsFile, "utf8"));
-            if (rawPrompts.systemPrompts) {
-                systemPrompts = rawPrompts.systemPrompts.map((sp: Omit<SystemPrompt, "id" | "updatedAt"> & { id?: string }) => ({
+            const rawPrompts = JSON.parse(fs.readFileSync(personasFile, "utf8"));
+            const promptData = rawPrompts.personas || rawPrompts.systemPrompts || (Array.isArray(rawPrompts) ? rawPrompts : []);
+            if (promptData) {
+                personas = promptData.map((sp: Omit<SystemPrompt, "id" | "updatedAt"> & { id?: string }) => ({
                     id: sp.id || crypto.randomUUID(),
                     ...sp,
                     updatedAt: new Date()
@@ -64,13 +70,28 @@ export async function loadRepoData(repoPath: string, feature?: string) {
                 }));
             }
         } catch (e) {
-            console.error(`Failed to parse systemPrompts.json for ${repoPath}:`, e);
+            console.error(`Failed to parse personas.json for ${repoPath}:`, e);
+        }
+    }
+
+    if (fs.existsSync(agentsFile)) {
+        try {
+            const rawAgents = JSON.parse(fs.readFileSync(agentsFile, "utf8"));
+            const agentData = Array.isArray(rawAgents) ? rawAgents : (rawAgents.agents || []);
+            agents = agentData.map((ag: Omit<AgentConfig, "id" | "updatedAt"> & { id?: string }) => ({
+                id: ag.id || crypto.randomUUID(),
+                ...ag,
+                updatedAt: new Date()
+            }));
+        } catch (e) {
+            console.error(`Failed to parse agents.json for ${repoPath}:`, e);
         }
     }
 
     return {
-        contextGroups,
-        systemPrompts,
-        systemPromptSets
+        responseTests,
+        personas,
+        systemPromptSets,
+        agents
     };
 }

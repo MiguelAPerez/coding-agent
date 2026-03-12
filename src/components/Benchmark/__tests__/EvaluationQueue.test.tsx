@@ -92,8 +92,8 @@ describe("EvaluationQueue", () => {
             "gpt-4": ["thinking", "tools"]
         },
         contextGroups: [
-            { 
-                id: "cg1", 
+            {
+                id: "cg1",
                 userId: "u1",
                 name: "Logic Test",
                 description: null,
@@ -103,14 +103,13 @@ describe("EvaluationQueue", () => {
                 maxSentences: null,
                 systemContext: null,
                 promptTemplate: "",
-                skillIds: null,
                 toolIds: null,
                 systemPromptIds: null,
                 systemPromptSetIds: null,
                 updatedAt: new Date()
             },
-            { 
-                id: "cg2", 
+            {
+                id: "cg2",
                 userId: "u1",
                 name: "Math Test",
                 description: null,
@@ -120,14 +119,13 @@ describe("EvaluationQueue", () => {
                 maxSentences: null,
                 systemContext: null,
                 promptTemplate: "",
-                skillIds: null,
                 toolIds: null,
                 systemPromptIds: null,
                 systemPromptSetIds: null,
                 updatedAt: new Date()
             },
-            { 
-                id: "cg3", 
+            {
+                id: "cg3",
                 userId: "u1",
                 name: "Coding Test",
                 description: null,
@@ -137,7 +135,6 @@ describe("EvaluationQueue", () => {
                 maxSentences: null,
                 systemContext: null,
                 promptTemplate: "",
-                skillIds: null,
                 toolIds: null,
                 systemPromptIds: null,
                 systemPromptSetIds: null,

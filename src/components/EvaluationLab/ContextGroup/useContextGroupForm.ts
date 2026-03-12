@@ -14,7 +14,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
         maxSentences: "",
         systemContext: "",
         promptTemplate: "",
-        skillIds: [],
         systemPromptIds: [],
         systemPromptSetIds: [],
         systemPromptVariations: []
@@ -26,7 +25,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
             await saveContextGroup({
                 ...editForm,
                 id: isEditing || undefined,
-                skillIds: JSON.stringify(editForm.skillIds),
                 expectations: JSON.stringify(editForm.expectations),
                 systemPromptIds: JSON.stringify(editForm.systemPromptIds),
                 systemPromptSetIds: JSON.stringify(editForm.systemPromptSetIds),
@@ -40,15 +38,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
         }
     };
 
-    const toggleSkill = (skillId: string) => {
-        setEditForm(prev => ({
-            ...prev,
-            skillIds: prev.skillIds.includes(skillId)
-                ? prev.skillIds.filter(id => id !== skillId)
-                : [...prev.skillIds, skillId]
-        }));
-    };
-
     const startNew = () => {
         setIsEditing("");
         setEditForm({
@@ -60,7 +49,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
             maxSentences: "",
             systemContext: "",
             promptTemplate: "",
-            skillIds: [],
             systemPromptIds: [],
             systemPromptSetIds: [],
             systemPromptVariations: []
@@ -69,7 +57,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
 
     const startEdit = (group: ContextGroup) => {
         setIsEditing(group.id);
-        const skillIds = group.skillIds ? JSON.parse(group.skillIds) : [];
         const expectations = group.expectations ? JSON.parse(group.expectations) : [];
         setEditForm({
             name: group.name,
@@ -80,7 +67,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
             maxSentences: group.maxSentences || "",
             systemContext: group.systemContext || "",
             promptTemplate: group.promptTemplate,
-            skillIds: Array.isArray(skillIds) ? skillIds : [],
             systemPromptIds: group.systemPromptIds ? JSON.parse(group.systemPromptIds) || [] : [],
             systemPromptSetIds: group.systemPromptSetIds ? JSON.parse(group.systemPromptSetIds) || [] : [],
             systemPromptVariations: group.systemPromptVariations ? JSON.parse(group.systemPromptVariations) || [] : []
@@ -170,7 +156,6 @@ export const useContextGroupForm = (onSuccess: () => void) => {
         isEditing,
         editForm,
         handleSave,
-        toggleSkill,
         startNew,
         startEdit,
         addExpectation,

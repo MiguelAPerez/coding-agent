@@ -1,4 +1,4 @@
-import { Skill, SystemPrompt, SystemPromptSet } from "@/types/agent";
+import { SystemPrompt, SystemPromptSet } from "@/types/agent";
 
 export interface Expectation {
     type: string;
@@ -20,7 +20,6 @@ export interface ContextGroupFormState {
     maxSentences: string | number;
     systemContext: string;
     promptTemplate: string;
-    skillIds: string[];
     systemPromptIds: string[];
     systemPromptSetIds: string[];
     systemPromptVariations: Variation[];
@@ -28,11 +27,9 @@ export interface ContextGroupFormState {
 
 export interface ContextGroupFormProps {
     form: ContextGroupFormState;
-    skills: Skill[];
     prompts: SystemPrompt[];
     promptSets: SystemPromptSet[];
     onFieldChange: (field: keyof ContextGroupFormState, value: string | number | string[] | Expectation[] | Variation[]) => void;
-    onToggleSkill: (skillId: string) => void;
     onAddExpectation: () => void;
     onRemoveExpectation: (index: number) => void;
     onUpdateExpectation: (index: number, field: keyof Expectation, value: string) => void;

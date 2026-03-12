@@ -1,10 +1,10 @@
 import React from "react";
-import { getSkills } from "@/app/actions/skills";
+// import { getSkills } from "@/app/actions/skills";
 import { getSystemPrompts, getSystemPromptSets } from "@/app/actions/prompts";
 import { getContextGroups, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks } from "@/app/actions/benchmarks";
 import { getCachedRepositories } from "@/app/actions/repositories";
 import { EvaluationLabClient } from "@/components/EvaluationLab/EvaluationLabClient";
-import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
+import { ContextGroup, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
 import { loadRepoData } from "@/lib/mockDataLoader";
 
 export default async function EvaluationLabPage({
@@ -26,15 +26,15 @@ export default async function EvaluationLabPage({
     if (targetRepo) {
         try {
             const repoData = await loadRepoData(targetRepo, 'eval-lab');
-            contextGroups = repoData.contextGroups as unknown as typeof contextGroups;
-            systemPrompts = repoData.systemPrompts as unknown as typeof systemPrompts;
+            contextGroups = repoData.responseTests as unknown as typeof contextGroups;
+            systemPrompts = repoData.personas as unknown as typeof systemPrompts;
             systemPromptSets = repoData.systemPromptSets as unknown as typeof systemPromptSets;
         } catch (error) {
             console.error("Failed to load repo data:", error);
         }
     }
 
-    const skills = await getSkills();
+    // const skills = await getSkills();
     const latestBenchmark = await getLatestBenchmark();
     const benchmarkRuns = await getBenchmarkRuns();
     const completedBenchmarks = await getCompletedBenchmarks();
@@ -53,7 +53,6 @@ export default async function EvaluationLabPage({
 
             <EvaluationLabClient
                 initialGroups={contextGroups as ContextGroup[]}
-                skills={skills as Skill[]}
                 latestBenchmark={latestBenchmark as Benchmark | null}
                 initialRuns={benchmarkRuns as BenchmarkRun[]}
                 completedBenchmarks={completedBenchmarks as (Benchmark & { entries: BenchmarkEntry[] })[]}

@@ -28,7 +28,6 @@ const mockContextGroups: ContextGroup[] = [
         maxSentences: 1,
         systemContext: "",
         promptTemplate: "Hello",
-        skillIds: null,
         toolIds: null,
         systemPromptIds: null,
         systemPromptSetIds: null,

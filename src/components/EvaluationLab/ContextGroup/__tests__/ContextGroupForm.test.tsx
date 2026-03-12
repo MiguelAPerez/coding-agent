@@ -13,7 +13,6 @@ describe("ContextGroupForm", () => {
         maxSentences: "",
         systemContext: "base context",
         promptTemplate: "template",
-        skillIds: ["s1"],
         systemPromptIds: ["p1"],
         systemPromptSetIds: ["set1"],
         systemPromptVariations: [{ id: "v1", name: "Var 1", systemPrompt: "sp" }],
@@ -100,19 +99,19 @@ describe("ContextGroupForm", () => {
 
     it("renders sub-components correctly", () => {
         render(<ContextGroupForm {...props} />);
-        
+
         // Check ExpectationItem
         expect(screen.getByDisplayValue("test")).toBeInTheDocument();
-        
+
         // Check ReferenceItem (from set and prompt)
         // Use getAllByText and check that at least one is NOT an option (or just verify content)
         // Or check by their characteristic headers
         expect(screen.getByText("System Prompt Set Reference")).toBeInTheDocument();
         expect(screen.getByText("System Prompt Reference")).toBeInTheDocument();
-        
+
         // Check VariationItem
         expect(screen.getByDisplayValue("Var 1")).toBeInTheDocument();
-        
+
         // Check SkillSelector
         expect(screen.getByText("Skill 1")).toBeInTheDocument();
     });
@@ -129,7 +128,7 @@ describe("ContextGroupForm", () => {
             }
         };
         render(<ContextGroupForm {...emptyFormProps} />);
-        
+
         expect(screen.getByText("No expectations defined. Add one to enable automated scoring.")).toBeInTheDocument();
         expect(screen.getByText("No variations defined. Uses base system context by default.")).toBeInTheDocument();
     });

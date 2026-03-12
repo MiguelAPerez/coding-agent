@@ -2,19 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ContextGroup, Skill, SystemPrompt, SystemPromptSet } from "@/types/agent";
+import { ContextGroup, SystemPrompt, SystemPromptSet } from "@/types/agent";
 import { useContextGroupForm } from "./ContextGroup/useContextGroupForm";
 import { ContextGroupForm } from "./ContextGroup/ContextGroupForm";
 import { ContextGroupCard } from "./ContextGroup/ContextGroupCard";
 
 export const ContextGroupManager = ({
     initialGroups,
-    skills,
     prompts = [],
     promptSets = []
 }: {
     initialGroups: ContextGroup[];
-    skills: Skill[];
     prompts?: SystemPrompt[];
     promptSets?: SystemPromptSet[];
 }) => {
@@ -22,7 +20,6 @@ export const ContextGroupManager = ({
         isEditing,
         editForm,
         handleSave,
-        toggleSkill,
         startNew,
         startEdit,
         addExpectation,
@@ -155,11 +152,9 @@ export const ContextGroupManager = ({
                         <div className="max-h-[85vh] overflow-y-auto p-1">
                             <ContextGroupForm
                                 form={editForm}
-                                skills={skills}
                                 prompts={prompts}
                                 promptSets={promptSets}
                                 onFieldChange={onFieldChange}
-                                onToggleSkill={toggleSkill}
                                 onAddExpectation={addExpectation}
                                 onRemoveExpectation={removeExpectation}
                                 onUpdateExpectation={updateExpectation}

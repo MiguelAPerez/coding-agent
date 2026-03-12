@@ -8,11 +8,10 @@ import { BenchmarkProgress } from "../Benchmark/BenchmarkProgress";
 import { BenchmarkResults } from "@/app/Benchmark/BenchmarkResults";
 import { SystemPromptsManager } from "./SystemPromptsManager";
 import { SystemPromptSetManager } from "./SystemPromptSetManager";
-import { ContextGroup, Skill, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
+import { ContextGroup, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
 
 export const EvaluationLabClient = ({
     initialGroups,
-    skills,
     latestBenchmark,
     initialRuns,
     completedBenchmarks,
@@ -21,7 +20,6 @@ export const EvaluationLabClient = ({
     initialSystemPromptSets
 }: {
     initialGroups: ContextGroup[];
-    skills: Skill[];
     latestBenchmark: Benchmark | null;
     initialRuns: BenchmarkRun[];
     completedBenchmarks: (Benchmark & { entries: BenchmarkEntry[] })[];
@@ -93,7 +91,6 @@ export const EvaluationLabClient = ({
                 {activeTab === "groups" && (
                     <ContextGroupManager
                         initialGroups={initialGroups}
-                        skills={skills}
                         prompts={initialSystemPrompts}
                         promptSets={initialSystemPromptSets}
                     />

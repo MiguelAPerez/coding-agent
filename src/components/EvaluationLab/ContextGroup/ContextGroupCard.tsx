@@ -71,25 +71,11 @@ export const ContextGroupCard = ({ group, onEdit }: ContextGroupCardProps) => {
                 })()}
             </div>
             <div className="flex flex-wrap gap-2">
-                {(() => {
-                    let skillCount = 0;
-                    try {
-                        const ids = group.skillIds ? JSON.parse(group.skillIds) : [];
-                        skillCount = Array.isArray(ids) ? ids.length : 0;
-                    } catch { /* ignore */ }
-
-                    if (skillCount === 0) return null;
-                    return (
-                        <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                            {skillCount} Skills
-                        </span>
-                    );
-                })()}
                 <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                    {group.promptTemplate.length} chars
+                    {(group.promptTemplate || "").length} chars
                 </span>
                 <span className="text-[10px] bg-foreground/5 text-foreground/40 px-2 py-0.5 rounded-full border border-border">
-                    ~{Math.ceil(group.promptTemplate.length / 4)} tokens
+                    ~{Math.ceil((group.promptTemplate || "").length / 4)} tokens
                 </span>
             </div>
         </div>

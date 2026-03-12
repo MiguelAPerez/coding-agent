@@ -3,15 +3,12 @@ import { ContextGroupFormProps } from "./types";
 import { ExpectationItem } from "./ExpectationItem";
 import { VariationItem } from "./VariationItem";
 import { ReferenceItem } from "./ReferenceItem";
-import { SkillSelector } from "./SkillSelector";
 
 export const ContextGroupForm = ({
     form,
-    skills,
     prompts,
     promptSets,
     onFieldChange,
-    onToggleSkill,
     onAddExpectation,
     onRemoveExpectation,
     onUpdateExpectation,
@@ -221,15 +218,6 @@ export const ContextGroupForm = ({
                         onChange={e => onFieldChange("promptTemplate", e.target.value)}
                         placeholder="Instructions for this context group..."
                         required
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase text-foreground/40">Included Skills</label>
-                    <SkillSelector
-                        skills={skills}
-                        selectedSkillIds={form.skillIds}
-                        onToggle={onToggleSkill}
                     />
                 </div>
 

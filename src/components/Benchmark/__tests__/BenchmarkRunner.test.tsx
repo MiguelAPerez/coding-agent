@@ -28,7 +28,6 @@ const mockContextGroups: ContextGroup[] = [
         maxSentences: 1,
         systemContext: "",
         promptTemplate: "Hello",
-        skillIds: null,
         toolIds: null,
         systemPromptIds: null,
         systemPromptSetIds: null,
@@ -45,7 +44,6 @@ const mockContextGroups: ContextGroup[] = [
         maxSentences: 1,
         systemContext: "",
         promptTemplate: "World",
-        skillIds: null,
         toolIds: null,
         systemPromptIds: null,
         systemPromptSetIds: null,
@@ -57,12 +55,12 @@ describe("BenchmarkRunner", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockedGetOllamaModels.mockResolvedValue([
-            { 
-                id: "m-1", 
-                userId: "u-1", 
-                name: "llama3", 
-                details: JSON.stringify({ capabilities: ["tools"] }), 
-                updatedAt: new Date() 
+            {
+                id: "m-1",
+                userId: "u-1",
+                name: "llama3",
+                details: JSON.stringify({ capabilities: ["tools"] }),
+                updatedAt: new Date()
             }
         ]);
     });
@@ -90,17 +88,17 @@ describe("BenchmarkRunner", () => {
         });
 
         const llamaModel = screen.getByText("llama3").closest("div[class*='cursor-pointer']");
-        
+
         await act(async () => {
             fireEvent.click(llamaModel!);
         });
-        
+
         expect(llamaModel?.className).toContain("bg-primary/5");
     });
 
     it("handles running a benchmark", async () => {
         // window.alert is used in the component
-        const alertMock = jest.spyOn(window, "alert").mockImplementation(() => {});
+        const alertMock = jest.spyOn(window, "alert").mockImplementation(() => { });
 
         await act(async () => {
             render(<BenchmarkRunner contextGroups={mockContextGroups} />);
@@ -111,7 +109,7 @@ describe("BenchmarkRunner", () => {
         });
 
         const runBtn = screen.getByText(/Run 0 Batch Evaluations/);
-        
+
         // Should be disabled initially (empty valid inputs)
         expect(runBtn).toBeDisabled();
 
@@ -158,7 +156,7 @@ describe("BenchmarkRunner", () => {
 
         // "Test" is the category for both mock groups
         const catSelectAll = screen.getByText(/Test \(2\)/).closest("div");
-        
+
         await act(async () => {
             fireEvent.click(catSelectAll!);
         });
