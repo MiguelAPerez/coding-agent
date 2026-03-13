@@ -43,9 +43,20 @@ export async function chatWithAgent(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
+    return chatWithAgentInternal(repoId, filePath, prompt, agentId, session.user.id, history);
+}
+
+export async function chatWithAgentInternal(
+    repoId: string,
+    filePath: string | null,
+    prompt: string,
+    agentId: string,
+    userId: string,
+    history: ChatMessage[] = []
+): Promise<ChatResponse> {
     const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
 
-    const context = new ChatContext(session.user.id, repoId, agentId, filePath, extraPaths);
+    const context = new ChatContext(userId, repoId, agentId, filePath, extraPaths);
     const contextData = await context.load();
 
     const ollama = new OllamaClient(

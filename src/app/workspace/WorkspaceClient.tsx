@@ -27,7 +27,6 @@ import {
     getCurrentBranch
 } from "@/app/actions/git";
 import {
-    chatWithAgent,
     PendingSuggestion,
     FileChange,
     ChatMessage
@@ -99,6 +98,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string>("");
     const [chatMessages, setChatMessages] = useState<{ role: "system" | "user" | "assistant", content: string }[]>([]);
+    const [isChatLoading, setIsChatLoading] = useState(false);
     const savingFiles = useRef<Set<string>>(new Set());
 
     const refreshGit = useCallback(() => setGitRefreshKey(prev => prev + 1), []);
@@ -291,9 +291,27 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
         const newUserMessage: ChatMessage = { role: "user", content: message };
         setChatMessages(prev => [...prev, newUserMessage]);
+        setIsChatLoading(true);
 
         try {
-            const res = await chatWithAgent(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    repoId: selectedRepoId,
+                    filePath: activeTabPath,
+                    prompt: message,
+                    agentId: selectedAgentId,
+                    history: chatMessages
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const res = await response.json();
             
             const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
             setChatMessages(prev => [...prev, newAssistantMessage]);
@@ -303,7 +321,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 setChatTab("suggestions");
 
                 // Update all affected tab contents that are already open
-                Object.entries(res.suggestion.filesChanged).forEach(([path, change]) => {
+                (Object.entries(res.suggestion.filesChanged) as [string, FileChange][]).forEach(([path, change]) => {
                     const isOpen = openTabs.some(t => t.path === path);
                     if (isOpen) {
                         handleContentChange(path, change.suggestedContent);
@@ -318,6 +336,8 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         } catch (e) {
             console.error("Chat failed", e);
             alert("Chat failed: " + (e instanceof Error ? e.message : String(e)));
+        } finally {
+            setIsChatLoading(false);
         }
     };
 
@@ -803,6 +823,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 selectedAgentId={selectedAgentId}
                                 onSelectAgent={setSelectedAgentId}
                                 messages={chatMessages}
+                                isLoading={isChatLoading}
                                 allFiles={getAllFiles(fileTree)}
                                 onAddContext={handleAddContext}
                             />

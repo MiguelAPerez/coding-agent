@@ -160,4 +160,16 @@ describe("ChatPanel", () => {
         expect(mockProps.onAddContext).toHaveBeenCalledWith("src/index.ts");
         expect(input).toHaveValue("@src/index.ts");
     });
+    
+    it("renders thinking indicator and disables inputs when isLoading is true", () => {
+        render(<ChatPanel {...mockProps} isLoading={true} />);
+        
+        expect(screen.getByText("AI is thinking...")).toBeInTheDocument();
+        
+        const input = screen.getByPlaceholderText("AI is thinking...");
+        expect(input).toBeDisabled();
+        
+        const sendBtn = screen.getByTitle("Send Message");
+        expect(sendBtn).toBeDisabled();
+    });
 });

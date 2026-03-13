@@ -21,6 +21,7 @@ interface ChatPanelProps {
     selectedAgentId: string;
     onSelectAgent: (id: string) => void;
     messages: { role: string, content: string }[];
+    isLoading?: boolean;
     allFiles?: string[];
     onAddContext?: (path: string) => void;
 }
@@ -39,6 +40,7 @@ export default function ChatPanel({
     selectedAgentId,
     onSelectAgent,
     messages,
+    isLoading = false,
     allFiles = [],
     onAddContext
 }: ChatPanelProps) {
@@ -66,7 +68,7 @@ export default function ChatPanel({
     }, [inputValue]);
 
     const handleSend = () => {
-        if (!inputValue.trim()) return;
+        if (!inputValue.trim() || isLoading) return;
         onSendMessage(inputValue);
         setInputValue("");
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -188,6 +190,18 @@ export default function ChatPanel({
                         </div>
                     ))
                 )}
+                {isLoading && (
+                    <div className="flex flex-col items-start">
+                        <div className="max-w-[85%] rounded-2xl px-4 py-2 text-sm bg-foreground/5 border border-border rounded-tl-none flex items-center gap-2">
+                            <div className="flex gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce"></span>
+                            </div>
+                            <span className="text-foreground/40 italic text-xs">AI is thinking...</span>
+                        </div>
+                    </div>
+                )}
                 <div ref={messagesEndRef} />
             </div>
 
@@ -308,8 +322,9 @@ export default function ChatPanel({
                         ref={textareaRef}
                         value={inputValue}
                         onChange={handleInputChange}
+                        disabled={isLoading}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
+                            if (e.key === 'Enter' && !e.shiftKey && !showMentions && !isLoading) {
                                 e.preventDefault();
                                 handleSend();
                             }
@@ -318,14 +333,14 @@ export default function ChatPanel({
                             }
                         }}
                         rows={1}
-                        placeholder="Ask Copilot... (use @ to mention files)" 
-                        className="w-full bg-foreground/5 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none min-h-[42px] max-h-[200px] transition-all scrollbar-hide"
+                        placeholder={isLoading ? "AI is thinking..." : "Ask Copilot... (use @ to mention files)"} 
+                        className="w-full bg-foreground/5 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none min-h-[42px] max-h-[200px] transition-all scrollbar-hide disabled:opacity-50"
                     />
                     <button 
                         onClick={handleSend}
                         title="Send Message"
                         className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                        disabled={!inputValue.trim()}
+                        disabled={!inputValue.trim() || isLoading}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="12" y1="19" x2="12" y2="5"></line>
