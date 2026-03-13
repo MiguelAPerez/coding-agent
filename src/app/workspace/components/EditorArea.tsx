@@ -5,7 +5,7 @@ import Editor, { Monaco } from "@monaco-editor/react";
 import { diffLines } from "diff";
 import { Tab } from "../WorkspaceClient";
 import RevertPrompt, { DiffBlock } from "./RevertPrompt";
-import { PendingSuggestion } from "../WorkspaceClient";
+import { PendingSuggestion } from "@/app/actions/chat";
 
 interface EditorAreaProps {
     tabs: Tab[];

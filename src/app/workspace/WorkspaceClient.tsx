@@ -27,6 +27,12 @@ import {
     getCurrentBranch
 } from "@/app/actions/git";
 import {
+    chatWithAgent,
+    PendingSuggestion,
+    FileChange,
+    ChatMessage
+} from "@/app/actions/chat";
+import {
     getRepoFileTree,
     getWorkspaceFileContent,
     saveWorkspaceFile,
@@ -35,23 +41,10 @@ import {
     revertWorkspaceFile,
     FileNode
 } from "@/app/actions/workspace-files";
+import { getAgentConfigs } from "@/app/actions/config";
 import { getBranchProtection } from "@/app/actions/settings";
 
 
-export interface FileChange {
-    startLine: number;
-    endLine: number;
-    column: number;
-    originalContent: string;
-    suggestedContent: string;
-}
-
-export interface PendingSuggestion {
-    chatId: number;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: any[];
-    filesChanged: Record<string, FileChange>;
-}
 interface Repo {
     id: string;
     fullName: string;
@@ -102,6 +95,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const [isMainProtected, setIsMainProtected] = useState(true);
     const [gitRefreshKey, setGitRefreshKey] = useState(0);
     const [activeLeftTab, setActiveLeftTab] = useState<"files" | "git">("files");
+    const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
+    const [selectedAgentId, setSelectedAgentId] = useState<string>("");
+    const [chatMessages, setChatMessages] = useState<{ role: "system" | "user" | "assistant", content: string }[]>([]);
     const savingFiles = useRef<Set<string>>(new Set());
 
     const refreshGit = useCallback(() => setGitRefreshKey(prev => prev + 1), []);
@@ -139,6 +135,18 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         setTerminalLogs([]);
         setActiveSandbox(null);
     }, [selectedRepoId]);
+
+    // Load agents on mount
+    useEffect(() => {
+        async function loadAgents() {
+            const configs = await getAgentConfigs();
+            setAgents(configs.map(c => ({ id: c.id, name: c.name })));
+            if (configs.length > 0 && !selectedAgentId) {
+                setSelectedAgentId(configs[0].id);
+            }
+        }
+        loadAgents();
+    }, [selectedAgentId]);
 
     // Load workspace when repo changes
     useEffect(() => {
@@ -260,50 +268,44 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
     };
 
-    const handleSendMessage = (message: string) => {
-        if (!activeTabPath || openTabs.length === 0) {
-            alert("Please open a file first to mock a suggestion.");
+    const handleSendMessage = async (message: string) => {
+        if (!selectedAgentId) {
+            alert("Please select an agent first.");
             return;
         }
 
-        const activeTab = openTabs.find(t => t.path === activeTabPath);
-        if (!activeTab) return;
+        if (!selectedRepoId) return;
 
-        // Mock Ai editing lines in multiple files
-        const changeRequest = {
-            chatId: 0,
-            messages: [],
-            filesChanged: {
-                [activeTabPath]: {
-                    'startLine': 0,
-                    'endLine': 0,
-                    'column': 0,
-                    'originalContent': activeTab.content,
-                    'suggestedContent': activeTab.content + `\n// 🤖 AI Suggestion applied here for: ${message}`
-                },
-                'Dockerfile': {
-                    'startLine': 0,
-                    'endLine': 0,
-                    'column': 0,
-                    'originalContent': '',
-                    'suggestedContent': 'FROM ubuntu:24.04'
-                }
+        const newUserMessage: ChatMessage = { role: "user", content: message };
+        setChatMessages(prev => [...prev, newUserMessage]);
+
+        try {
+            const res = await chatWithAgent(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
+            
+            const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
+            setChatMessages(prev => [...prev, newAssistantMessage]);
+
+            if (res.suggestion) {
+                setPendingSuggestion(res.suggestion);
+                setChatTab("suggestions");
+
+                // Update all affected tab contents that are already open
+                Object.entries(res.suggestion.filesChanged).forEach(([path, change]) => {
+                    const isOpen = openTabs.some(t => t.path === path);
+                    if (isOpen) {
+                        handleContentChange(path, change.suggestedContent);
+                    }
+                    if (!contextFiles.includes(path)) {
+                        setContextFiles(prev => [...prev, path]);
+                    }
+                });
+            } else {
+                alert("AI did not suggest any changes. Response: " + res.message);
             }
+        } catch (e) {
+            console.error("Chat failed", e);
+            alert("Chat failed: " + (e instanceof Error ? e.message : String(e)));
         }
-
-        setPendingSuggestion(changeRequest);
-        setChatTab("suggestions");
-
-        // Update all affected tab contents that are already open
-        Object.entries(changeRequest.filesChanged).forEach(([path, change]) => {
-            const isOpen = openTabs.some(t => t.path === path);
-            if (isOpen) {
-                handleContentChange(path, change.suggestedContent);
-            }
-            if (!contextFiles.includes(path)) {
-                setContextFiles(prev => [...prev, path]);
-            }
-        });
     };
 
     const handleApproveSuggestion = async () => {
@@ -311,6 +313,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
                 const isOpen = openTabs.some(t => t.path === path);
                 if (isOpen) {
+                    // Update the editor content first
+                    handleContentChange(path, change.suggestedContent);
+                    // Then save it
                     await handleSaveFile(path);
                 } else {
                     // For files not currently open, we save directly to disk
@@ -745,6 +750,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 onJumpToFile={handleFileSelect}
                                 activeTab={chatTab}
                                 onTabChange={setChatTab}
+                                agents={agents}
+                                selectedAgentId={selectedAgentId}
+                                onSelectAgent={setSelectedAgentId}
+                                messages={chatMessages}
                             />
                     </Panel>
                 </PanelGroup>

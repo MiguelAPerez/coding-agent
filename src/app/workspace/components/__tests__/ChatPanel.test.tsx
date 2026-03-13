@@ -13,6 +13,10 @@ describe("ChatPanel", () => {
         onJumpToFile: jest.fn(),
         activeTab: null as "context" | "suggestions" | null,
         onTabChange: jest.fn(),
+        agents: [{ id: "agent1", name: "Agent 1" }],
+        selectedAgentId: "agent1",
+        onSelectAgent: jest.fn(),
+        messages: []
     };
 
     it("renders the copilot title", () => {

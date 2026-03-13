@@ -9,7 +9,7 @@ import { getRepoFileContentInternal } from "./files";
 
 // --- Types ---
 
-interface ChatMessage {
+export interface ChatMessage {
     role: "system" | "user" | "assistant";
     content: string;
 }
@@ -17,6 +17,22 @@ interface ChatMessage {
 interface ChatResponse {
     message: string;
     redirect: string | null;
+    suggestion?: PendingSuggestion | null;
+}
+
+export interface FileChange {
+    startLine: number;
+    endLine: number;
+    column: number;
+    originalContent: string;
+    suggestedContent: string;
+}
+
+export interface PendingSuggestion {
+    chatId: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: any[];
+    filesChanged: Record<string, FileChange>;
 }
 
 // --- Classes ---
@@ -153,6 +169,7 @@ class OllamaClient {
 
         if (!response.ok) throw new Error(`Ollama API error: ${response.statusText}`);
         const data = await response.json();
+        console.log(data);
         return data.message.content;
     }
 }
@@ -239,6 +256,8 @@ class InferenceRunner {
 
 // --- Public Actions ---
 
+// --- Public Actions ---
+
 export async function chatWithDoc(repoId: string, filePath: string | null, prompt: string, agentId?: string): Promise<ChatResponse> {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
@@ -258,4 +277,127 @@ export async function chatWithDocInternal(repoId: string, filePath: string | nul
     const runner = new InferenceRunner(userId, repoId, contextData, ollama);
 
     return runner.run(prompt, filePath, contextData.initialFileContent);
+}
+
+export async function chatWithAgent(
+    repoId: string,
+    filePath: string | null,
+    prompt: string,
+    agentId: string,
+    history: ChatMessage[] = []
+): Promise<ChatResponse> {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const context = new ChatContext(session.user.id, repoId, agentId, filePath);
+    const contextData = await context.load();
+
+    const ollama = new OllamaClient(
+        contextData.ollamaConfig,
+        contextData.agentConfig.model!,
+        contextData.agentConfig.temperature
+    );
+
+    // Build the system prompt with the "Diff Generator" skill
+    let systemPrompt = contextData.personalityPrompt || "You are a helpful coding assistant.";
+
+    systemPrompt += `
+
+CRITICAL INSTRUCTIONS:
+1. When you want to suggest code changes, you MUST provide the FULL CONTENT of the file in a code block like this:
+
+FILE: path/to/file.ext
+\`\`\`
+full content of the file goes here...
+\`\`\`
+
+2. You can suggest changes for multiple files. Each must be preceded by the "FILE: path" header.
+3. DO NOT use diff format (with -/+ lines). Provide the ENTIRE updated file content.
+4. DO NOT ADD ANY FRONTMATTER, YAML HEADERS, OR "---" DELIMITERS AT THE TOP OF YOUR RESPONSE OR AROUND CODE BLOCKS.
+5. Your response should be clean Markdown.
+6. AFTER providing any file content blocks, provide a brief, human-friendly summary of what you changed.
+7. The user will NOT see the raw code blocks in the chat, only your text summary and explanations.
+`;
+
+    // Add existing skills
+    if (contextData.enabledSkills.length > 0) {
+        systemPrompt += "\n\nAvailable Skills:\n" + contextData.enabledSkills.map((s) => `- ${s.name}: ${s.description}\n${s.content}`).join("\n\n");
+    }
+
+    const messages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...history,
+    ];
+
+    if (filePath) {
+        const fileExt = filePath.split('.').pop() || 'text';
+        messages.push({ 
+            role: "user", 
+            content: `I am currently looking at ${filePath} (type: ${fileExt}).\n\nContent:\n${contextData.initialFileContent}\n\n${prompt}` 
+        });
+    } else {
+        messages.push({ role: "user", content: prompt });
+    }
+
+    const responseContent = await ollama.chat(messages);
+
+    // Parse diffs and clean content
+    const { suggestion, cleanContent } = parseDiffs(responseContent, filePath, contextData.initialFileContent);
+
+    return {
+        message: cleanContent,
+        redirect: null,
+        suggestion: Object.keys(suggestion.filesChanged).length > 0 ? suggestion : null
+    };
+}
+
+function parseDiffs(content: string, activeFilePath: string | null, activeFileContent: string): { suggestion: PendingSuggestion, cleanContent: string } {
+    const filesChanged: Record<string, FileChange> = {};
+    let cleanContent = content;
+
+    // Simple regex-based diff parser
+    // Looking for: FILE: path/to/file\n```diff\n...\n```
+    const fileBlockRegex = /FILE:\s*([^\s\n]+)[\s\S]*?```(?:diff)?\n([\s\S]*?)```/g;
+    let match;
+
+    while ((match = fileBlockRegex.exec(content)) !== null) {
+        const path = match[1];
+        const fullContent = match[2];
+
+        // Remove the whole block from cleanContent
+        cleanContent = cleanContent.replace(match[0], '');
+
+        filesChanged[path] = {
+            startLine: 0,
+            endLine: 0,
+            column: 0,
+            originalContent: path === activeFilePath ? activeFileContent : "",
+            suggestedContent: fullContent.trim()
+        };
+    }
+
+    // Fallback: search for ANY code block if no FILE: tag was found but we have an active file
+    if (Object.keys(filesChanged).length === 0 && activeFilePath) {
+        const codeBlockRegex = /```[\s\S]*?\n([\s\S]*?)```/g;
+        const secondMatch = codeBlockRegex.exec(content);
+        if (secondMatch) {
+            cleanContent = cleanContent.replace(secondMatch[0], '');
+            filesChanged[activeFilePath] = {
+                startLine: 0,
+                endLine: 0,
+                column: 0,
+                originalContent: activeFileContent,
+                suggestedContent: secondMatch[1].trim()
+            };
+        }
+    }
+
+    return {
+        suggestion: {
+            chatId: Date.now(),
+            messages: [],
+            filesChanged
+        },
+        cleanContent: cleanContent.trim().replace(/\n{3,}/g, '\n\n')
+    };
 }
