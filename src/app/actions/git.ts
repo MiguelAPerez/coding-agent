@@ -281,3 +281,23 @@ export async function setupGitAuth(repoId: string, sandboxId?: string) {
 
     return { success: true };
 }
+
+/**
+ * Fetches the git log graph for the workspace.
+ */
+export async function getGitLog(repoId: string, limit: number = 50) {
+    const user = await getUserSession();
+    const repo = db.select().from(repositories).where(eq(repositories.id, repoId)).get();
+    if (!repo) throw new Error("Repository not found");
+
+    const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
+
+    try {
+        // We use git log --graph --oneline --all --decorate to show the tree
+        const { stdout } = await execAsync(`git -C "${workspaceRepoDir}" log --graph --oneline --all --decorate -n ${limit}`);
+        return { success: true, log: stdout };
+    } catch (e) {
+        console.error("Failed to get git log", e);
+        return { success: false, log: "Failed to load git log" };
+    }
+}

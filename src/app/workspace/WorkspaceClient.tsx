@@ -7,6 +7,7 @@ import FileTree from "./components/FileTree";
 import EditorArea from "./components/EditorArea";
 import ChatPanel from "./components/ChatPanel";
 import Terminal from "./components/Terminal";
+import GitLog from "./components/GitLog";
 
 import { initWorkspace } from "@/app/actions/workspace";
 import { 
@@ -98,6 +99,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
     const [isLoadingInit, setIsLoadingInit] = useState(false);
     const [isMainProtected, setIsMainProtected] = useState(true);
+    const [gitRefreshKey, setGitRefreshKey] = useState(0);
+    const [activeLeftTab, setActiveLeftTab] = useState<"files" | "git">("files");
+
+    const refreshGit = useCallback(() => setGitRefreshKey(prev => prev + 1), []);
 
     const loadChangedFiles = useCallback(async (repoId: string) => {
         const changes = await getWorkspaceChangedFiles(repoId);
@@ -207,6 +212,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
 
         loadBranchEnv();
+        refreshGit();
         // optionally clear tabs on branch switch
         return () => { active = false; };
         // We omit isTerminalOpen to avoid re-triggering when we auto-open it
@@ -305,6 +311,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             }
             // Trigger a refresh of changed files
             await loadChangedFiles(selectedRepoId);
+            refreshGit();
         }
         setPendingSuggestion(null);
         setChatTab(null);
@@ -355,6 +362,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 return t;
             }));
             await loadChangedFiles(selectedRepoId);
+            refreshGit();
         } catch (e) {
             console.error("Failed to save", e);
             alert("Failed to save file");
@@ -382,6 +390,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                     handleTabClose(path);
                 }
                 await loadChangedFiles(selectedRepoId);
+                refreshGit();
             }
         } catch (e) {
             console.error("Failed to revert file", e);
@@ -428,6 +437,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 if (isFollowMode) addLog("stdout", res.stdout);
                 setCommitMessage("");
                 await loadChangedFiles(selectedRepoId);
+                refreshGit();
             } else {
                 if (isFollowMode) addLog("stderr", res.stderr);
             }
@@ -448,6 +458,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             const res = await pushChanges(selectedRepoId, selectedBranch);
             if (res.success) {
                 if (isFollowMode) addLog("stdout", res.stdout);
+                refreshGit();
             } else {
                 if (isFollowMode) addLog("stderr", res.stderr);
             }
@@ -480,6 +491,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         try {
             await stageFile(selectedRepoId, filePath);
             await loadChangedFiles(selectedRepoId);
+            refreshGit();
         } catch (e) {
             console.error("Stage failed", e);
         }
@@ -489,6 +501,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         try {
             await unstageFile(selectedRepoId, filePath);
             await loadChangedFiles(selectedRepoId);
+            refreshGit();
         } catch (e) {
             console.error("Unstage failed", e);
         }
@@ -519,47 +532,121 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
                 <PanelGroup orientation="horizontal">
                     <Panel defaultSize={20} minSize={10} className="border-r border-border bg-foreground/[0.02]">
-                        <div className="flex flex-col h-full">
-                            <div className="flex-1 overflow-hidden">
-                                <FileTree 
-                                    tree={fileTree} 
-                                    onSelectFile={handleFileSelect} 
-                                    changedFiles={changedFiles} 
-                                    onRevertFile={handleRevertFile}
-                                    onStageFile={handleStageFile}
-                                    onUnstageFile={handleUnstageFile}
-                                />
+                        <div className="flex h-full">
+                            {/* Activity Bar */}
+                            <div className="w-12 border-r border-border bg-background/50 flex flex-col items-center py-4 gap-4">
+                                <button 
+                                    onClick={() => setActiveLeftTab("files")}
+                                    className={`p-2 rounded-lg transition-all ${activeLeftTab === "files" ? "bg-primary/10 text-primary shadow-sm" : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"}`}
+                                    title="Explorer"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <path d="M2 15h10"></path>
+                                        <path d="m9 18 3-3-3-3"></path>
+                                    </svg>
+                                </button>
+                                <button 
+                                    onClick={() => setActiveLeftTab("git")}
+                                    className={`p-2 rounded-lg transition-all relative ${activeLeftTab === "git" ? "bg-primary/10 text-primary shadow-sm" : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"}`}
+                                    title="Source Control"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="6" y1="3" x2="6" y2="15"></line>
+                                        <circle cx="18" cy="6" r="3"></circle>
+                                        <circle cx="6" cy="18" r="3"></circle>
+                                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                                    </svg>
+                                    {changedFiles.filter(f => f.status.charAt(0) !== ' ' && f.status.charAt(0) !== '?').length > 0 && (
+                                        <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center border-2 border-background">
+                                            {(() => {
+                                                const count = changedFiles.filter(f => f.status.charAt(0) !== ' ' && f.status.charAt(0) !== '?').length;
+                                                return count > 9 ? '9+' : count;
+                                            })()}
+                                        </div>
+                                    )}
+                                </button>
                             </div>
-                            
-                            {selectedRepoId && (
-                                <div className="p-4 border-t border-border bg-background/50">
-                                    <div className="flex flex-col gap-2">
-                                        <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider px-1">Source Control</div>
-                                        <textarea 
-                                            value={commitMessage}
-                                            onChange={(e) => setCommitMessage(e.target.value)}
-                                            placeholder="Commit message..."
-                                            className="w-full p-2 text-xs bg-foreground/5 border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary min-h-[60px] resize-none"
-                                        />
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={handleCommit}
-                                                disabled={isCommitting || !commitMessage.trim() || (isMainProtected && selectedBranch === "main")}
-                                                className="flex-1 p-2 text-xs font-semibold bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                                            >
-                                                {isCommitting ? "Committing..." : (isMainProtected && selectedBranch === "main" ? "Branch Protected" : "Commit")}
-                                            </button>
-                                            <button 
-                                                onClick={handlePush}
-                                                disabled={isPushing || (isMainProtected && selectedBranch === "main")}
-                                                className="p-2 text-xs font-semibold bg-foreground/10 text-foreground rounded hover:bg-foreground/20 disabled:opacity-50 transition-colors"
-                                            >
-                                                {isPushing ? "Pushing..." : "Push"}
-                                            </button>
+
+                            {/* Tab Content */}
+                            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                                {activeLeftTab === "files" && (
+                                    <div className="flex-1 flex flex-col min-h-0">
+                                        <div className="px-4 py-2 border-b border-border bg-foreground/[0.03]">
+                                            <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Explorer</span>
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                            <FileTree 
+                                                tree={fileTree} 
+                                                onSelectFile={handleFileSelect} 
+                                                changedFiles={changedFiles} 
+                                                onRevertFile={handleRevertFile}
+                                                onStageFile={handleStageFile}
+                                                onUnstageFile={handleUnstageFile}
+                                            />
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+
+                                {activeLeftTab === "git" && (
+                                    <div className="flex-1 flex flex-col min-h-0">
+                                        <div className="px-4 py-2 border-b border-border bg-foreground/[0.03]">
+                                            <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Source Control</span>
+                                        </div>
+                                        
+                                        <div className="flex-1 flex flex-col overflow-hidden">
+                                            {selectedRepoId ? (
+                                                <>
+                                                    <div className="p-4 bg-background/50">
+                                                        <div className="flex flex-col gap-3">
+                                                            <textarea 
+                                                                value={commitMessage}
+                                                                onChange={(e) => setCommitMessage(e.target.value)}
+                                                                placeholder="Commit message..."
+                                                                className="w-full p-2.5 text-xs bg-foreground/5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none transition-all placeholder:text-foreground/30"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <button 
+                                                                    onClick={handleCommit}
+                                                                    disabled={isCommitting || !commitMessage.trim() || (isMainProtected && selectedBranch === "main")}
+                                                                    className="flex-1 px-3 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98]"
+                                                                >
+                                                                    {isCommitting ? "Committing..." : (isMainProtected && selectedBranch === "main" ? "Branch Protected" : "Commit")}
+                                                                </button>
+                                                                <button 
+                                                                    onClick={handlePush}
+                                                                    disabled={isPushing || (isMainProtected && selectedBranch === "main")}
+                                                                    className="px-3 py-2 text-xs font-bold bg-foreground/10 text-foreground rounded-lg hover:bg-foreground/20 disabled:opacity-50 transition-all active:scale-[0.98]"
+                                                                    title="Push Changes"
+                                                                >
+                                                                    {isPushing ? (
+                                                                        <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                                                        </svg>
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex-1 min-h-0 px-4 pb-4 overflow-hidden flex flex-col">
+                                                        <GitLog repoId={selectedRepoId} refreshTrigger={gitRefreshKey} />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex-1 flex items-center justify-center p-8 text-center text-foreground/40 text-xs italic">
+                                                    Select a repository to view source control actions
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </Panel>
 

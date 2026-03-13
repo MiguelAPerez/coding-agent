@@ -16,6 +16,7 @@ jest.mock("@/app/actions/git", () => ({
     stageFile: jest.fn(),
     unstageFile: jest.fn(),
     setupGitAuth: jest.fn().mockResolvedValue({ success: true }),
+    getGitLog: jest.fn().mockResolvedValue({ success: true, log: "mock log" }),
 }));
 
 jest.mock("@/app/actions/settings", () => ({
@@ -294,6 +295,11 @@ describe("WorkspaceClient", () => {
             fireEvent.click(screen.getByText("Select Repo 1"));
         });
 
+        // Switch to Git tab
+        await act(async () => {
+            fireEvent.click(screen.getByTitle("Source Control"));
+        });
+
         const commitInput = screen.getByPlaceholderText("Commit message...");
         await act(async () => {
             fireEvent.change(commitInput, { target: { value: "test commit" } });
@@ -315,6 +321,11 @@ describe("WorkspaceClient", () => {
 
         await act(async () => {
             fireEvent.click(screen.getByText("Select Repo 1"));
+        });
+
+        // Switch to Git tab
+        await act(async () => {
+            fireEvent.click(screen.getByTitle("Source Control"));
         });
 
         const pushButton = await screen.findByRole("button", { name: /push/i });
@@ -358,5 +369,53 @@ describe("WorkspaceClient", () => {
 
         expect(gitActions.unstageFile).toHaveBeenCalledWith("repo-1", "test.ts");
         expect(fileActions.getWorkspaceChangedFiles).toHaveBeenCalledWith("repo-1");
+    });
+
+    it("switches between Explorer and Source Control tabs", async () => {
+        render(<WorkspaceClient initialRepos={mockRepos} />);
+
+        await act(async () => {
+            fireEvent.click(screen.getByText("Select Repo 1"));
+        });
+
+        // Initially in Explorer
+        expect(screen.getByText("Explorer")).toBeInTheDocument();
+        expect(screen.queryByText("Source Control")).not.toBeInTheDocument();
+
+        // Switch to Source Control
+        await act(async () => {
+            fireEvent.click(screen.getByTitle("Source Control"));
+        });
+
+        expect(screen.getByText("Source Control")).toBeInTheDocument();
+        expect(screen.queryByText("Explorer")).not.toBeInTheDocument();
+
+        // Switch back to Explorer
+        await act(async () => {
+            fireEvent.click(screen.getByTitle("Explorer"));
+        });
+
+        expect(screen.getByText("Explorer")).toBeInTheDocument();
+        expect(screen.queryByText("Source Control")).not.toBeInTheDocument();
+    });
+
+    it("displays the correct badge count on the Git tab (staged only)", async () => {
+        (fileActions.getWorkspaceChangedFiles as jest.Mock).mockResolvedValue([
+            { path: "staged-1.ts", status: "M " }, // Staged modification
+            { path: "staged-2.ts", status: "A " }, // Staged addition
+            { path: "unstaged.ts", status: " M" }, // Unstaged modification
+            { path: "untracked.ts", status: "??" }, // Untracked
+        ]);
+
+        render(<WorkspaceClient initialRepos={mockRepos} />);
+
+        await act(async () => {
+            fireEvent.click(screen.getByText("Select Repo 1"));
+        });
+
+        // The badge should show "2" because only the first two are staged
+        await waitFor(() => {
+            expect(screen.getByText("2")).toBeInTheDocument();
+        });
     });
 });
