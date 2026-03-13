@@ -12,6 +12,7 @@ type Repo = {
     fullName: string;
     language: string | null;
     enabled: boolean;
+    updatedAt: number;
 };
 
 const COMMON_EXTENSIONS = [
@@ -150,9 +151,19 @@ function SearchContent() {
     const [isPending, startTransition] = useTransition();
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Auto-focus on mount
+    // Auto-focus on mount + handle cmd+k to focus
     useEffect(() => {
         inputRef.current?.focus();
+
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+                e.preventDefault();
+                inputRef.current?.focus();
+            }
+        };
+
+        window.addEventListener("keydown", handleGlobalKeyDown);
+        return () => window.removeEventListener("keydown", handleGlobalKeyDown);
     }, []);
 
     // Derive regex validity without setState-in-effect
@@ -169,19 +180,38 @@ function SearchContent() {
     useEffect(() => {
         getCachedRepositories()
             .then((data) => {
-                const sorted = data
-                    .map((r) => ({ id: r.id, name: r.name, fullName: r.fullName, language: r.language ?? null, enabled: r.enabled }))
-                    .sort((a, b) => a.name.localeCompare(b.name));
+                const mapped: Repo[] = data.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    fullName: r.fullName,
+                    language: r.language ?? null,
+                    enabled: r.enabled,
+                    updatedAt: typeof r.updatedAt === 'string' ? new Date(r.updatedAt).getTime() : (r.updatedAt as Date).getTime(),
+                }));
+
+                const sorted = [...mapped].sort((a, b) => a.name.localeCompare(b.name));
                 setRepos(sorted);
 
                 // Restore selected repos from URL after repos are loaded
                 const urlRepos = searchParams.getAll("repo");
                 if (urlRepos.length > 0) {
-                    const validIds = sorted.map((r) => r.id);
+                    const validIds = mapped.map((r) => r.id);
                     setSelectedRepoIds(urlRepos.filter((id) => validIds.includes(id)));
+                } else {
+                    // Auto-select top 5 *already enabled* repositories by updatedAt
+                    const enabledRepos = mapped.filter(r => r.enabled);
+                    const top5 = [...enabledRepos]
+                        .sort((a, b) => b.updatedAt - a.updatedAt)
+                        .slice(0, 5);
+                    
+                    const top5Ids = top5.map(r => r.id);
+                    setSelectedRepoIds(top5Ids);
                 }
             })
-            .catch(() => setError("Failed to load repositories."));
+            .catch((err) => {
+                console.error(err);
+                setError("Failed to load repositories.");
+            });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -260,9 +290,11 @@ function SearchContent() {
     }, [pattern, patternValid, selectedRepoIds, searchMode, caseSensitive, wholeWord, selectedExtensions, excludeInput, maxMatchesPerFile, router]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleSearch();
+        if (e.key === "Enter") {
+            if (!e.shiftKey || e.metaKey || e.ctrlKey) {
+                e.preventDefault();
+                handleSearch();
+            }
         }
     };
 
@@ -518,6 +550,10 @@ function SearchContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
                                 </svg>
                                 Search
+                                <kbd className="hidden sm:inline-flex ml-1.5 h-5 select-none items-center gap-0.5 rounded border border-white/20 bg-white/10 px-1.5 font-sans text-[10px] font-medium text-white/70">
+                                    <span className="text-[11px] leading-none">⌘</span>
+                                    <span className="leading-none text-[9px] mt-[1px]">↵</span>
+                                </kbd>
                             </>
                         )}
                     </button>
