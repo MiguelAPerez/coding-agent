@@ -16,7 +16,7 @@ around self-hosted tools and AI models.
 - [ ] [Code Update](https://github.com/MiguelAPerez/coding-agent/issues/6)
 - [ ] [Code Generation](https://github.com/MiguelAPerez/coding-agent/issues/7)
 - [x] [Prompt & Model Evaluation](https://github.com/MiguelAPerez/coding-agent/issues/8)
-- [ ] [Documentation Lookup](https://github.com/MiguelAPerez/coding-agent/issues/9)
+- [x] [Documentation Lookup](https://github.com/MiguelAPerez/coding-agent/issues/9)
 
 ## Tools
 
