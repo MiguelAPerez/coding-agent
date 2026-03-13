@@ -4,6 +4,23 @@ import { Provider } from "react-redux";
 import { makeStore } from "@/lib/store/store";
 import WorkspaceClient from "../WorkspaceClient";
 
+// Mock the auth
+jest.mock("@/auth", () => ({
+    authOptions: {
+        adapter: {},
+        session: { strategy: "jwt" },
+        providers: [],
+    },
+}));
+
+// Mock octokit and git-auth to prevent resolution errors
+jest.mock("octokit", () => ({
+    Octokit: jest.fn(),
+}));
+jest.mock("@/lib/git-auth", () => ({
+    getGithubAppToken: jest.fn(),
+}));
+
 // Mock the hooks
 jest.mock("../hooks/useWorkspaceInit", () => ({
     useWorkspaceInit: jest.fn(() => ({
@@ -85,9 +102,21 @@ jest.mock("react-resizable-panels", () => {
 });
 
 jest.mock("../components/WorkspaceTopBar", () => {
-    const MockTopBar = () => <div data-testid="top-bar">Mock Top Bar</div>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const MockTopBar = ({ onToggleTerminal, sandboxName, isTerminalOpen }: any) => (
+        <div data-testid="top-bar">
+            Mock Top Bar: {sandboxName} {isTerminalOpen ? "OPEN" : "CLOSED"}
+            <button data-testid="toggle-terminal" onClick={onToggleTerminal}>Terminal</button>
+        </div>
+    );
     MockTopBar.displayName = "MockTopBar";
     return MockTopBar;
+});
+
+jest.mock("../components/SourceControlPanel", () => {
+    const MockSCPanel = () => <div data-testid="sc-panel">Mock SC Panel</div>;
+    MockSCPanel.displayName = "MockSCPanel";
+    return MockSCPanel;
 });
 
 jest.mock("../components/FileTree", () => {
@@ -108,10 +137,10 @@ jest.mock("../components/ChatPanel", () => {
     return MockChatPanel;
 });
 
-jest.mock("../components/SourceControlPanel", () => {
-    const MockSCPanel = () => <div data-testid="sc-panel">Mock SC Panel</div>;
-    MockSCPanel.displayName = "MockSCPanel";
-    return MockSCPanel;
+jest.mock("../components/Terminal", () => {
+    const MockTerminal = () => <div data-testid="mock-terminal">Mock Terminal</div>;
+    MockTerminal.displayName = "MockTerminal";
+    return MockTerminal;
 });
 
 describe("WorkspaceClient", () => {
@@ -141,7 +170,7 @@ describe("WorkspaceClient", () => {
         expect(screen.getByText("Explorer")).toBeInTheDocument();
         expect(screen.queryByTestId("sc-panel")).not.toBeInTheDocument();
 
-        // Trigger switch by clicking Git icon (mocking part of the component logic)
+        // Trigger switch by clicking Git icon in Activity Bar
         const gitButton = screen.getByTitle("Source Control");
         await act(async () => {
             fireEvent.click(gitButton);
@@ -150,5 +179,31 @@ describe("WorkspaceClient", () => {
         // Should now show Source Control panel
         expect(screen.getByTestId("sc-panel")).toBeInTheDocument();
         expect(screen.queryByText("Explorer")).not.toBeInTheDocument();
+
+        // Switch back to Explorer
+        const explorerButton = screen.getByTitle("Explorer");
+        await act(async () => {
+            fireEvent.click(explorerButton);
+        });
+        expect(screen.getByText("Explorer")).toBeInTheDocument();
+        expect(screen.queryByTestId("sc-panel")).not.toBeInTheDocument();
+    });
+
+    it("toggles terminal panel", async () => {
+        renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
+        
+        // Terminal is closed initially
+        expect(screen.queryByTestId("mock-terminal")).not.toBeInTheDocument();
+        expect(screen.getByText(/CLOSED/)).toBeInTheDocument();
+
+        // Toggle terminal
+        const toggleBtn = screen.getByTestId("toggle-terminal");
+        await act(async () => {
+            fireEvent.click(toggleBtn);
+        });
+
+        // Should now show terminal
+        expect(screen.getByTestId("mock-terminal")).toBeInTheDocument();
+        expect(screen.getByText(/OPEN/)).toBeInTheDocument();
     });
 });
