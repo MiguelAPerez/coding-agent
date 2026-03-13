@@ -329,8 +329,9 @@ ENTIRE content of the file goes here
    - DO NOT use comments like "// ... rest of code". 
    - **Omission is Deletion**: If you leave a line out, it will be DELETED from the user's workspace.
 3. You can suggest changes for multiple files. Each MUST have its own START and END markers.
-4. **DO NOT** add any frontmatter, YAML headers, or "---" delimiters at the top of your response.
-5. Provide a brief, human-friendly summary of your changes **AFTER** the code blocks.
+4. **CRITICAL**: **DO NOT** use horizontal rules (three dashes), decorators, or "Summary of Changes" markers at the top of your response. 
+5. Provide a brief, human-friendly summary of your changes **ONLY AFTER** all code blocks.
+6. **NO FRONTMATTER**: Do not add any YAML headers or delimiters at the top of your response content.
 `;
 
     // Add existing skills
@@ -472,6 +473,13 @@ function parseDiffs(content: string, activeFilePath: string | null, fileContents
     // Final Cleanup: strip any stray markers or labels that might have leaked
     cleanContent = cleanContent.replace(/(?:\*\*|)\s*\[INTERNAL_FILE_CHANGE(?:_START|_END|):?\s*[^\s\]\n]*\]\s*(?:\*\*|)/gi, '');
     cleanContent = cleanContent.replace(/(?:FILE|FILE_CHANGE|PATH):\s*[^\s\n]+/gi, '');
+    
+    // Final Cleanup: strip horizontal rules and stray delimiters
+    cleanContent = cleanContent.trim();
+    // Remove "---" lines that are commonly used as separators by AI
+    cleanContent = cleanContent.replace(/^(?:\s*[-*_]{3,}\s*\n+)+/, '');
+    cleanContent = cleanContent.replace(/(?:\n+\s*[-*_]{3,}\s*)+$/, '');
+    cleanContent = cleanContent.replace(/\n\s*[-*_]{3,}\s*\n/g, '\n\n');
 
     return {
         suggestion: {
