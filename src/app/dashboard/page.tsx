@@ -1,24 +1,20 @@
 import React from "react";
 import Link from "next/link";
-import { getCachedRepositories } from "@/app/actions/repositories";
+import { getCachedRepositories, getConfigRepoData } from "@/app/actions/repositories";
 import { getAgentConfigs } from "@/app/actions/config";
-
-import { loadRepoData } from "@/lib/mockDataLoader";
+import SandboxDashboardCard from "@/components/Dashboard/SandboxDashboardCard";
 
 export default async function DashboardPage() {
   const repos = await getCachedRepositories();
   let agents = await getAgentConfigs();
 
-  const configRepo = repos.find(r => r.isConfigRepository);
-  if (configRepo) {
-    try {
-      const repoData = await loadRepoData(configRepo.fullName, 'agent-config');
-      if (repoData.agents.length > 0) {
-        agents = repoData.agents as unknown as typeof agents;
-      }
-    } catch (error) {
-      console.error("Failed to load repo data:", error);
+  try {
+    const repoData = await getConfigRepoData('agent-config');
+    if (repoData.agents.length > 0) {
+      agents = repoData.agents as unknown as typeof agents;
     }
+  } catch (error) {
+    console.error("Failed to load repo data:", error);
   }
 
   const primaryAgent = agents[0] || null;
@@ -38,7 +34,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="z-10 grid text-left w-full max-w-5xl gap-6 md:grid-cols-2 animate-slide-up">
+      <div className="z-10 grid text-left w-full max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 animate-slide-up">
         {/* Repositories Directory Card */}
         <Link
           href="/repositories"
@@ -111,6 +107,9 @@ export default async function DashboardPage() {
             </div>
           </div>
         </Link>
+
+        {/* Sandbox Monitoring Card */}
+        <SandboxDashboardCard />
       </div>
     </main>
   );

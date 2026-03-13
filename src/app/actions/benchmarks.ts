@@ -8,8 +8,7 @@ import { getOllamaConfig } from "./ollama";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { getCachedRepositories } from "./repositories";
-import { loadRepoData } from "@/lib/mockDataLoader";
+import { getCachedRepositories, getConfigRepoData } from "./repositories";
 import { ContextGroup, SystemPrompt, SystemPromptSet, BenchmarkEntry } from "@/types/agent";
 import { runBackgroundJob } from "@/lib/background-jobs";
 
@@ -155,7 +154,7 @@ export async function triggerBenchmark(runId: string) {
 
     if (activeRepo) {
         try {
-            const repoData = await loadRepoData(activeRepo.fullName, 'eval-lab');
+            const repoData = await getConfigRepoData('eval-lab');
             repoContextGroups = repoData.responseTests || [];
             repoSystemPrompts = repoData.personas || [];
             repoSystemPromptSets = repoData.systemPromptSets || [];
@@ -450,7 +449,7 @@ export async function executeBenchmarkTask(benchmarkId: string): Promise<{ finis
 
         if (activeRepo) {
             try {
-                const repoData = await loadRepoData(activeRepo.fullName, 'eval-lab');
+                const repoData = await getConfigRepoData('eval-lab');
                 repoContextGroups = repoData.responseTests || [];
                 repoSystemPrompts = repoData.personas || [];
             } catch (error) {

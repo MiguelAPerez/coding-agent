@@ -8,6 +8,7 @@ import { repositories } from "@/../db/schema";
 import { eq } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
+import { runGitInDocker, checkGitDockerStatus } from "@/lib/docker-git";
 
 const execAsync = promisify(exec);
 const WORKSPACES_BASE_DIR = path.join(process.cwd(), "data", "workspaces");
@@ -92,10 +93,19 @@ export async function commitChanges(repoId: string, message: string) {
     const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
 
     try {
-        // We only commit what is already staged.
-        await execAsync(`git -C "${workspaceRepoDir}" commit -m "${message.replace(/"/g, '\\"')}"`);
+        const dockerStatus = await checkGitDockerStatus();
+        if (dockerStatus.dockerRunning && dockerStatus.imageBuilt) {
+            // Use Docker Sandbox
+            const result = await runGitInDocker(workspaceRepoDir, ["commit", "-m", `"${message.replace(/"/g, '\\"')}"`]);
+            if (result.exitCode !== 0) {
+                throw new Error(result.stderr || "Failed to commit changes in Docker.");
+            }
+        } else {
+            // Fallback to host exec (original behavior)
+            await execAsync(`git -C "${workspaceRepoDir}" commit -m "${message.replace(/"/g, '\\"')}"`);
+        }
         return { success: true };
-    } catch (e) {
+    } catch (e: unknown) {
         console.error("Failed to commit changes", e);
         throw new Error("Failed to commit changes. Make sure you have something to commit.");
     }
@@ -110,10 +120,19 @@ export async function pushChanges(repoId: string, branchName: string) {
     const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
 
     try {
-        // We push to origin. Note: This might require authentication setup if not handled by SSH/Global config.
-        await execAsync(`git -C "${workspaceRepoDir}" push origin "${branchName}"`);
+        const dockerStatus = await checkGitDockerStatus();
+        if (dockerStatus.dockerRunning && dockerStatus.imageBuilt) {
+            // Use Docker Sandbox
+            const result = await runGitInDocker(workspaceRepoDir, ["push", "origin", `"${branchName}"`]);
+            if (result.exitCode !== 0) {
+                throw new Error(result.stderr || "Failed to push changes in Docker.");
+            }
+        } else {
+            // Fallback to host exec (original behavior)
+            await execAsync(`git -C "${workspaceRepoDir}" push origin "${branchName}"`);
+        }
         return { success: true };
-    } catch (e) {
+    } catch (e: unknown) {
         console.error("Failed to push changes", e);
         throw new Error("Failed to push changes to remote.");
     }

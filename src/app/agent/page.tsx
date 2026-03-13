@@ -5,8 +5,7 @@ import { getTools } from "@/app/actions/tools";
 import { getSystemPrompts } from "@/app/actions/prompts";
 import { AgentPageClient } from "@/components/AgentConfiguration/AgentPageClient";
 
-import { getCachedRepositories } from "@/app/actions/repositories";
-import { loadRepoData } from "@/lib/mockDataLoader";
+import { getCachedRepositories, getRepoDataByFullName } from "@/app/actions/repositories";
 import { SystemPrompt } from "@/types/agent";
 
 export default async function AgentPage({
@@ -23,7 +22,7 @@ export default async function AgentPage({
 
     if (targetRepo) {
         try {
-            const repoData = await loadRepoData(targetRepo, 'agent-config');
+            const repoData = await getRepoDataByFullName(targetRepo, 'agent-config');
             if (repoData.agents.length > 0) {
                 configs = repoData.agents as unknown as typeof configs;
             }

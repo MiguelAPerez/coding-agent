@@ -5,6 +5,9 @@ import { repositories, giteaConfigurations, githubConfigurations, users } from "
 import { eq, and } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
+import fs from "fs";
+import path from "path";
+import { loadRepoData } from "@/lib/mockDataLoader";
 
 export async function getCachedRepositories() {
     const session = await getServerSession(authOptions);
@@ -40,12 +43,35 @@ export async function getCachedRepositories() {
     .leftJoin(githubConfigurations, eq(repositories.githubConfigurationId, githubConfigurations.id))
     .where(eq(repositories.userId, session.user.id)).all();
 
-    return repos.map(repo => ({
+    let repositoriesResult = repos.map(repo => ({
         ...repo,
         docsMetadata: repo.docsMetadata ? JSON.parse(repo.docsMetadata as string) : {},
         agentMetadata: repo.agentMetadata ? JSON.parse(repo.agentMetadata as string) : {},
         isConfigRepository: userRecord?.configRepositoryId === repo.id
     }));
+
+    // Auto-clear logic: if config repository is missing from disk, clear it from DB
+    if (userRecord?.configRepositoryId) {
+        const configRepo = repositoriesResult.find(r => r.id === userRecord.configRepositoryId);
+        if (configRepo) {
+            const fullPath = path.join(process.cwd(), "data", "repos", session.user.id, configRepo.fullName);
+            if (!fs.existsSync(fullPath)) {
+                console.warn(`Config repository ${configRepo.fullName} not found at ${fullPath}. Clearing setting.`);
+                db.update(users)
+                    .set({ configRepositoryId: null })
+                    .where(eq(users.id, session.user.id))
+                    .run();
+                
+                // Update local list so it's reflected in the return
+                repositoriesResult = repositoriesResult.map(r => ({
+                    ...r,
+                    isConfigRepository: false
+                }));
+            }
+        }
+    }
+
+    return repositoriesResult;
 }
 
 export async function setConfigRepository(repoId: string | null) {
@@ -253,4 +279,32 @@ async function syncGithub(userId: string) {
             console.error(`Error syncing GitHub config ${config.name}:`, error);
         }
     }
+}
+
+export async function getConfigRepoData(feature?: string) {
+    const repos = await getCachedRepositories();
+    const configRepo = repos.find(r => r.isConfigRepository);
+    if (!configRepo) return {
+        responseTests: [],
+        personas: [],
+        systemPromptSets: [],
+        agents: []
+    };
+
+    const fullPath = path.join(process.cwd(), "data", "repos", configRepo.userId, configRepo.fullName);
+    return loadRepoData(fullPath, feature);
+}
+
+export async function getRepoDataByFullName(repoFullName: string, feature?: string) {
+    const repos = await getCachedRepositories();
+    const repo = repos.find(r => r.fullName === repoFullName);
+    if (!repo) return {
+        responseTests: [],
+        personas: [],
+        systemPromptSets: [],
+        agents: []
+    };
+
+    const fullPath = path.join(process.cwd(), "data", "repos", repo.userId, repo.fullName);
+    return loadRepoData(fullPath, feature);
 }

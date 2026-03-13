@@ -6,11 +6,15 @@ import { ContextGroup, SystemPrompt, SystemPromptSet, AgentConfig } from "@/type
 function generateStableId(seed: string): string {
     return crypto.createHash("sha256").update(seed).digest("hex");
 }
-export async function loadRepoData(repoPath: string, feature?: string) {
-    const fullPath = path.join(process.cwd(), "data", "repos", repoPath);
-    
+export async function loadRepoData(fullPath: string, feature?: string) {
     if (!fs.existsSync(fullPath)) {
-        throw new Error(`Repository path not found: ${fullPath}`);
+        console.warn(`Repository path not found: ${fullPath}`);
+        return {
+            responseTests: [],
+            personas: [],
+            systemPromptSets: [],
+            agents: []
+        };
     }
 
     // Determine the base path to look for files. Try feature directory first if provided.
@@ -55,7 +59,7 @@ export async function loadRepoData(repoPath: string, feature?: string) {
                 };
             });
         } catch (e) {
-            console.error(`Failed to parse responseTests.json for ${repoPath}:`, e);
+            console.error(`Failed to parse responseTests.json for ${fullPath}:`, e);
         }
     }
 
@@ -79,7 +83,7 @@ export async function loadRepoData(repoPath: string, feature?: string) {
                 }));
             }
         } catch (e) {
-            console.error(`Failed to parse personas.json for ${repoPath}:`, e);
+            console.error(`Failed to parse personas.json for ${fullPath}:`, e);
         }
     }
 
@@ -93,7 +97,7 @@ export async function loadRepoData(repoPath: string, feature?: string) {
                 updatedAt: new Date()
             }));
         } catch (e) {
-            console.error(`Failed to parse agents.json for ${repoPath}:`, e);
+            console.error(`Failed to parse agents.json for ${fullPath}:`, e);
         }
     }
 
