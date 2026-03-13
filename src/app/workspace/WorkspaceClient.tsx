@@ -21,7 +21,8 @@ import {
     commitChanges,
     pushChanges,
     stageFile,
-    unstageFile
+    unstageFile,
+    setupGitAuth
 } from "@/app/actions/git";
 import {
     getRepoFileTree,
@@ -161,6 +162,11 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             if (matching) {
                 setActiveSandbox(matching);
                 addLog("info", `Connected to sandbox: ${matching.name}`);
+                // Setup Git Auth for the sandbox
+                await setupGitAuth(selectedRepoId, matching.id);
+            } else {
+                // If no sandbox, still setup git auth for local workspace
+                await setupGitAuth(selectedRepoId);
             }
         }
         detectSandbox();
@@ -424,11 +430,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 await loadChangedFiles(selectedRepoId);
             } else {
                 if (isFollowMode) addLog("stderr", res.stderr);
-                alert(res.stderr);
             }
         } catch (e) {
             console.error("Commit failed", e);
-            alert("Failed to commit changes.");
         } finally {
             setIsCommitting(false);
         }
@@ -444,14 +448,11 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             const res = await pushChanges(selectedRepoId, selectedBranch);
             if (res.success) {
                 if (isFollowMode) addLog("stdout", res.stdout);
-                alert("Pushed successfully!");
             } else {
                 if (isFollowMode) addLog("stderr", res.stderr);
-                alert(res.stderr);
             }
         } catch (e) {
             console.error("Push failed", e);
-            alert("Failed to push changes.");
         } finally {
             setIsPushing(false);
         }
