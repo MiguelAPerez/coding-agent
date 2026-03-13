@@ -97,10 +97,8 @@ export default function ChatPanel({
         const before = inputValue.substring(0, mentionStartIndex);
         const after = inputValue.substring(textareaRef.current?.selectionStart || 0);
         
-        // We just add it to context and keep the text as @filename or similar
-        // For now let's just complete the text and close mentions
-        const fileName = file.split('/').pop() || file;
-        setInputValue(`${before}@${fileName}${after}`);
+        // Use the full relative path so the model knows the directory
+        setInputValue(`${before}@${file}${after}`);
         onAddContext(file);
         setShowMentions(false);
         textareaRef.current?.focus();

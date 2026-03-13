@@ -239,6 +239,13 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles, addLog, isFollowMode, isMainProtected]);
 
+    const handleRefreshTree = useCallback(async () => {
+        if (!selectedRepoId) return;
+        const tree = await getRepoFileTree(selectedRepoId);
+        setFileTree(tree);
+        await loadChangedFiles(selectedRepoId);
+    }, [selectedRepoId, loadChangedFiles]);
+
     const handleFileSelect = async (path: string) => {
 
         const existingTab = openTabs.find(t => t.path === path);
@@ -652,6 +659,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                                 onRevertFile={handleRevertFile}
                                                 onStageFile={handleStageFile}
                                                 onUnstageFile={handleUnstageFile}
+                                                onRefresh={handleRefreshTree}
                                             />
                                         </div>
                                     </div>

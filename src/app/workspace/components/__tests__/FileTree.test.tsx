@@ -23,6 +23,7 @@ describe("FileTree", () => {
         onRevertFile: jest.fn(),
         onStageFile: jest.fn(),
         onUnstageFile: jest.fn(),
+        onRefresh: jest.fn(),
     };
 
     it("renders the explorer title", () => {
@@ -34,6 +35,13 @@ describe("FileTree", () => {
         render(<FileTree {...mockProps} />);
         expect(screen.getByText("src")).toBeInTheDocument();
         expect(screen.getByText("package.json")).toBeInTheDocument();
+    });
+
+    it("calls onRefresh when the refresh button is clicked", () => {
+        render(<FileTree {...mockProps} />);
+        const refreshBtn = screen.getByTitle("Refresh File Tree");
+        fireEvent.click(refreshBtn);
+        expect(mockProps.onRefresh).toHaveBeenCalled();
     });
 
     it("expands a directory when clicked", () => {

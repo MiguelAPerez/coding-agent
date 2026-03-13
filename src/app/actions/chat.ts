@@ -42,7 +42,8 @@ class ChatContext {
         public readonly userId: string,
         public readonly repoId: string,
         public readonly agentId?: string,
-        public filePath: string | null = null
+        public filePath: string | null = null,
+        public extraFilePaths: string[] = []
     ) { }
 
     async load() {
@@ -78,13 +79,21 @@ class ChatContext {
         const ollamaConfig = db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get();
         if (!ollamaConfig) throw new Error("Ollama not configured.");
 
-        let fileContent = "";
-        if (this.filePath) {
+        // Load multiple files for context
+        const allFilePaths = Array.from(new Set([
+            ...(this.filePath ? [this.filePath] : []),
+            ...this.extraFilePaths
+        ]));
+
+        const fileContents: Record<string, string> = {};
+        for (const path of allFilePaths) {
             try {
-                fileContent = await getRepoFileContentInternal(this.repoId, this.filePath, this.userId);
-                fileContent = fileContent.replace(/^---\s*[\s\S]*?---\s*/, '');
+                let content = await getRepoFileContentInternal(this.repoId, path, this.userId);
+                // Remove frontmatter if present
+                content = content.replace(/^---\s*[\s\S]*?---\s*/, '');
+                fileContents[path] = content;
             } catch (e) {
-                console.error("Error reading initial file content:", e);
+                console.error(`Error reading context file ${path}:`, e);
             }
         }
 
@@ -95,7 +104,8 @@ class ChatContext {
             enabledSkills,
             enabledTools,
             ollamaConfig,
-            initialFileContent: fileContent
+            initialFileContent: this.filePath ? (fileContents[this.filePath] || "") : "",
+            fileContents
         };
     }
 }
@@ -289,7 +299,9 @@ export async function chatWithAgent(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
-    const context = new ChatContext(session.user.id, repoId, agentId, filePath);
+    const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
+
+    const context = new ChatContext(session.user.id, repoId, agentId, filePath, extraPaths);
     const contextData = await context.load();
 
     const ollama = new OllamaClient(
@@ -301,23 +313,24 @@ export async function chatWithAgent(
     // Build the system prompt with the "Diff Generator" skill
     let systemPrompt = contextData.personalityPrompt || "You are a helpful coding assistant.";
 
-    systemPrompt += `
+systemPrompt += `
 
-CRITICAL INSTRUCTIONS:
-1. When you want to suggest code changes, you MUST use the following format for EACH file:
+### CRITICAL: HOW TO SUGGEST CODE CHANGES
+1. For **EACH** file you want to change, you **MUST** wrap the code in these EXACT markers:
 
-[INTERNAL_FILE_CHANGE_START: path/to/file.ext]
+**[INTERNAL_FILE_CHANGE_START: path/to/file.ext]**
 \`\`\`
-full content of the file goes here...
+ENTIRE content of the file goes here
 \`\`\`
-[INTERNAL_FILE_CHANGE_END: path/to/file.ext]
+**[INTERNAL_FILE_CHANGE_END: path/to/file.ext]**
 
-2. You can suggest changes for multiple files. Each MUST be wrapped in [INTERNAL_FILE_CHANGE_START: path] and [INTERNAL_FILE_CHANGE_END: path] markers.
-3. DO NOT use diff format (with -/+ lines). Provide the ENTIRE updated file content.
-4. DO NOT ADD ANY FRONTMATTER, YAML HEADERS, OR "---" DELIMITERS AT THE TOP OF YOUR RESPONSE OR AROUND CODE BLOCKS.
-5. Your response should be clean Markdown.
-6. AFTER providing any file content blocks, provide a brief, human-friendly summary of what you changed.
-7. The user will NOT see the raw code blocks in the chat, only your text summary and explanations.
+2. **WARNING: FULL FILE REPLACEMENT ONLY**. You must provide the **ENTIRE** content of the file from top to bottom. 
+   - DO NOT use diff format (-/+).
+   - DO NOT use comments like "// ... rest of code". 
+   - **Omission is Deletion**: If you leave a line out, it will be DELETED from the user's workspace.
+3. You can suggest changes for multiple files. Each MUST have its own START and END markers.
+4. **DO NOT** add any frontmatter, YAML headers, or "---" delimiters at the top of your response.
+5. Provide a brief, human-friendly summary of your changes **AFTER** the code blocks.
 `;
 
     // Add existing skills
@@ -330,12 +343,13 @@ full content of the file goes here...
         ...history,
     ];
 
-    if (filePath) {
-        const fileExt = filePath.split('.').pop() || 'text';
-        messages.push({ 
-            role: "user", 
-            content: `I am currently looking at ${filePath} (type: ${fileExt}).\n\nContent:\n${contextData.initialFileContent}\n\n${prompt}` 
-        });
+    if (Object.keys(contextData.fileContents).length > 0) {
+        let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";
+        for (const [path, content] of Object.entries(contextData.fileContents)) {
+            contextMessage += `FILE: ${path}\n\`\`\`\n${content}\n\`\`\`\n\n`;
+        }
+        contextMessage += `User Request: ${prompt}`;
+        messages.push({ role: "user", content: contextMessage });
     } else {
         messages.push({ role: "user", content: prompt });
     }
@@ -343,7 +357,7 @@ full content of the file goes here...
     const responseContent = await ollama.chat(messages);
 
     // Parse diffs and clean content
-    const { suggestion, cleanContent } = parseDiffs(responseContent, filePath, contextData.initialFileContent);
+    const { suggestion, cleanContent } = parseDiffs(responseContent, filePath, contextData.fileContents);
 
     return {
         message: cleanContent,
@@ -352,50 +366,112 @@ full content of the file goes here...
     };
 }
 
-function parseDiffs(content: string, activeFilePath: string | null, activeFileContent: string): { suggestion: PendingSuggestion, cleanContent: string } {
+function extractMentionedPaths(text: string): string[] {
+    const paths: string[] = [];
+    const mentionRegex = /@([^\s\n\`]+)/g;
+    let match;
+    while ((match = mentionRegex.exec(text)) !== null) {
+        paths.push(match[1]);
+    }
+    return Array.from(new Set(paths));
+}
+
+function parseDiffs(content: string, activeFilePath: string | null, fileContents: Record<string, string>): { suggestion: PendingSuggestion, cleanContent: string } {
     const filesChanged: Record<string, FileChange> = {};
     let cleanContent = content;
 
-    // Simplified regex-based diff parser using explicit START/END markers
-    // Looking for: [INTERNAL_FILE_CHANGE_START: path]\n```\n...\n```\n[INTERNAL_FILE_CHANGE_END: path]
-    const fileBlockRegex = /\[INTERNAL_FILE_CHANGE_START:\s*([^\s\]\n]+)\][\s\S]*?```(?:[\w-]*)?\n([\s\S]*?)\n```\n\[INTERNAL_FILE_CHANGE_END:\s*\1\]/g;
-    let match;
-
-    while ((match = fileBlockRegex.exec(content)) !== null) {
-        const path = match[1];
-        const fullContent = match[2];
-
-        // Remove the whole block from cleanContent
-        cleanContent = cleanContent.replace(match[0], '');
-
-        filesChanged[path] = {
-            startLine: 0,
-            endLine: 0,
-            column: 0,
-            originalContent: path === activeFilePath ? activeFileContent : "",
-            suggestedContent: fullContent.trim()
-        };
+    // 1. Primary: START/END markers (Robust Split and Conquer)
+    // Looking for START markers to find all potential file blocks.
+    // Handles optional bolding **[...]** around markers.
+    const startRegex = /(?:\*\*|)\s*\[INTERNAL_FILE_CHANGE_START:\s*([^\s\]\n]+)\]\s*(?:\*\*|)/gi;
+    
+    const matches: { index: number, length: number, path: string }[] = [];
+    let m;
+    while ((m = startRegex.exec(content)) !== null) {
+        matches.push({
+            index: m.index,
+            length: m[0].length,
+            path: m[1]
+        });
     }
 
-    // Secondary cleanup: strip any stray markers or labels that might have leaked
-    cleanContent = cleanContent.replace(/\[INTERNAL_FILE_CHANGE(?:_START|_END|):.*?\]/g, '');
-    cleanContent = cleanContent.replace(/(?:FILE|FILE_CHANGE|PATH):\s*[^\s\n]+/gi, '');
+    const blocksToRemove: { start: number, end: number }[] = [];
 
-    // Fallback: search for ANY code block if no FILE: tag was found but we have an active file
-    if (Object.keys(filesChanged).length === 0 && activeFilePath) {
-        const codeBlockRegex = /```[\s\S]*?\n([\s\S]*?)```/g;
-        const secondMatch = codeBlockRegex.exec(content);
-        if (secondMatch) {
-            cleanContent = cleanContent.replace(secondMatch[0], '');
-            filesChanged[activeFilePath] = {
+    for (let i = 0; i < matches.length; i++) {
+        const current = matches[i];
+        const next = matches[i + 1];
+        
+        const blockEnd = next ? next.index : content.length;
+        
+        // Search for an END marker for THIS path within this range (optional but preferred)
+        const escapedPath = current.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const endRegex = new RegExp(`(?:\\*\\*|)\\s*\\[INTERNAL_FILE_CHANGE_END:\\s*${escapedPath}\\]\\s*(?:\\*\\*|)`, 'i');
+        const endMatch = endRegex.exec(content.substring(current.index, blockEnd));
+        
+        let contentEnd = blockEnd;
+        if (endMatch) {
+            contentEnd = current.index + endMatch.index + endMatch[0].length;
+        }
+        
+        const fileContentBlock = content.substring(current.index, contentEnd);
+        
+        // Extract the FIRST code block within this fileContentBlock
+        const codeMatch = /```(?:[\w-]*)?\n([\s\S]*?)\n```/.exec(fileContentBlock);
+        if (codeMatch) {
+            filesChanged[current.path] = {
                 startLine: 0,
                 endLine: 0,
                 column: 0,
-                originalContent: activeFileContent,
-                suggestedContent: secondMatch[1].trim()
+                originalContent: fileContents[current.path] || "",
+                suggestedContent: codeMatch[1].trim()
             };
+            blocksToRemove.push({ start: current.index, end: contentEnd });
         }
     }
+
+    // Sort reverse and remove identified blocks from cleanContent
+    blocksToRemove.sort((a, b) => b.start - a.start);
+    for (const b of blocksToRemove) {
+        cleanContent = cleanContent.substring(0, b.start) + cleanContent.substring(b.end);
+    }
+
+    // 2. Fallback: Search for @path or FILE: path followed by code block (for cases with NO Start markers)
+    const looseRegex = /(?:@|FILE:\s*)([^\s\n\`]+)[^`]{0,150}```(?:[\w-]*)?\n([\s\S]*?)\n```/gi;
+    cleanContent = cleanContent.replace(looseRegex, (match, path, code) => {
+        if (!filesChanged[path]) {
+            filesChanged[path] = {
+                startLine: 0,
+                endLine: 0,
+                column: 0,
+                originalContent: fileContents[path] || "",
+                suggestedContent: code.trim()
+            };
+            return ""; 
+        }
+        return match; 
+    });
+
+    // 3. Last Resort: Orphan code block for active file (if NO other files changed)
+    if (Object.keys(filesChanged).length === 0 && activeFilePath) {
+        const orphanRegex = /```[\s\S]*?\n([\s\S]*?)```/g;
+        cleanContent = cleanContent.replace(orphanRegex, (match, code) => {
+            if (Object.keys(filesChanged).length === 0) {
+                filesChanged[activeFilePath] = {
+                    startLine: 0,
+                    endLine: 0,
+                    column: 0,
+                    originalContent: fileContents[activeFilePath] || "",
+                    suggestedContent: code.trim()
+                };
+                return "";
+            }
+            return match;
+        });
+    }
+
+    // Final Cleanup: strip any stray markers or labels that might have leaked
+    cleanContent = cleanContent.replace(/(?:\*\*|)\s*\[INTERNAL_FILE_CHANGE(?:_START|_END|):?\s*[^\s\]\n]*\]\s*(?:\*\*|)/gi, '');
+    cleanContent = cleanContent.replace(/(?:FILE|FILE_CHANGE|PATH):\s*[^\s\n]+/gi, '');
 
     return {
         suggestion: {

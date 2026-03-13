@@ -140,6 +140,6 @@ describe("ChatPanel", () => {
         const mentionBtn = screen.getByText("src/index.ts");
         fireEvent.click(mentionBtn);
         expect(mockProps.onAddContext).toHaveBeenCalledWith("src/index.ts");
-        expect(input).toHaveValue("@index.ts");
+        expect(input).toHaveValue("@src/index.ts");
     });
 });
