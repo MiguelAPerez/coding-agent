@@ -23,6 +23,20 @@ jest.mock("../files", () => ({
     cloneOrUpdateRepository: jest.fn().mockResolvedValue({ success: true, path: "/mock/path" })
 }));
 
+jest.mock("../docker-sandboxes", () => ({
+    listSandboxes: jest.fn().mockResolvedValue([]),
+    executeSandboxCommand: jest.fn().mockResolvedValue({ success: true, stdout: "", stderr: "" }),
+}));
+
+jest.mock("@/lib/docker-git", () => ({
+    runGitInDocker: jest.fn(),
+    checkGitDockerStatus: jest.fn().mockResolvedValue({ dockerRunning: true, imageBuilt: true }),
+}));
+
+jest.mock("@/lib/git-auth", () => ({
+    getAuthenticatedCloneUrl: jest.fn().mockResolvedValue("https://mock-auth-url.com"),
+}));
+
 jest.mock("@/../db", () => ({
     db: {
         select: jest.fn().mockReturnThis(),

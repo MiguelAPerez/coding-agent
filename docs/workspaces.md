@@ -24,7 +24,10 @@ Features of the workspace directory:
 - **Git Backing**: The workspaces are full Git repositories. Branches can be checked out, and changes can be tracked using standard git commands (`git status`, `git checkout`).
 - **Modifications**: All IDE file saves happen in this directory. The server actions in `src/app/actions/workspace.ts` ensure read/writes land in the correct `data/workspaces/` path.
 
-## Future Extensions
+## Git Operations & Sandboxing
 
-- **Committing / Pushing**: Because workspaces are full git repos, future functionality can easily add options to commit changes and push PRs back to Gitea/GitHub.
-- **Diffing**: The chat panel can run `git diff` in the workspace to see exactly what the AI or the user has modified before committing.
+Workspaces are full Git repositories. The application leverages Docker to ensure all write-heavy git operations occur in a safe, isolated environment.
+
+- **Committing / Pushing**: (Implemented) Users can commit changes and push back to remotes. These commands are proxied through a specialized Docker sandbox to prevent host pollution.
+- **Development Sandboxes**: Users can group multiple workspaces into a single persistent Docker container for focused development.
+- **Diffing**: The chat panel uses `git diff` in the workspace to track AI-suggested changes vs. user modifications.

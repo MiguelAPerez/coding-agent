@@ -9,6 +9,7 @@ around self-hosted tools and AI models.
 
 ## Features
 
+- [x] [Safe Git Operations](docs/docker.md#safe-git-operations-sandbox) (via Docker Sandbox)
 - [x] [Repository Management](https://github.com/MiguelAPerez/coding-agent/issues/3) (create, read, update)
 - [x] [Code Lookup](https://github.com/MiguelAPerez/coding-agent/issues/5)
 - [ ] [Code Review](https://github.com/MiguelAPerez/coding-agent/issues/4) (based on skills and context)
@@ -19,6 +20,7 @@ around self-hosted tools and AI models.
 
 ## Tools
 
+- Docker (Safe Git Operations & Sandboxing)
 - Ollama (AI Models)
 - Gitea (Repository Management)
 - SQLite (Database)

@@ -13,6 +13,7 @@ export const users = sqliteTable("user", {
     image: text("image"),
     password: text("password"),
     configRepositoryId: text("configRepositoryId"),
+    mainBranchProtected: integer("mainBranchProtected", { mode: "boolean" }).notNull().default(true),
 })
 
 export const usersRelations = relations(users, ({ one }) => ({

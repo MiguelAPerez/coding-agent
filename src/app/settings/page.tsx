@@ -7,9 +7,27 @@ import OllamaConfiguration from "@/components/SystemSettings/OllamaConfiguration
 import GitHubConfiguration from "@/components/SystemSettings/GitHubConfiguration";
 import RepositoriesConfiguration from "@/components/SystemSettings/RepositoriesConfiguration";
 import DockerConfiguration from "@/components/SystemSettings/DockerConfiguration";
+import { getBranchProtection, updateBranchProtection } from "@/app/actions/settings";
+import { useState, useEffect } from "react";
 
 export default function SettingsPage() {
     const { theme, toggleTheme, mounted } = useTheme();
+    const [isMainProtected, setIsMainProtected] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        async function load() {
+            const protection = await getBranchProtection();
+            setIsMainProtected(protection);
+        }
+        load();
+    }, []);
+
+    const handleToggleProtection = async () => {
+        if (isMainProtected === null) return;
+        const newValue = !isMainProtected;
+        setIsMainProtected(newValue);
+        await updateBranchProtection(newValue);
+    };
 
     // Match the SSR default to avoid hydration mismatch
     const displayTheme = mounted ? theme : "dark";
@@ -35,6 +53,19 @@ export default function SettingsPage() {
                                     className={`w-12 h-6 rounded-full relative transition-colors duration-200 ${displayTheme === "dark" ? "bg-primary" : "bg-foreground/10"} ${!mounted ? "opacity-50 cursor-wait" : ""}`}
                                 >
                                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200 ${displayTheme === "dark" ? "right-1" : "left-1"}`}></div>
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-t border-border">
+                                <div>
+                                    <p className="font-medium">Main Branch Protection</p>
+                                    <p className="text-sm text-foreground/40">Disable terminal and git actions on main branch.</p>
+                                </div>
+                                <button
+                                    onClick={handleToggleProtection}
+                                    disabled={isMainProtected === null}
+                                    className={`w-12 h-6 rounded-full relative transition-colors duration-200 ${isMainProtected ? "bg-primary" : "bg-foreground/10"} ${isMainProtected === null ? "opacity-50 cursor-wait" : ""}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200 ${isMainProtected ? "right-1" : "left-1"}`}></div>
                                 </button>
                             </div>
                             <div className="flex items-center justify-between py-2 border-t border-border">

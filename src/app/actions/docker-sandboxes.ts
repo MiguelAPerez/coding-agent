@@ -138,3 +138,41 @@ export async function stopSandbox(containerId: string) {
         throw new Error(err.message || "Failed to stop container.");
     }
 }
+
+/**
+ * Executes a command inside an active sandbox container
+ */
+export async function executeSandboxCommand(containerId: string, command: string, repoName?: string) {
+    try {
+        // Build the command to run with a specific working directory if repoName is provided
+        const workdir = repoName ? `/workspace/${repoName}` : '/workspace';
+        // We use -w to set working directory and -u to run as the agent user
+        const dockerCmd = `docker exec -u agent -w "${workdir}" ${containerId} sh -c "${command.replace(/"/g, '\\"')}"`;
+        
+        const { stdout, stderr } = await execAsync(dockerCmd);
+        return {
+            success: true,
+            stdout,
+            stderr,
+            exitCode: 0
+        };
+    } catch (error: unknown) {
+        const err = error as { stdout?: string; stderr?: string; message?: string; code?: number };
+        
+        // If the command produced output (stdout or stderr), that's usually more helpful than the "Command failed" wrapper
+        const errorLines: string[] = [];
+        if (err.stderr?.trim()) errorLines.push(err.stderr.trim());
+        if (err.stdout?.trim()) errorLines.push(err.stdout.trim());
+        
+        const errorOutput = errorLines.length > 0 
+            ? errorLines.join("\n") 
+            : (err.message || "Failed to execute command");
+        
+        return {
+            success: false,
+            stdout: err.stdout || "",
+            stderr: errorOutput,
+            exitCode: err.code || 1
+        };
+    }
+}

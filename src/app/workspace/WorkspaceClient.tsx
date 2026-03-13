@@ -6,8 +6,14 @@ import WorkspaceTopBar from "./components/WorkspaceTopBar";
 import FileTree from "./components/FileTree";
 import EditorArea from "./components/EditorArea";
 import ChatPanel from "./components/ChatPanel";
+import Terminal from "./components/Terminal";
 
 import { initWorkspace } from "@/app/actions/workspace";
+import { 
+    listSandboxes, 
+    executeSandboxCommand,
+    SandboxInfo 
+} from "@/app/actions/docker-sandboxes";
 import {
     getRepoBranches,
     checkoutBranch,
@@ -15,7 +21,8 @@ import {
     commitChanges,
     pushChanges,
     stageFile,
-    unstageFile
+    unstageFile,
+    setupGitAuth
 } from "@/app/actions/git";
 import {
     getRepoFileTree,
@@ -26,6 +33,7 @@ import {
     revertWorkspaceFile,
     FileNode
 } from "@/app/actions/workspace-files";
+import { getBranchProtection } from "@/app/actions/settings";
 
 
 export interface FileChange {
@@ -57,6 +65,12 @@ export interface Tab {
     isDirty: boolean;
 }
 
+interface LogEntry {
+    type: "input" | "stdout" | "stderr" | "info";
+    content: string;
+    timestamp: number;
+}
+
 export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[] }) {
     const [repos] = useState<Repo[]>(initialRepos);
     const [selectedRepoId, setSelectedRepoId] = useState<string>("");
@@ -76,11 +90,22 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const [isPushing, setIsPushing] = useState(false);
     const [isCommitting, setIsCommitting] = useState(false);
 
+    // Terminal State
+    const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+    const [terminalLogs, setTerminalLogs] = useState<LogEntry[]>([]);
+    const [isFollowMode, setIsFollowMode] = useState(true);
+    const [activeSandbox, setActiveSandbox] = useState<SandboxInfo | null>(null);
+
     const [isLoadingInit, setIsLoadingInit] = useState(false);
+    const [isMainProtected, setIsMainProtected] = useState(true);
 
     const loadChangedFiles = useCallback(async (repoId: string) => {
         const changes = await getWorkspaceChangedFiles(repoId);
         setChangedFiles(changes);
+    }, []);
+
+    const addLog = useCallback((type: LogEntry["type"], content: string) => {
+        setTerminalLogs(prev => [...prev, { type, content, timestamp: Date.now() }]);
     }, []);
 
     // Clear state when repo changes
@@ -93,6 +118,11 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         setFileTree([]);
         setBranches([]);
         setSelectedBranch("main");
+        
+        // Reset terminal logs when repo changes? Maybe keep them?
+        // Let's reset for now to keep it clean per repo.
+        setTerminalLogs([]);
+        setActiveSandbox(null);
     }, [selectedRepoId]);
 
     // Load workspace when repo changes
@@ -113,6 +143,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
                 const initialBranch = bs.includes("main") ? "main" : (bs[0] || "main");
                 setSelectedBranch(initialBranch);
+
+                const protection = await getBranchProtection();
+                if (active) setIsMainProtected(protection);
             } catch (e) {
                 console.error("Failed to init workspace", e);
             } finally {
@@ -122,8 +155,24 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
         loadRepoEnv();
 
+        // Detect sandbox for this repo
+        async function detectSandbox() {
+            const sandboxes = await listSandboxes();
+            const matching = sandboxes.find(s => s.repoIds.includes(selectedRepoId));
+            if (matching) {
+                setActiveSandbox(matching);
+                addLog("info", `Connected to sandbox: ${matching.name}`);
+                // Setup Git Auth for the sandbox
+                await setupGitAuth(selectedRepoId, matching.id);
+            } else {
+                // If no sandbox, still setup git auth for local workspace
+                await setupGitAuth(selectedRepoId);
+            }
+        }
+        detectSandbox();
+
         return () => { active = false; };
-    }, [selectedRepoId]);
+    }, [selectedRepoId, addLog]);
 
     // Load branch constraints when repo + branch changes
     useEffect(() => {
@@ -132,7 +181,19 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
         async function loadBranchEnv() {
             try {
-                await checkoutBranch(selectedRepoId, selectedBranch);
+                const res = await checkoutBranch(selectedRepoId, selectedBranch);
+                const isProtectedBranch = isMainProtected && selectedBranch === "main";
+                if (isProtectedBranch) {
+                    setIsTerminalOpen(false);
+                } else if (active && isFollowMode) {
+                    if (!isTerminalOpen) setIsTerminalOpen(true);
+                    // Only log if it's NOT a redundant "Already on..." tip
+                    if (res?.stdout) addLog("stdout", res.stdout);
+                    if (res?.stderr && !res.stderr.includes("Already on")) {
+                        addLog("stderr", res.stderr);
+                    }
+                }
+                
                 if (!active) return;
 
                 const tree = await getRepoFileTree(selectedRepoId);
@@ -148,7 +209,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         loadBranchEnv();
         // optionally clear tabs on branch switch
         return () => { active = false; };
-    }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles]);
+        // We omit isTerminalOpen to avoid re-triggering when we auto-open it
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles, addLog, isFollowMode]);
 
     const handleFileSelect = async (path: string) => {
 
@@ -332,8 +395,15 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
     const handleCreateBranch = async (name: string) => {
         setIsLoadingInit(true);
+        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
+        if (isFollowMode) addLog("info", `Creating branch: ${name}`);
+
         try {
-            await createBranch(selectedRepoId, name);
+            const res = await createBranch(selectedRepoId, name);
+            if (isFollowMode) {
+                if (res?.stdout) addLog("stdout", res.stdout);
+                if (res?.stderr) addLog("stderr", res.stderr);
+            }
             const bs = await getRepoBranches(selectedRepoId);
             setBranches(bs);
             setSelectedBranch(name);
@@ -348,29 +418,61 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const handleCommit = async () => {
         if (!commitMessage.trim()) return;
         setIsCommitting(true);
+        
+        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
+        if (isFollowMode) addLog("info", `Committing: ${commitMessage}`);
+
         try {
-            await commitChanges(selectedRepoId, commitMessage);
-            setCommitMessage("");
-            await loadChangedFiles(selectedRepoId);
+            const res = await commitChanges(selectedRepoId, commitMessage);
+            if (res.success) {
+                if (isFollowMode) addLog("stdout", res.stdout);
+                setCommitMessage("");
+                await loadChangedFiles(selectedRepoId);
+            } else {
+                if (isFollowMode) addLog("stderr", res.stderr);
+            }
         } catch (e) {
             console.error("Commit failed", e);
-            alert("Failed to commit changes. Make sure you have changes to commit.");
         } finally {
-            setIsCommitting(true); // Wait, should be false? Ah, I see below.
             setIsCommitting(false);
         }
     };
 
     const handlePush = async () => {
         setIsPushing(true);
+
+        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
+        if (isFollowMode) addLog("info", `Pushing branch: ${selectedBranch}`);
+
         try {
-            await pushChanges(selectedRepoId, selectedBranch);
-            alert("Pushed successfully!");
+            const res = await pushChanges(selectedRepoId, selectedBranch);
+            if (res.success) {
+                if (isFollowMode) addLog("stdout", res.stdout);
+            } else {
+                if (isFollowMode) addLog("stderr", res.stderr);
+            }
         } catch (e) {
             console.error("Push failed", e);
-            alert("Failed to push changes.");
         } finally {
             setIsPushing(false);
+        }
+    };
+
+    const handleExecuteCommand = async (command: string) => {
+        if (!activeSandbox) return;
+        
+        addLog("input", command);
+        const repo = repos.find(r => r.id === selectedRepoId);
+        
+        try {
+            const res = await executeSandboxCommand(activeSandbox.id, command, repo?.name);
+            if (res.stdout) addLog("stdout", res.stdout);
+            if (res.stderr) addLog("stderr", res.stderr);
+            if (!res.success && !res.stderr && !res.stdout) {
+                 addLog("stderr", "Command failed with no output");
+            }
+        } catch (e) {
+            addLog("stderr", `Error: ${e instanceof Error ? e.message : String(e)}`);
         }
     };
 
@@ -402,6 +504,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 selectedBranch={selectedBranch}
                 onSelectBranch={setSelectedBranch}
                 onCreateBranch={handleCreateBranch}
+                isTerminalOpen={isTerminalOpen}
+                onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+                sandboxName={activeSandbox?.name}
+                isProtected={isMainProtected && selectedBranch === "main"}
             />
 
             <div className="flex-1 overflow-hidden relative group">
@@ -438,14 +544,14 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                         <div className="flex gap-2">
                                             <button 
                                                 onClick={handleCommit}
-                                                disabled={isCommitting || !commitMessage.trim()}
+                                                disabled={isCommitting || !commitMessage.trim() || (isMainProtected && selectedBranch === "main")}
                                                 className="flex-1 p-2 text-xs font-semibold bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
                                             >
-                                                {isCommitting ? "Committing..." : "Commit"}
+                                                {isCommitting ? "Committing..." : (isMainProtected && selectedBranch === "main" ? "Branch Protected" : "Commit")}
                                             </button>
                                             <button 
                                                 onClick={handlePush}
-                                                disabled={isPushing}
+                                                disabled={isPushing || (isMainProtected && selectedBranch === "main")}
                                                 className="p-2 text-xs font-semibold bg-foreground/10 text-foreground rounded hover:bg-foreground/20 disabled:opacity-50 transition-colors"
                                             >
                                                 {isPushing ? "Pushing..." : "Push"}
@@ -458,17 +564,37 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                     </Panel>
 
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />
-
+                    
                     <Panel defaultSize={55} minSize={30}>
-                        <EditorArea
-                            tabs={openTabs}
-                            activeTabPath={activeTabPath}
-                            onTabSelect={setActiveTabPath}
-                            onTabClose={handleTabClose}
-                            onContentChange={handleContentChange}
-                            onSaveFile={handleSaveFile}
-                            pendingSuggestion={pendingSuggestion}
-                        />
+                        <PanelGroup orientation="vertical">
+                            <Panel defaultSize={70} minSize={40}>
+                                <EditorArea
+                                    tabs={openTabs}
+                                    activeTabPath={activeTabPath}
+                                    onTabSelect={setActiveTabPath}
+                                    onTabClose={handleTabClose}
+                                    onContentChange={handleContentChange}
+                                    onSaveFile={handleSaveFile}
+                                    pendingSuggestion={pendingSuggestion}
+                                />
+                            </Panel>
+                            
+                            {isTerminalOpen && (
+                                <>
+                                    <PanelResizeHandle className="h-1 bg-border hover:bg-primary/50 transition-colors" />
+                                    <Panel defaultSize={30} minSize={15}>
+                                        <Terminal 
+                                            logs={terminalLogs}
+                                            onExecute={handleExecuteCommand}
+                                            isSandboxConnected={!!activeSandbox}
+                                            sandboxName={activeSandbox?.name}
+                                            isFollowMode={isFollowMode}
+                                            onToggleFollow={() => setIsFollowMode(!isFollowMode)}
+                                        />
+                                    </Panel>
+                                </>
+                            )}
+                        </PanelGroup>
                     </Panel>
 
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />

@@ -28,8 +28,12 @@ export async function runGitInDocker(
 
     // We use --rm to automatically remove the container after execution
     // We map the local directory to /workspace
-    // We run as the 'agent' user defined in the Dockerfile
-    const command = `docker run --rm -v "${absolutePath}:/workspace" ${envFlags} coding-agent-git git ${args.join(" ")}`;
+    // We ensure a basic git config is set if it's a commit command
+    const gitConfig = args.includes("commit") 
+        ? 'git config --global user.email "agent@coding.agent" && git config --global user.name "Coding Agent" && '
+        : '';
+    
+    const command = `docker run --rm -v "${absolutePath}:/workspace" ${envFlags} coding-agent-git sh -c '${gitConfig}git ${args.join(" ")}'`;
 
     try {
         const { stdout, stderr } = await execAsync(command);
