@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { UserIcon, SettingsIcon, LogoutIcon, ChevronDownIcon } from "./icons";
+import { usePathname } from "next/navigation";
+import { UserIcon, SettingsIcon, LogoutIcon, ChevronDownIcon, RepositoryIcon } from "./icons";
 import { signOut } from "next-auth/react";
 
 interface UserProfileDropdownProps {
@@ -16,6 +17,7 @@ interface UserProfileDropdownProps {
 export const UserProfileDropdown = ({ user }: UserProfileDropdownProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const pathname = usePathname();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -29,6 +31,13 @@ export const UserProfileDropdown = ({ user }: UserProfileDropdownProps) => {
     }, []);
 
     const nameToDisplay = user.name || "User";
+
+    const adminLinks = [
+        { href: "/agent", label: "Agents" },
+        { href: "/admin/jobs", label: "Jobs" },
+        { href: "/repositories", label: "Repositories" },
+        { href: "/evaluation-lab", label: "Evaluation Lab" },
+    ];
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -73,6 +82,25 @@ export const UserProfileDropdown = ({ user }: UserProfileDropdownProps) => {
                             <SettingsIcon className="w-4 h-4 text-foreground/40 group-hover:text-primary transition-colors" />
                             <span>Settings</span>
                         </Link>
+                    </div>
+
+                    <div className="p-1.5 border-t border-border">
+                        <p className="px-3 py-1.5 text-xs font-semibold text-foreground/30 uppercase tracking-wider">Administration</p>
+                        {adminLinks.map(({ href, label }) => (
+                            <Link
+                                key={href}
+                                href={href}
+                                onClick={() => setIsOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all group ${
+                                    pathname.startsWith(href)
+                                        ? "text-foreground bg-foreground/5"
+                                        : "text-foreground/70 hover:text-foreground hover:bg-foreground/5"
+                                }`}
+                            >
+                                <RepositoryIcon className="w-4 h-4 text-foreground/40 group-hover:text-primary transition-colors" />
+                                <span>{label}</span>
+                            </Link>
+                        ))}
                     </div>
 
                     <div className="p-1.5 border-t border-border">

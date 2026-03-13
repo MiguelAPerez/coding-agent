@@ -1,7 +1,6 @@
 import React from "react";
 import Link from "next/link";
 import { UserProfileDropdown } from "./UserProfileDropdown";
-import { AdminDropdown } from "./AdminDropdown";
 import { config } from '@/config';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
@@ -23,12 +22,7 @@ export const Navbar = async () => {
                         </span>
                     </Link>
 
-                    {session?.user && (
-                        <>
-                            <NavLinks />
-                            <AdminDropdown />
-                        </>
-                    )}
+                    {session?.user && <NavLinks />}
                 </div>
 
                 <div className="flex items-center gap-4">
