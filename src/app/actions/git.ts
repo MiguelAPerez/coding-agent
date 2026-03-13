@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { runGitInDocker, checkGitDockerStatus } from "@/lib/docker-git";
+import { listSandboxes, executeSandboxCommand } from "./docker-sandboxes";
 
 const execAsync = promisify(exec);
 const WORKSPACES_BASE_DIR = path.join(process.cwd(), "data", "workspaces");
@@ -52,17 +53,22 @@ export async function checkoutBranch(repoId: string, branchName: string) {
 
     try {
         // Try local checkout
-        await execAsync(`git -C "${workspaceRepoDir}" checkout "${branchName}"`);
-        return { success: true };
+        const { stdout, stderr } = await execAsync(`git -C "${workspaceRepoDir}" checkout "${branchName}"`);
+        return { success: true, stdout, stderr };
     } catch {
         // Try remote checkout
         try {
             await execAsync(`git -C "${workspaceRepoDir}" fetch origin`);
-            await execAsync(`git -C "${workspaceRepoDir}" checkout -b "${branchName}" "origin/${branchName}"`);
-            return { success: true };
-        } catch (err) {
+            const { stdout, stderr } = await execAsync(`git -C "${workspaceRepoDir}" checkout -b "${branchName}" "origin/${branchName}"`);
+            return { success: true, stdout, stderr };
+        } catch (err: unknown) {
+            const e = err as { stdout?: string; stderr?: string; message?: string };
             console.error("Failed to checkout branch", err);
-            throw new Error(`Failed to checkout branch: ${branchName}`);
+            return { 
+                success: false, 
+                stdout: e.stdout || "", 
+                stderr: e.stderr || e.message || `Failed to checkout branch: ${branchName}` 
+            };
         }
     }
 }
@@ -76,11 +82,16 @@ export async function createBranch(repoId: string, branchName: string) {
     const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
 
     try {
-        await execAsync(`git -C "${workspaceRepoDir}" checkout -b "${branchName}"`);
-        return { success: true };
-    } catch (e) {
+        const { stdout, stderr } = await execAsync(`git -C "${workspaceRepoDir}" checkout -b "${branchName}"`);
+        return { success: true, stdout, stderr };
+    } catch (err: unknown) {
+        const e = err as { stdout?: string; stderr?: string; message?: string };
         console.error("Failed to create branch", e);
-        throw new Error(`Failed to create branch: ${branchName}`);
+        return { 
+            success: false, 
+            stdout: e.stdout || "", 
+            stderr: e.stderr || e.message || `Failed to create branch: ${branchName}` 
+        };
     }
 }
 
@@ -95,16 +106,30 @@ export async function commitChanges(repoId: string, message: string) {
     try {
         const dockerStatus = await checkGitDockerStatus();
         if (dockerStatus.dockerRunning && dockerStatus.imageBuilt) {
-            // Use Docker Sandbox
+            // Check for persistent sandbox first
+            const sandboxes = await listSandboxes();
+            const sandbox = sandboxes.find(s => s.repoIds.includes(repoId));
+            
+            if (sandbox) {
+                const gitConfig = 'git config --global user.email "agent@coding.agent" && git config --global user.name "Coding Agent" && ';
+                const res = await executeSandboxCommand(sandbox.id, `${gitConfig}git commit -m "${message.replace(/"/g, '\\"')}"`, repo.name);
+                if (!res.success) {
+                    throw new Error(res.stderr || "Failed to commit changes in Sandbox.");
+                }
+                return { success: true, stdout: res.stdout || "Changes committed successfully.", stderr: res.stderr };
+            }
+
+            // Fallback to transient Docker Sandbox (docker run --rm)
             const result = await runGitInDocker(workspaceRepoDir, ["commit", "-m", `"${message.replace(/"/g, '\\"')}"`]);
             if (result.exitCode !== 0) {
                 throw new Error(result.stderr || "Failed to commit changes in Docker.");
             }
+            return { success: true, stdout: result.stdout || "Changes committed successfully.", stderr: result.stderr };
         } else {
             // Fallback to host exec (original behavior)
             await execAsync(`git -C "${workspaceRepoDir}" commit -m "${message.replace(/"/g, '\\"')}"`);
+            return { success: true, stdout: "Changes committed successfully.", stderr: "" };
         }
-        return { success: true, stdout: "Changes committed successfully.", stderr: "" };
     } catch (e: unknown) {
         const err = e as { stdout?: string; stderr?: string; message?: string };
         console.error("Failed to commit changes", e);
@@ -127,16 +152,29 @@ export async function pushChanges(repoId: string, branchName: string) {
     try {
         const dockerStatus = await checkGitDockerStatus();
         if (dockerStatus.dockerRunning && dockerStatus.imageBuilt) {
-            // Use Docker Sandbox
+             // Check for persistent sandbox first
+            const sandboxes = await listSandboxes();
+            const sandbox = sandboxes.find(s => s.repoIds.includes(repoId));
+
+            if (sandbox) {
+                const res = await executeSandboxCommand(sandbox.id, `git push origin "${branchName}"`, repo.name);
+                if (!res.success) {
+                    throw new Error(res.stderr || "Failed to push changes in Sandbox.");
+                }
+                return { success: true, stdout: res.stdout || "Changes pushed successfully.", stderr: res.stderr };
+            }
+
+            // Fallback to transient Docker Sandbox (docker run --rm)
             const result = await runGitInDocker(workspaceRepoDir, ["push", "origin", `"${branchName}"`]);
             if (result.exitCode !== 0) {
                 throw new Error(result.stderr || "Failed to push changes in Docker.");
             }
+            return { success: true, stdout: result.stdout || "Changes pushed successfully.", stderr: result.stderr };
         } else {
             // Fallback to host exec (original behavior)
             await execAsync(`git -C "${workspaceRepoDir}" push origin "${branchName}"`);
+            return { success: true, stdout: "Changes pushed successfully.", stderr: "" };
         }
-        return { success: true, stdout: "Changes pushed successfully.", stderr: "" };
     } catch (e: unknown) {
         const err = e as { stdout?: string; stderr?: string; message?: string };
         console.error("Failed to push changes", e);

@@ -146,8 +146,8 @@ export async function executeSandboxCommand(containerId: string, command: string
     try {
         // Build the command to run with a specific working directory if repoName is provided
         const workdir = repoName ? `/workspace/${repoName}` : '/workspace';
-        // We use -w to set working directory
-        const dockerCmd = `docker exec -w "${workdir}" ${containerId} sh -c "${command.replace(/"/g, '\\"')}"`;
+        // We use -w to set working directory and -u to run as the agent user
+        const dockerCmd = `docker exec -u agent -w "${workdir}" ${containerId} sh -c "${command.replace(/"/g, '\\"')}"`;
         
         const { stdout, stderr } = await execAsync(dockerCmd);
         return {
@@ -158,8 +158,15 @@ export async function executeSandboxCommand(containerId: string, command: string
         };
     } catch (error: unknown) {
         const err = error as { stdout?: string; stderr?: string; message?: string; code?: number };
-        // If we have stderr, use that as it's cleaner than the full error message
-        const errorOutput = err.stderr || err.message || "Failed to execute command";
+        
+        // If the command produced output (stdout or stderr), that's usually more helpful than the "Command failed" wrapper
+        const errorLines: string[] = [];
+        if (err.stderr?.trim()) errorLines.push(err.stderr.trim());
+        if (err.stdout?.trim()) errorLines.push(err.stdout.trim());
+        
+        const errorOutput = errorLines.length > 0 
+            ? errorLines.join("\n") 
+            : (err.message || "Failed to execute command");
         
         return {
             success: false,

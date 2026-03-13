@@ -170,7 +170,16 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
         async function loadBranchEnv() {
             try {
-                await checkoutBranch(selectedRepoId, selectedBranch);
+                const res = await checkoutBranch(selectedRepoId, selectedBranch);
+                if (active && isFollowMode) {
+                    if (!isTerminalOpen) setIsTerminalOpen(true);
+                    // Only log if it's NOT a redundant "Already on..." tip
+                    if (res?.stdout) addLog("stdout", res.stdout);
+                    if (res?.stderr && !res.stderr.includes("Already on")) {
+                        addLog("stderr", res.stderr);
+                    }
+                }
+                
                 if (!active) return;
 
                 const tree = await getRepoFileTree(selectedRepoId);
@@ -186,7 +195,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         loadBranchEnv();
         // optionally clear tabs on branch switch
         return () => { active = false; };
-    }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles]);
+        // We omit isTerminalOpen to avoid re-triggering when we auto-open it
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles, addLog, isFollowMode]);
 
     const handleFileSelect = async (path: string) => {
 
@@ -370,8 +381,15 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
     const handleCreateBranch = async (name: string) => {
         setIsLoadingInit(true);
+        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
+        if (isFollowMode) addLog("info", `Creating branch: ${name}`);
+
         try {
-            await createBranch(selectedRepoId, name);
+            const res = await createBranch(selectedRepoId, name);
+            if (isFollowMode) {
+                if (res?.stdout) addLog("stdout", res.stdout);
+                if (res?.stderr) addLog("stderr", res.stderr);
+            }
             const bs = await getRepoBranches(selectedRepoId);
             setBranches(bs);
             setSelectedBranch(name);
