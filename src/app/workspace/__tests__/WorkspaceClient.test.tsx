@@ -299,15 +299,18 @@ describe("WorkspaceClient", () => {
 
         await screen.findByText("Tabs: 1");
         
-        // Mock fetch for chat API
+        // Mock fetch for streaming chat API
+        const mockContent = "I suggested some changes. **[INTERNAL_FILE_CHANGE_START: test.ts]** ```\nnew content\n``` **[INTERNAL_FILE_CHANGE_END: test.ts]**";
+        const mockStream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(mockContent));
+                controller.close();
+            }
+        });
+
         (global.fetch as jest.Mock).mockResolvedValueOnce({
             ok: true,
-            json: async () => ({
-                message: "I suggested some changes.",
-                suggestion: {
-                    filesChanged: { "test.ts": { suggestedContent: "new content", originalContent: "initial content" } }
-                }
-            })
+            body: mockStream
         });
         
         // Trigger message

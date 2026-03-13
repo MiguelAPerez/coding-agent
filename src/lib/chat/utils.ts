@@ -47,14 +47,21 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
         
         const fileContentBlock = content.substring(current.index, contentEnd);
         
-        const codeMatch = /```(?:[\w-]*)?\n([\s\S]*?)\n```/.exec(fileContentBlock);
-        if (codeMatch) {
+        // Find the outermost code block in this marker group
+        const firstTick = fileContentBlock.indexOf("```");
+        const lastTick = fileContentBlock.lastIndexOf("```");
+
+        if (firstTick !== -1 && lastTick !== -1 && firstTick !== lastTick) {
+            // Find the newline after the first ticks to skip optional language identifier
+            const firstNewline = fileContentBlock.indexOf("\n", firstTick);
+            const contentStart = firstNewline !== -1 ? firstNewline + 1 : firstTick + 3;
+            
             filesChanged[current.path] = {
                 startLine: 0,
                 endLine: 0,
                 column: 0,
                 originalContent: fileContents[current.path] || "",
-                suggestedContent: codeMatch[1].trim()
+                suggestedContent: fileContentBlock.substring(contentStart, lastTick).trim()
             };
             blocksToRemove.push({ start: current.index, end: contentEnd });
         }
@@ -66,7 +73,8 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
     }
 
     // 2. Fallback: Search for @path or FILE: path followed by code block
-    const looseRegex = /(?:@|FILE:\s*)([^\s\n\`\[\]]+)[^`]{0,150}```(?:[\w-]*)?\n([\s\S]*?)\n```/gi;
+    // Greedy match but scoped by potential start of next mention to avoid swallowing multiple files
+    const looseRegex = /(?:@|FILE:\s*)([^\s\n\`\[\]]+)[^`]{0,150}```(?:[\w-]*)?\n([\s\S]*?)\n```(?=\s*(?:@|FILE:|\[INTERNAL|$))/gi;
     cleanContent = cleanContent.replace(looseRegex, (match, path, code) => {
         if (!filesChanged[path]) {
             filesChanged[path] = {
@@ -82,21 +90,24 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
     });
 
     // 3. Last Resort: Orphan code block for active file
+    // Use the absolute outermost backticks for the orphan block
     if (Object.keys(filesChanged).length === 0 && activeFilePath) {
-        const orphanRegex = /```[\s\S]*?\n([\s\S]*?)```/g;
-        cleanContent = cleanContent.replace(orphanRegex, (match, code) => {
-            if (Object.keys(filesChanged).length === 0) {
-                filesChanged[activeFilePath] = {
-                    startLine: 0,
-                    endLine: 0,
-                    column: 0,
-                    originalContent: fileContents[activeFilePath] || "",
-                    suggestedContent: code.trim()
-                };
-                return "";
-            }
-            return match;
-        });
+        const firstTick = cleanContent.indexOf("```");
+        const lastTick = cleanContent.lastIndexOf("```");
+        
+        if (firstTick !== -1 && lastTick !== -1 && firstTick !== lastTick) {
+            const firstNewline = cleanContent.indexOf("\n", firstTick);
+            const contentStart = firstNewline !== -1 ? firstNewline + 1 : firstTick + 3;
+            
+            filesChanged[activeFilePath] = {
+                startLine: 0,
+                endLine: 0,
+                column: 0,
+                originalContent: fileContents[activeFilePath] || "",
+                suggestedContent: cleanContent.substring(contentStart, lastTick).trim()
+            };
+            cleanContent = cleanContent.substring(0, firstTick) + cleanContent.substring(lastTick + 3);
+        }
     }
 
     cleanContent = cleanContent.replace(/(?:\*\*|)\s*\[INTERNAL_FILE_CHANGE(?:_START|_END|):?\s*[^\s\]\n]*\]\s*(?:\*\*|)/gi, '');

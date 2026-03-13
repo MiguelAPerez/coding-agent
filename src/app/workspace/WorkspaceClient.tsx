@@ -28,6 +28,7 @@ import {
     setChatTab,
     addContextFile,
     removeContextFile,
+    updateChatMessage,
     clearChat
 } from "@/lib/store/features/chat/chatSlice";
 import {
@@ -61,7 +62,6 @@ import {
     getCurrentBranch
 } from "@/app/actions/git";
 import {
-    chatWithAgent,
     FileChange,
     ChatMessage
 } from "@/app/actions/chat";
@@ -76,6 +76,7 @@ import {
 } from "@/app/actions/workspace-files";
 import { getAgentConfigs } from "@/app/actions/config";
 import { getBranchProtection } from "@/app/actions/settings";
+import { parseDiffs } from "@/lib/chat/utils";
 
 
 interface Repo {
@@ -310,21 +311,66 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
         if (!selectedRepoId) return;
 
+        setIsChatLoading(true);
         const newUserMessage: ChatMessage = { role: "user", content: message };
         dispatch(addChatMessage(newUserMessage));
 
-        try {
-            const res = await chatWithAgent(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
-            
-            const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
-            dispatch(addChatMessage(newAssistantMessage));
+        // Add an empty assistant message to stream into
+        const assistantMessageIndex = chatMessages.length + 1;
+        dispatch(addChatMessage({ role: "assistant", content: "" }));
 
-            if (res.suggestion) {
-                dispatch(setPendingSuggestion(res.suggestion));
+        try {
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    repoId: selectedRepoId,
+                    filePath: activeTabPath,
+                    prompt: message,
+                    agentId: selectedAgentId,
+                    history: chatMessages
+                })
+            });
+
+            if (!response.ok) throw new Error("Failed to start chat");
+            if (!response.body) throw new Error("No response body");
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedContent = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedContent += chunk;
+                
+                // Update the last assistant message with the accumulated content
+                dispatch(updateChatMessage({ 
+                    index: assistantMessageIndex, 
+                    content: accumulatedContent 
+                }));
+            }
+
+            // After streaming finishes, parse for suggestions
+            const contextData: Record<string, string> = {};
+            openTabs.forEach(t => contextData[t.path] = t.content);
+
+            const { suggestion, cleanContent } = parseDiffs(accumulatedContent, activeTabPath, contextData);
+            
+            // Update with clean content (markers removed)
+            dispatch(updateChatMessage({ 
+                index: assistantMessageIndex, 
+                content: cleanContent 
+            }));
+
+            if (suggestion && Object.keys(suggestion.filesChanged).length > 0) {
+                dispatch(setPendingSuggestion(suggestion));
                 dispatch(setChatTab("suggestions"));
 
                 // Update all affected tab contents that are already open
-                (Object.entries(res.suggestion.filesChanged) as [string, FileChange][]).forEach(([path, change]) => {
+                (Object.entries(suggestion.filesChanged) as [string, FileChange][]).forEach(([path, change]) => {
                     const isOpen = openTabs.some(t => t.path === path);
                     if (isOpen) {
                         dispatch(updateTabContent({ path, content: change.suggestedContent }));
@@ -332,13 +378,14 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                     dispatch(addContextFile(path));
                 });
             } else {
-                alert("AI did not suggest any changes. Response: " + res.message);
+                await handleRefreshTree();
             }
         } catch (e) {
             console.error("Chat failed", e);
             alert("Chat failed: " + (e instanceof Error ? e.message : String(e)));
         } finally {
             setIsChatLoading(false);
+            await handleRefreshTree();
         }
     };
 

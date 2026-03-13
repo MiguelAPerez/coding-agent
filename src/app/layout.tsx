@@ -14,7 +14,6 @@ export const metadata: Metadata = {
 
 import { Navbar } from "@/components/Navbar";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { ReduxProvider } from "@/lib/store/Provider";
 
 export default function RootLayout({
   children,
@@ -65,12 +64,10 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} font-sans bg-background text-foreground antialiased selection:bg-primary selection:text-primary-foreground min-h-screen`}
       >
-        <ReduxProvider>
-          <ThemeProvider>
-            <Navbar />
-            <main>{children}</main>
-          </ThemeProvider>
-        </ReduxProvider>
+        <ThemeProvider>
+          <Navbar />
+          <main>{children}</main>
+        </ThemeProvider>
       </body>
     </html>
   );

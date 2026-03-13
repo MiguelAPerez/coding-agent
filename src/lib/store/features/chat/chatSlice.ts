@@ -55,6 +55,11 @@ export const chatSlice = createSlice({
         removeContextFile: (state, action: PayloadAction<string>) => {
             state.contextFiles = state.contextFiles.filter(f => f !== action.payload);
         },
+        updateChatMessage: (state, action: PayloadAction<{ index: number; content: string }>) => {
+            if (state.chatMessages[action.payload.index]) {
+                state.chatMessages[action.payload.index].content = action.payload.content;
+            }
+        },
         clearChat: (state) => {
             state.chatMessages = [];
             state.pendingSuggestion = null;
@@ -74,7 +79,8 @@ export const {
     setContextFiles,
     addContextFile,
     removeContextFile,
-    clearChat
+    clearChat,
+    updateChatMessage
 } = chatSlice.actions;
 
 export default chatSlice.reducer;
