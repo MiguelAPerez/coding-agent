@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { getCachedRepositories } from "@/app/actions/repositories";
 import { getAgentConfigs } from "@/app/actions/config";
+import SandboxDashboardCard from "@/components/Dashboard/SandboxDashboardCard";
 
 import { loadRepoData } from "@/lib/mockDataLoader";
 
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="z-10 grid text-left w-full max-w-5xl gap-6 md:grid-cols-2 animate-slide-up">
+      <div className="z-10 grid text-left w-full max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 animate-slide-up">
         {/* Repositories Directory Card */}
         <Link
           href="/repositories"
@@ -111,6 +112,9 @@ export default async function DashboardPage() {
             </div>
           </div>
         </Link>
+
+        {/* Sandbox Monitoring Card */}
+        <SandboxDashboardCard />
       </div>
     </main>
   );
