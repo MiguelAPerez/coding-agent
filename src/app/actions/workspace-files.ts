@@ -170,7 +170,8 @@ export async function getGitFileContent(repoId: string, filePath: string, ref: s
     const workspaceRepoDir = path.join(WORKSPACES_BASE_DIR, user.id, repo.fullName);
 
     try {
-        const { stdout } = await execAsync(`git -C "${workspaceRepoDir}" show "${ref}:${filePath}"`, {});
+        const gitRef = ref ? `${ref}:${filePath}` : `:${filePath}`;
+        const { stdout } = await execAsync(`git -C "${workspaceRepoDir}" show "${gitRef}"`, {});
         return stdout;
     } catch {
         if (process.env.NODE_ENV !== "test") {

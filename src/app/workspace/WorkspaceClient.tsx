@@ -27,6 +27,11 @@ import {
     getCurrentBranch
 } from "@/app/actions/git";
 import {
+    PendingSuggestion,
+    FileChange,
+    ChatMessage
+} from "@/app/actions/chat";
+import {
     getRepoFileTree,
     getWorkspaceFileContent,
     saveWorkspaceFile,
@@ -35,23 +40,10 @@ import {
     revertWorkspaceFile,
     FileNode
 } from "@/app/actions/workspace-files";
+import { getAgentConfigs } from "@/app/actions/config";
 import { getBranchProtection } from "@/app/actions/settings";
 
 
-export interface FileChange {
-    startLine: number;
-    endLine: number;
-    column: number;
-    originalContent: string;
-    suggestedContent: string;
-}
-
-export interface PendingSuggestion {
-    chatId: number;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: any[];
-    filesChanged: Record<string, FileChange>;
-}
 interface Repo {
     id: string;
     fullName: string;
@@ -64,6 +56,7 @@ export interface Tab {
     content: string;
     originalContent: string;
     gitHeadContent: string | null;
+    gitIndexContent: string | null;
     isDirty: boolean;
 }
 
@@ -102,6 +95,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const [isMainProtected, setIsMainProtected] = useState(true);
     const [gitRefreshKey, setGitRefreshKey] = useState(0);
     const [activeLeftTab, setActiveLeftTab] = useState<"files" | "git">("files");
+    const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
+    const [selectedAgentId, setSelectedAgentId] = useState<string>("");
+    const [chatMessages, setChatMessages] = useState<{ role: "system" | "user" | "assistant", content: string }[]>([]);
+    const [isChatLoading, setIsChatLoading] = useState(false);
     const savingFiles = useRef<Set<string>>(new Set());
 
     const refreshGit = useCallback(() => setGitRefreshKey(prev => prev + 1), []);
@@ -139,6 +136,21 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         setTerminalLogs([]);
         setActiveSandbox(null);
     }, [selectedRepoId]);
+
+    // Load agents on mount
+    useEffect(() => {
+        let active = true;
+        async function loadAgents() {
+            const configs = await getAgentConfigs();
+            if (!active) return;
+            setAgents(configs.map(c => ({ id: c.id, name: c.name })));
+            if (configs.length > 0) {
+                setSelectedAgentId(prev => prev || configs[0].id);
+            }
+        }
+        loadAgents();
+        return () => { active = false; };
+    }, []);
 
     // Load workspace when repo changes
     useEffect(() => {
@@ -231,6 +243,13 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles, addLog, isFollowMode, isMainProtected]);
 
+    const handleRefreshTree = useCallback(async () => {
+        if (!selectedRepoId) return;
+        const tree = await getRepoFileTree(selectedRepoId);
+        setFileTree(tree);
+        await loadChangedFiles(selectedRepoId);
+    }, [selectedRepoId, loadChangedFiles]);
+
     const handleFileSelect = async (path: string) => {
 
         const existingTab = openTabs.find(t => t.path === path);
@@ -240,16 +259,18 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
 
         try {
-            const [content, gitHeadContent] = await Promise.all([
+            const [content, gitHeadContent, gitIndexContent] = await Promise.all([
                 getWorkspaceFileContent(selectedRepoId, path).catch(() => ""),
-                getGitFileContent(selectedRepoId, path).catch(() => null)
+                getGitFileContent(selectedRepoId, path, "HEAD").catch(() => null),
+                getGitFileContent(selectedRepoId, path, "").catch(() => null)
             ]);
-
+ 
             const newTab: Tab = {
                 path,
                 content,
                 originalContent: content,
                 gitHeadContent,
+                gitIndexContent,
                 isDirty: false
             };
             setOpenTabs(prev => [...prev, newTab]);
@@ -260,50 +281,64 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         }
     };
 
-    const handleSendMessage = (message: string) => {
-        if (!activeTabPath || openTabs.length === 0) {
-            alert("Please open a file first to mock a suggestion.");
+    const handleSendMessage = async (message: string) => {
+        if (!selectedAgentId) {
+            alert("Please select an agent first.");
             return;
         }
 
-        const activeTab = openTabs.find(t => t.path === activeTabPath);
-        if (!activeTab) return;
+        if (!selectedRepoId) return;
 
-        // Mock Ai editing lines in multiple files
-        const changeRequest = {
-            chatId: 0,
-            messages: [],
-            filesChanged: {
-                [activeTabPath]: {
-                    'startLine': 0,
-                    'endLine': 0,
-                    'column': 0,
-                    'originalContent': activeTab.content,
-                    'suggestedContent': activeTab.content + `\n// 🤖 AI Suggestion applied here for: ${message}`
-                },
-                'Dockerfile': {
-                    'startLine': 0,
-                    'endLine': 0,
-                    'column': 0,
-                    'originalContent': '',
-                    'suggestedContent': 'FROM ubuntu:24.04'
-                }
+        const newUserMessage: ChatMessage = { role: "user", content: message };
+        setChatMessages(prev => [...prev, newUserMessage]);
+        setIsChatLoading(true);
+
+        try {
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    repoId: selectedRepoId,
+                    filePath: activeTabPath,
+                    prompt: message,
+                    agentId: selectedAgentId,
+                    history: chatMessages
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
+
+            const res = await response.json();
+            
+            const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
+            setChatMessages(prev => [...prev, newAssistantMessage]);
+
+            if (res.suggestion) {
+                setPendingSuggestion(res.suggestion);
+                setChatTab("suggestions");
+
+                // Update all affected tab contents that are already open
+                (Object.entries(res.suggestion.filesChanged) as [string, FileChange][]).forEach(([path, change]) => {
+                    const isOpen = openTabs.some(t => t.path === path);
+                    if (isOpen) {
+                        handleContentChange(path, change.suggestedContent);
+                    }
+                    if (!contextFiles.includes(path)) {
+                        setContextFiles(prev => [...prev, path]);
+                    }
+                });
+            } else {
+                alert("AI did not suggest any changes. Response: " + res.message);
+            }
+        } catch (e) {
+            console.error("Chat failed", e);
+            alert("Chat failed: " + (e instanceof Error ? e.message : String(e)));
+        } finally {
+            setIsChatLoading(false);
         }
-
-        setPendingSuggestion(changeRequest);
-        setChatTab("suggestions");
-
-        // Update all affected tab contents that are already open
-        Object.entries(changeRequest.filesChanged).forEach(([path, change]) => {
-            const isOpen = openTabs.some(t => t.path === path);
-            if (isOpen) {
-                handleContentChange(path, change.suggestedContent);
-            }
-            if (!contextFiles.includes(path)) {
-                setContextFiles(prev => [...prev, path]);
-            }
-        });
     };
 
     const handleApproveSuggestion = async () => {
@@ -311,6 +346,9 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
                 const isOpen = openTabs.some(t => t.path === path);
                 if (isOpen) {
+                    // Update the editor content first
+                    handleContentChange(path, change.suggestedContent);
+                    // Then save it
                     await handleSaveFile(path);
                 } else {
                     // For files not currently open, we save directly to disk
@@ -371,9 +409,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
         try {
             await saveWorkspaceFile(selectedRepoId, path, tab.content);
+            const gitIndexContent = await getGitFileContent(selectedRepoId, path, "").catch(() => null);
             setOpenTabs(prev => prev.map(t => {
                 if (t.path === path) {
-                    return { ...t, originalContent: t.content, isDirty: false };
+                    return { ...t, originalContent: t.content, gitIndexContent, isDirty: false };
                 }
                 return t;
             }));
@@ -396,10 +435,11 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 // If it was restored, we fetch the latest content to update tabs.
                 if (res.action === "restored") {
                     const content = await getWorkspaceFileContent(selectedRepoId, path);
-                    const gitContent = await getGitFileContent(selectedRepoId, path);
+                    const gitHeadContent = await getGitFileContent(selectedRepoId, path, "HEAD");
+                    const gitIndexContent = await getGitFileContent(selectedRepoId, path, "");
                     setOpenTabs(prev => prev.map(t => {
                         if (t.path === path) {
-                            return { ...t, content, originalContent: content, gitHeadContent: gitContent, isDirty: false };
+                            return { ...t, content, originalContent: content, gitHeadContent, gitIndexContent, isDirty: false };
                         }
                         return t;
                     }));
@@ -418,6 +458,25 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
 
     const handleRemoveContext = (path: string) => {
         setContextFiles(prev => prev.filter(p => p !== path));
+    };
+
+    const handleAddContext = (path: string) => {
+        if (!contextFiles.includes(path)) {
+            setContextFiles(prev => [...prev, path]);
+        }
+    };
+
+    const getAllFiles = (nodes: FileNode[], prefix = ""): string[] => {
+        let files: string[] = [];
+        for (const node of nodes) {
+            const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
+            if (node.type === "file") {
+                files.push(currentPath);
+            } else if (node.children) {
+                files = [...files, ...getAllFiles(node.children, currentPath)];
+            }
+        }
+        return files;
     };
 
     const handleCreateBranch = async (name: string) => {
@@ -534,16 +593,30 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const handleStageFile = async (filePath: string) => {
         try {
             await stageFile(selectedRepoId, filePath);
+            const gitIndexContent = await getGitFileContent(selectedRepoId, filePath, "").catch(() => null);
+            setOpenTabs(prev => prev.map(t => {
+                if (t.path === filePath) {
+                    return { ...t, gitIndexContent };
+                }
+                return t;
+            }));
             await loadChangedFiles(selectedRepoId);
             refreshGit();
         } catch (e) {
             console.error("Stage failed", e);
         }
     };
-
+ 
     const handleUnstageFile = async (filePath: string) => {
         try {
             await unstageFile(selectedRepoId, filePath);
+            const gitIndexContent = await getGitFileContent(selectedRepoId, filePath, "").catch(() => null);
+            setOpenTabs(prev => prev.map(t => {
+                if (t.path === filePath) {
+                    return { ...t, gitIndexContent };
+                }
+                return t;
+            }));
             await loadChangedFiles(selectedRepoId);
             refreshGit();
         } catch (e) {
@@ -628,6 +701,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                                 onRevertFile={handleRevertFile}
                                                 onStageFile={handleStageFile}
                                                 onUnstageFile={handleUnstageFile}
+                                                onRefresh={handleRefreshTree}
                                             />
                                         </div>
                                     </div>
@@ -700,8 +774,8 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                     <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />
                     
                     <Panel defaultSize={55} minSize={30}>
-                        <PanelGroup orientation="vertical">
-                            <Panel defaultSize={70} minSize={40}>
+                        <PanelGroup orientation="vertical" key={isTerminalOpen ? "terminal-open" : "terminal-closed"}>
+                            <Panel defaultSize={isTerminalOpen ? 70 : 100} minSize={30}>
                                 <EditorArea
                                     tabs={openTabs}
                                     activeTabPath={activeTabPath}
@@ -745,6 +819,13 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 onJumpToFile={handleFileSelect}
                                 activeTab={chatTab}
                                 onTabChange={setChatTab}
+                                agents={agents}
+                                selectedAgentId={selectedAgentId}
+                                onSelectAgent={setSelectedAgentId}
+                                messages={chatMessages}
+                                isLoading={isChatLoading}
+                                allFiles={getAllFiles(fileTree)}
+                                onAddContext={handleAddContext}
                             />
                     </Panel>
                 </PanelGroup>

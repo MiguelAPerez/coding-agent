@@ -2,6 +2,26 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ChatPanel from "../ChatPanel";
 
+jest.mock("react-markdown", () => ({
+    __esModule: true,
+    default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock("remark-gfm", () => ({
+    __esModule: true,
+    default: () => {},
+}));
+
+jest.mock("react-syntax-highlighter", () => ({
+    Prism: ({ children }: { children: React.ReactNode }) => <pre>{children}</pre>,
+}));
+
+jest.mock("react-syntax-highlighter/dist/esm/styles/prism", () => ({
+    vscDarkPlus: {},
+}));
+
+window.HTMLElement.prototype.scrollIntoView = jest.fn();
+
 describe("ChatPanel", () => {
     const mockProps = {
         contextFiles: ["file1.ts", "file2.ts"],
@@ -13,6 +33,12 @@ describe("ChatPanel", () => {
         onJumpToFile: jest.fn(),
         activeTab: null as "context" | "suggestions" | null,
         onTabChange: jest.fn(),
+        agents: [{ id: "agent1", name: "Agent 1" }],
+        selectedAgentId: "agent1",
+        onSelectAgent: jest.fn(),
+        messages: [],
+        allFiles: ["file1.ts", "file2.ts", "src/index.ts"],
+        onAddContext: jest.fn()
     };
 
     it("renders the copilot title", () => {
@@ -112,9 +138,38 @@ describe("ChatPanel", () => {
 
     it("calls onSendMessage when input is submitted", () => {
         render(<ChatPanel {...mockProps} />);
-        const input = screen.getByPlaceholderText("Ask Copilot...");
+        const input = screen.getByPlaceholderText("Ask Copilot... (use @ to mention files)");
         fireEvent.change(input, { target: { value: "test message" } });
-        fireEvent.click(screen.getByText("↑"));
+        fireEvent.click(screen.getByTitle("Send Message"));
         expect(mockProps.onSendMessage).toHaveBeenCalledWith("test message");
+    });
+
+    it("shows mentions dropdown when @ is typed", () => {
+        render(<ChatPanel {...mockProps} />);
+        const input = screen.getByPlaceholderText("Ask Copilot... (use @ to mention files)");
+        fireEvent.change(input, { target: { value: "@" } });
+        expect(screen.getByText("src/index.ts")).toBeInTheDocument();
+    });
+
+    it("calls onAddContext when a mention is selected", () => {
+        render(<ChatPanel {...mockProps} />);
+        const input = screen.getByPlaceholderText("Ask Copilot... (use @ to mention files)");
+        fireEvent.change(input, { target: { value: "@src" } });
+        const mentionBtn = screen.getByText("src/index.ts");
+        fireEvent.click(mentionBtn);
+        expect(mockProps.onAddContext).toHaveBeenCalledWith("src/index.ts");
+        expect(input).toHaveValue("@src/index.ts");
+    });
+    
+    it("renders thinking indicator and disables inputs when isLoading is true", () => {
+        render(<ChatPanel {...mockProps} isLoading={true} />);
+        
+        expect(screen.getByText("AI is thinking...")).toBeInTheDocument();
+        
+        const input = screen.getByPlaceholderText("AI is thinking...");
+        expect(input).toBeDisabled();
+        
+        const sendBtn = screen.getByTitle("Send Message");
+        expect(sendBtn).toBeDisabled();
     });
 });

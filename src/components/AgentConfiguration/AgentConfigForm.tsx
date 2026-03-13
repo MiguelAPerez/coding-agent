@@ -71,8 +71,22 @@ export const AgentConfigForm = ({
         }
     };
 
+    const isManaged = initialConfig?.isManaged;
+
     return (
         <form onSubmit={handleSave} className="space-y-6 max-w-2xl animate-in fade-in duration-500">
+            {isManaged && (
+                <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-4 text-primary mb-8">
+                    <div className="p-2 bg-primary/10 rounded-xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm text-foreground">Managed by Repository</p>
+                        <p className="text-xs opacity-60">This agent is configured via a repository and cannot be edited here.</p>
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground/70">Agent Name</label>
                 <input
@@ -81,7 +95,8 @@ export const AgentConfigForm = ({
                     onChange={(e) => setName(e.target.value)}
                     placeholder="E.g., Production Assistant"
                     required
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    disabled={isManaged}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50"
                 />
             </div>
 
@@ -93,7 +108,8 @@ export const AgentConfigForm = ({
                             value={model}
                             onChange={(e) => setModel(e.target.value)}
                             required
-                            className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none"
+                            disabled={isManaged}
+                            className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none disabled:opacity-50"
                         >
                             <option value="" disabled>Select a model...</option>
                             {ollamaModels.length > 0 && (
@@ -129,16 +145,22 @@ export const AgentConfigForm = ({
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground/70">Personality</label>
-                    <select
-                        value={systemPromptId}
-                        onChange={(e) => setSystemPromptId(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none"
-                    >
-                        <option value="">Default Instructions</option>
-                        {systemPrompts.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                    </select>
+                    <div className="relative group/select">
+                        <select
+                            value={systemPromptId}
+                            onChange={(e) => setSystemPromptId(e.target.value)}
+                            disabled={isManaged}
+                            className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none disabled:opacity-50"
+                        >
+                            <option value="">Default Instructions</option>
+                            {systemPrompts.map(p => (
+                                <option key={p.id} value={p.id}>{p.name}{p.isManaged ? " (Managed)" : ""}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -154,33 +176,36 @@ export const AgentConfigForm = ({
                     step="10"
                     value={temperature}
                     onChange={(e) => setTemperature(parseInt(e.target.value))}
-                    className="w-full accent-primary bg-foreground/10 h-2 rounded-lg appearance-none cursor-pointer"
+                    disabled={isManaged}
+                    className="w-full accent-primary bg-foreground/10 h-2 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             </div>
 
-            <div className="flex items-center justify-between pt-4">
-                <div className="flex items-center gap-4">
-                    <button
-                        type="submit"
-                        disabled={isSaving || isDeleting}
-                        className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
-                    >
-                        {isSaving ? "Saving..." : initialConfig ? "Save Changes" : "Create Agent"}
-                    </button>
-                    {message && <p className={`text-sm ${message.includes("success") ? "text-green-500" : "text-red-500"} animate-in fade-in duration-300`}>{message}</p>}
-                </div>
+            {!isManaged && (
+                <div className="flex items-center justify-between pt-4">
+                    <div className="flex items-center gap-4">
+                        <button
+                            type="submit"
+                            disabled={isSaving || isDeleting}
+                            className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+                        >
+                            {isSaving ? "Saving..." : initialConfig ? "Save Changes" : "Create Agent"}
+                        </button>
+                        {message && <p className={`text-sm ${message.includes("success") ? "text-green-500" : "text-red-500"} animate-in fade-in duration-300`}>{message}</p>}
+                    </div>
 
-                {initialConfig && (
-                    <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={isSaving || isDeleting}
-                        className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
-                    >
-                        {isDeleting ? "Deleting..." : "Delete Agent"}
-                    </button>
-                )}
-            </div>
+                    {initialConfig && (
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={isSaving || isDeleting}
+                            className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete Agent"}
+                        </button>
+                    )}
+                </div>
+            )}
         </form>
     );
 };

@@ -10,6 +10,7 @@ import { eq, and } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { App } from "octokit";
+import { getRepoFileContentInternal } from "@/lib/repo-utils";
 import { isPathBlocked, ALLOWLIST } from "@/lib/constants";
 
 const execAsync = promisify(exec);
@@ -183,23 +184,3 @@ export async function getRepoFileContent(repoId: string, filePath: string) {
     return getRepoFileContentInternal(repoId, filePath, session.user.id);
 }
 
-export async function getRepoFileContentInternal(repoId: string, filePath: string, userId: string) {
-    // Security check: ensure path is not blocked
-    if (isPathBlocked(filePath)) {
-        throw new Error("Access denied: file is in blocklist.");
-    }
-
-    const repo = db.select().from(repositories).where(eq(repositories.id, repoId)).get();
-    if (!repo) throw new Error("Repository not found");
-    if (repo.userId !== userId) throw new Error("Forbidden");
-
-    // Basic security check to prevent directory traversal
-    const normalizedPath = path.normalize(filePath);
-    if (normalizedPath.startsWith("..") || path.isAbsolute(normalizedPath)) {
-        throw new Error("Invalid file path");
-    }
-
-    const fullPath = path.join(REPOS_BASE_DIR, userId, repo.fullName, normalizedPath);
-    const content = await fs.readFile(fullPath, "utf-8");
-    return content;
-}

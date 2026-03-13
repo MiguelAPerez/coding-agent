@@ -28,8 +28,8 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
 
 describe("EditorArea", () => {
     const mockTabs = [
-        { path: "file1.ts", content: "content1", originalContent: "content1", gitHeadContent: "head1", isDirty: false },
-        { path: "file2.ts", content: "content2", originalContent: "content2", gitHeadContent: null, isDirty: true },
+        { path: "file1.ts", content: "content1", originalContent: "content1", gitHeadContent: "head1", gitIndexContent: "index1", isDirty: false },
+        { path: "file2.ts", content: "content2", originalContent: "content2", gitHeadContent: null, gitIndexContent: null, isDirty: true },
     ];
 
     const mockProps = {
