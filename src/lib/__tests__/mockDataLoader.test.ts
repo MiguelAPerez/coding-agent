@@ -12,11 +12,9 @@ describe('loadRepoData', () => {
 
     it('should load from feature directory if it exists', async () => {
         (path.join as jest.Mock).mockImplementation((...args) => args.join('/'));
-        (path.join as jest.Mock).mockReturnValueOnce('/mock/cwd/data/repos/test-repo');
-
-        (fs.existsSync as jest.Mock).mockReturnValue(true); // Repo exists, Feature exists, file exists
-
-        const result = await loadRepoData('test-repo', 'feature-x');
+        (fs.existsSync as jest.Mock).mockReturnValue(true); 
+        const fullPath = '/mock/cwd/data/repos/test-repo';
+        const result = await loadRepoData(fullPath, 'feature-x');
         
         expect(fs.existsSync).toHaveBeenCalledWith('/mock/cwd/data/repos/test-repo/feature-x');
         // Check that it's trying to load from the feature folder
@@ -31,14 +29,13 @@ describe('loadRepoData', () => {
 
     it('should fallback to root repo path if feature directory does not exist', async () => {
         (path.join as jest.Mock).mockImplementation((...args) => args.join('/'));
-        (path.join as jest.Mock).mockReturnValueOnce('/mock/cwd/data/repos/test-repo');
-
         (fs.existsSync as jest.Mock).mockImplementation((p) => {
             if (p === '/mock/cwd/data/repos/test-repo/feature-x') return false;
             return true; // Repo exists
         });
 
-        const result = await loadRepoData('test-repo', 'feature-x');
+        const fullPath = '/mock/cwd/data/repos/test-repo';
+        const result = await loadRepoData(fullPath, 'feature-x');
 
         expect(fs.existsSync).toHaveBeenCalledWith('/mock/cwd/data/repos/test-repo/feature-x');
         // Check that it falls back to the root folder
@@ -54,16 +51,18 @@ describe('loadRepoData', () => {
         (path.join as jest.Mock).mockImplementation((...args) => args.join('/'));
         (fs.existsSync as jest.Mock).mockReturnValue(true);
         
+        (fs.existsSync as jest.Mock).mockReturnValue(true);
         const mockResponseTests = [
             { name: "Test 1", category: "Cat1", prompt: "Prompt 1", expectations: [] }
         ];
 
         (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockResponseTests));
 
-        const result1 = await loadRepoData('test-repo');
+        const fullPath = '/mock/cwd/data/repos/test-repo';
+        const result1 = await loadRepoData(fullPath);
         const id1 = result1.responseTests[0].id;
 
-        const result2 = await loadRepoData('test-repo');
+        const result2 = await loadRepoData(fullPath);
         const id2 = result2.responseTests[0].id;
 
         expect(id1).toBe(id2);

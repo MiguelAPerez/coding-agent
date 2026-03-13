@@ -2,10 +2,9 @@ import React from "react";
 // import { getSkills } from "@/app/actions/skills";
 import { getSystemPrompts, getSystemPromptSets } from "@/app/actions/prompts";
 import { getContextGroups, getLatestBenchmark, getBenchmarkRuns, getCompletedBenchmarks, getActiveBenchmarks, getAllBenchmarksMetadata } from "@/app/actions/benchmarks";
-import { getCachedRepositories } from "@/app/actions/repositories";
+import { getCachedRepositories, getRepoDataByFullName } from "@/app/actions/repositories";
 import { EvaluationLabClient } from "@/components/EvaluationLab/EvaluationLabClient";
 import { ContextGroup, Benchmark, BenchmarkRun, BenchmarkEntry, SystemPrompt, SystemPromptSet } from "@/types/agent";
-import { loadRepoData } from "@/lib/mockDataLoader";
 
 export default async function EvaluationLabPage({
     searchParams
@@ -25,7 +24,7 @@ export default async function EvaluationLabPage({
 
     if (targetRepo) {
         try {
-            const repoData = await loadRepoData(targetRepo, 'eval-lab');
+            const repoData = await getRepoDataByFullName(targetRepo, 'eval-lab');
             contextGroups = repoData.responseTests as unknown as typeof contextGroups;
             systemPrompts = repoData.personas as unknown as typeof systemPrompts;
             systemPromptSets = repoData.systemPromptSets as unknown as typeof systemPromptSets;

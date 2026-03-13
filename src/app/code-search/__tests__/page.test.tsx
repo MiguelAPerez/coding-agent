@@ -34,8 +34,8 @@ describe('CodeSearchPage', () => {
   };
 
   const mockRepos = [
-    { id: '1', name: 'repo1', fullName: 'user/repo1', language: 'TypeScript', enabled: true },
-    { id: '2', name: 'repo2', fullName: 'user/repo2', language: 'JavaScript', enabled: true },
+    { id: '1', name: 'repo1', fullName: 'user/repo1', language: 'TypeScript', enabled: true, updatedAt: new Date() },
+    { id: '2', name: 'repo2', fullName: 'user/repo2', language: 'JavaScript', enabled: true, updatedAt: new Date() },
   ];
 
   beforeEach(() => {
@@ -94,6 +94,9 @@ describe('CodeSearchPage', () => {
     
     await waitFor(() => screen.getByText('repo1'));
     
+    // Deselect all (since they are auto-selected)
+    fireEvent.click(screen.getByText('Deselect all'));
+    
     const input = screen.getByPlaceholderText(/e.g. useEffect\\\(.*\\\[\\\]\\\)/i);
     fireEvent.change(input, { target: { value: 'test' } });
     
@@ -118,6 +121,9 @@ describe('CodeSearchPage', () => {
     render(<CodeSearchPage />);
     
     await waitFor(() => screen.getByText('repo1'));
+    
+    // Deselect all first to have a clean slate
+    fireEvent.click(screen.getByText('Deselect all'));
     
     // Select repo1
     fireEvent.click(screen.getByText('repo1'));
@@ -167,6 +173,9 @@ describe('CodeSearchPage', () => {
     render(<CodeSearchPage />);
     
     await waitFor(() => screen.getByText('repo1'));
+    
+    // Deselect all first
+    fireEvent.click(screen.getByText('Deselect all'));
     
     // Switch to semantic
     fireEvent.click(screen.getByRole('button', { name: /Semantic/i }));
