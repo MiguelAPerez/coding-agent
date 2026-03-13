@@ -15,6 +15,12 @@ jest.mock("@/app/actions/git", () => ({
     pushChanges: jest.fn(),
     stageFile: jest.fn(),
     unstageFile: jest.fn(),
+    setupGitAuth: jest.fn().mockResolvedValue({ success: true }),
+}));
+
+jest.mock("@/app/actions/settings", () => ({
+    getBranchProtection: jest.fn().mockResolvedValue(true),
+    updateBranchProtection: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 jest.mock("@/app/actions/workspace-files", () => ({
@@ -29,6 +35,7 @@ jest.mock("@/app/actions/workspace-files", () => ({
 import * as workspaceActions from "@/app/actions/workspace";
 import * as gitActions from "@/app/actions/git";
 import * as fileActions from "@/app/actions/workspace-files";
+import * as settingsActions from "@/app/actions/settings";
 
 // Mock react-resizable-panels
 jest.mock("react-resizable-panels", () => {
@@ -107,6 +114,7 @@ describe("WorkspaceClient", () => {
         (gitActions.checkoutBranch as jest.Mock).mockResolvedValue({ success: true });
         (fileActions.getRepoFileTree as jest.Mock).mockResolvedValue([{ name: "test.ts", path: "test.ts", type: "file" }]);
         (fileActions.getWorkspaceChangedFiles as jest.Mock).mockResolvedValue([]);
+        (settingsActions.getBranchProtection as jest.Mock).mockResolvedValue(true);
     });
 
     it("does not initialize workspace on mount if no repo is selected", async () => {
@@ -278,7 +286,8 @@ describe("WorkspaceClient", () => {
 
     it("commits changes when handleCommit is triggered", async () => {
         (gitActions.commitChanges as jest.Mock).mockResolvedValue({ success: true });
-        
+        (settingsActions.getBranchProtection as jest.Mock).mockResolvedValue(false);
+
         render(<WorkspaceClient initialRepos={mockRepos} />);
 
         await act(async () => {
@@ -286,8 +295,10 @@ describe("WorkspaceClient", () => {
         });
 
         const commitInput = screen.getByPlaceholderText("Commit message...");
-        fireEvent.change(commitInput, { target: { value: "test commit" } });
-        
+        await act(async () => {
+            fireEvent.change(commitInput, { target: { value: "test commit" } });
+        });
+
         await act(async () => {
             fireEvent.click(screen.getByText("Commit"));
         });
@@ -298,15 +309,18 @@ describe("WorkspaceClient", () => {
 
     it("pushes changes when handlePush is triggered", async () => {
         (gitActions.pushChanges as jest.Mock).mockResolvedValue({ success: true });
-        
+        (settingsActions.getBranchProtection as jest.Mock).mockResolvedValue(false);
+
         render(<WorkspaceClient initialRepos={mockRepos} />);
 
         await act(async () => {
             fireEvent.click(screen.getByText("Select Repo 1"));
         });
 
+        const pushButton = await screen.findByRole("button", { name: /push/i });
+
         await act(async () => {
-            fireEvent.click(screen.getByText("Push"));
+            fireEvent.click(pushButton);
         });
 
         expect(gitActions.pushChanges).toHaveBeenCalledWith("repo-1", "main");
@@ -314,7 +328,7 @@ describe("WorkspaceClient", () => {
 
     it("stages a file when onStageFile is triggered", async () => {
         (gitActions.stageFile as jest.Mock).mockResolvedValue({ success: true });
-        
+
         render(<WorkspaceClient initialRepos={mockRepos} />);
 
         await act(async () => {
@@ -331,7 +345,7 @@ describe("WorkspaceClient", () => {
 
     it("unstages a file when onUnstageFile is triggered", async () => {
         (gitActions.unstageFile as jest.Mock).mockResolvedValue({ success: true });
-        
+
         render(<WorkspaceClient initialRepos={mockRepos} />);
 
         await act(async () => {

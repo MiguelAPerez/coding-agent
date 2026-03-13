@@ -6,8 +6,9 @@ jest.mock('fs');
 jest.mock('path');
 
 describe('loadRepoData', () => {
-    afterEach(() => {
+    beforeEach(() => {
         jest.clearAllMocks();
+        (fs.readFileSync as jest.Mock).mockReturnValue("{}");
     });
 
     it('should load from feature directory if it exists', async () => {

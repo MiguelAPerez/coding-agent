@@ -3,8 +3,6 @@ import { db } from "@/../db";
 import { getServerSession } from "next-auth/next";
 import { getAuthenticatedCloneUrl } from "@/lib/git-auth";
 import { executeSandboxCommand } from "../docker-sandboxes";
-import { repositories } from "@/../db/schema";
-import { eq } from "drizzle-orm";
 
 // Mock dependencies
 jest.mock("@/../db", () => ({
@@ -75,10 +73,13 @@ describe("setupGitAuth", () => {
 
     it("should return success false if sandbox setup fails", async () => {
         (executeSandboxCommand as jest.Mock).mockResolvedValue({ success: false, stderr: "Error setup" });
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
         const result = await setupGitAuth("repo-123", "sandbox-123");
 
         expect(result.success).toBe(false);
         expect(result.error).toBe("Error setup");
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
     });
 });

@@ -1,5 +1,5 @@
 import { db } from "@/../db";
-import { repositories, giteaConfigurations, githubConfigurations } from "@/../db/schema";
+import { giteaConfigurations, githubConfigurations } from "@/../db/schema";
 import { eq } from "drizzle-orm";
 import { App } from "octokit";
 
