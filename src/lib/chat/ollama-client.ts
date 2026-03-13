@@ -70,7 +70,7 @@ export class OllamaClient {
                 if (json.message?.content) {
                     yield json.message.content;
                 }
-            } catch (_) {
+            } catch {
                 // Ignore final partial parse failure
             }
         }
