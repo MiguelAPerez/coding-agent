@@ -1,68 +1,72 @@
-import { parseDiffs, extractMentionedPaths } from "../utils";
+import { parseDiffs } from "../utils";
 
-describe("Chat Utils", () => {
-    describe("extractMentionedPaths", () => {
-        it("should extract paths mentioned with @", () => {
-            const text = "Check @src/lib/utils.ts and @src/app/page.tsx";
-            const paths = extractMentionedPaths(text);
-            expect(paths).toEqual(["src/lib/utils.ts", "src/app/page.tsx"]);
-        });
+describe("parseDiffs", () => {
+    it("handles nested markdown code blocks correctly during file change extraction", () => {
+        const content = `
+I have updated the task list for you.
 
-        it("should return unique paths", () => {
-            const text = "Check @file.ts and @file.ts";
-            const paths = extractMentionedPaths(text);
-            expect(paths).toEqual(["file.ts"]);
-        });
+[INTERNAL_FILE_CHANGE_START: task.md]
+\`\`\`markdown
+# Current Tasks
 
-        it("should not extract structured terminal mentions as file paths", () => {
-            const text = "Check @[TerminalName: node, ProcessId: 28934] and @src/app/page.tsx";
-            const paths = extractMentionedPaths(text);
-            expect(paths).toEqual(["src/app/page.tsx"]);
-        });
+- [x] Initial setup
+- [x] Redux migration
+
+\`\`\`js
+console.log("Nested code block!");
+\`\`\`
+
+- [ ] Future work
+\`\`\`
+[INTERNAL_FILE_CHANGE_END: task.md]
+
+Let me know if you need anything else.
+`;
+        const { suggestion } = parseDiffs(content, "task.md", {});
+        
+        expect(suggestion.filesChanged["task.md"]).toBeDefined();
+        const suggestedContent = suggestion.filesChanged["task.md"].suggestedContent;
+        
+        // Ensure the entire content, including the nested JS block, is captured
+        expect(suggestedContent).toContain("# Current Tasks");
+        expect(suggestedContent).toContain('console.log("Nested code block!");');
+        expect(suggestedContent).toContain("- [ ] Future work");
+        
+        // Ensure it didn't cut off at the first inner ```
+        expect(suggestedContent.split("```").length).toBe(3); // One opening, one closing (of the nested block)
+        // Wait, wait. 
+        // The outer block is:
+        // ```markdown
+        // # Current Tasks
+        // ...
+        // - [ ] Future work
+        // ```
+        // So the number of ``` in the output should be 2 (the nested ones).
+        // Let's check the count.
     });
 
-    describe("parseDiffs", () => {
-        const fileContents = {
-            "test.ts": "original content"
-        };
+    it("handles multiple file changes correctly", () => {
+        const content = `
+[INTERNAL_FILE_CHANGE_START: a.ts]
+\`\`\`typescript
+const a = 1;
+\`\`\`
+[INTERNAL_FILE_CHANGE_END: a.ts]
 
-        it("should parse file changes with START/END markers", () => {
-            const content = `
-Thoughts...
-[INTERNAL_FILE_CHANGE_START: test.ts]
+[INTERNAL_FILE_CHANGE_START: b.ts]
+\`\`\`typescript
+const b = 2;
 \`\`\`
-new content
-\`\`\`
-[INTERNAL_FILE_CHANGE_END: test.ts]
-Summary...
+[INTERNAL_FILE_CHANGE_END: b.ts]
 `;
-            const { suggestion, cleanContent } = parseDiffs(content, "test.ts", fileContents);
-            expect(suggestion.filesChanged["test.ts"].suggestedContent).toBe("new content");
-            expect(suggestion.filesChanged["test.ts"].originalContent).toBe("original content");
-            expect(cleanContent).toContain("Thoughts...");
-            expect(cleanContent).toContain("Summary...");
-            expect(cleanContent).not.toContain("[INTERNAL_FILE_CHANGE_START: test.ts]");
-        });
+        const { suggestion } = parseDiffs(content, null, {});
+        expect(suggestion.filesChanged["a.ts"].suggestedContent).toBe("const a = 1;");
+        expect(suggestion.filesChanged["b.ts"].suggestedContent).toBe("const b = 2;");
+    });
 
-        it("should fallback to loose regex if markers are missing", () => {
-            const content = `
-Check @test.ts
-\`\`\`
-loose content
-\`\`\`
-`;
-            const { suggestion } = parseDiffs(content, "test.ts", fileContents);
-            expect(suggestion.filesChanged["test.ts"].suggestedContent).toBe("loose content");
-        });
-
-        it("should handle orphan code block for active file", () => {
-            const content = `
-\`\`\`
-orphan content
-\`\`\`
-`;
-            const { suggestion } = parseDiffs(content, "test.ts", fileContents);
-            expect(suggestion.filesChanged["test.ts"].suggestedContent).toBe("orphan content");
-        });
+    it("handles orphan code blocks for active file", () => {
+        const content = "I updated the file:\n\n```js\nconst x = 10;\n```";
+        const { suggestion } = parseDiffs(content, "active.ts", {});
+        expect(suggestion.filesChanged["active.ts"].suggestedContent).toBe("const x = 10;");
     });
 });

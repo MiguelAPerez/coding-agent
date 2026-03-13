@@ -2,10 +2,11 @@
 
 import { db } from "@/../db";
 import { systemPrompts, systemPromptSets } from "@/../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, notInArray } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { SystemPrompt } from "@/types/agent";
 
 export async function getSystemPrompts() {
     const session = await getServerSession(authOptions);
@@ -92,4 +93,57 @@ export async function deleteSystemPromptSet(id: string) {
 
     db.delete(systemPromptSets).where(eq(systemPromptSets.id, id)).run();
     revalidatePath("/evaluation-lab");
+}
+
+export async function syncManagedPersonas(personas: SystemPrompt[]) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const userId = session.user.id;
+    const personaIds = personas.map(p => p.id);
+
+    // 1. Delete managed personas no longer in the repo
+    if (personaIds.length > 0) {
+        db.delete(systemPrompts)
+            .where(and(
+                eq(systemPrompts.userId, userId),
+                eq(systemPrompts.isManaged, true),
+                notInArray(systemPrompts.id, personaIds)
+            ))
+            .run();
+    } else {
+        db.delete(systemPrompts)
+            .where(and(
+                eq(systemPrompts.userId, userId),
+                eq(systemPrompts.isManaged, true)
+            ))
+            .run();
+    }
+
+    // 2. Upsert managed personas
+    for (const persona of personas) {
+        const existing = db.select().from(systemPrompts).where(eq(systemPrompts.id, persona.id)).get();
+        
+        const values = {
+            userId,
+            name: persona.name,
+            content: persona.content,
+            isManaged: true,
+            updatedAt: new Date(),
+        };
+
+        if (existing) {
+            db.update(systemPrompts)
+                .set(values)
+                .where(eq(systemPrompts.id, persona.id))
+                .run();
+        } else {
+            db.insert(systemPrompts)
+                .values({
+                    id: persona.id,
+                    ...values
+                })
+                .run();
+        }
+    }
 }

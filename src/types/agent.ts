@@ -7,7 +7,7 @@ export interface AgentConfig {
     systemPrompt: string;
     temperature: number;
     updatedAt: Date;
-    isManaged?: boolean;
+    isManaged: boolean;
 }
 
 export interface Skill {
@@ -56,7 +56,7 @@ export interface SystemPrompt {
     name: string;
     content: string;
     updatedAt: Date;
-    isManaged?: boolean;
+    isManaged: boolean;
 }
 
 export interface SystemPromptSet {

@@ -13,7 +13,6 @@ export const metadata: Metadata = {
 };
 
 import { Navbar } from "@/components/Navbar";
-
 import { ThemeProvider } from "@/context/ThemeContext";
 
 export default function RootLayout({

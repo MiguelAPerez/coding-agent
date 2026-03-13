@@ -68,9 +68,10 @@ export async function loadRepoData(fullPath: string, feature?: string) {
             const rawPrompts = JSON.parse(fs.readFileSync(personasFile, "utf8"));
             const promptData = rawPrompts.personas || rawPrompts.systemPrompts || (Array.isArray(rawPrompts) ? rawPrompts : []);
             if (promptData) {
-                personas = promptData.map((sp: Omit<SystemPrompt, "id" | "updatedAt"> & { id?: string }) => ({
+                personas = promptData.map((sp: Omit<SystemPrompt, "id" | "updatedAt" | "isManaged"> & { id?: string }) => ({
                     id: sp.id || generateStableId(`${sp.name}:${sp.content}`),
                     ...sp,
+                    isManaged: true,
                     updatedAt: new Date()
                 }));
             }
@@ -91,9 +92,10 @@ export async function loadRepoData(fullPath: string, feature?: string) {
         try {
             const rawAgents = JSON.parse(fs.readFileSync(agentsFile, "utf8"));
             const agentData = Array.isArray(rawAgents) ? rawAgents : (rawAgents.agents || []);
-            agents = agentData.map((ag: Omit<AgentConfig, "id" | "updatedAt"> & { id?: string }) => ({
+            agents = agentData.map((ag: Omit<AgentConfig, "id" | "updatedAt" | "isManaged"> & { id?: string }) => ({
                 id: ag.id || generateStableId(`${ag.name}:${ag.model}:${ag.systemPrompt}`),
                 ...ag,
+                isManaged: true,
                 updatedAt: new Date()
             }));
         } catch (e) {

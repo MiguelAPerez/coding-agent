@@ -20,10 +20,23 @@ export class ChatContext {
         let agentConfig;
         if (this.agentId) {
             agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.id, this.agentId), eq(agentConfigurations.userId, this.userId))).get();
+            if (!agentConfig) {
+                console.warn(`Requested agent ${this.agentId} not found for user ${this.userId}. Falling back to default.`);
+                agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.userId, this.userId), isNull(agentConfigurations.isManaged))).get() 
+                    || db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, this.userId)).get();
+            }
         } else {
-            agentConfig = db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, this.userId)).get();
+            // Get the first agent that has a model configured
+            agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.userId, this.userId))).get();
         }
-        if (!agentConfig || !agentConfig.model) throw new Error("Agent not configured.");
+
+        if (!agentConfig) {
+            throw new Error("No AI agents are configured. Please create an agent in the Agent Settings page first.");
+        }
+
+        if (!agentConfig.model) {
+            throw new Error(`The selected agent "${agentConfig.name}" has no model configured. Please update it in the Agent Settings page.`);
+        }
 
         let personalityPrompt = agentConfig.systemPrompt;
         if (agentConfig.systemPromptId) {

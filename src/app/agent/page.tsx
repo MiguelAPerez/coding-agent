@@ -1,8 +1,8 @@
 import React from "react";
-import { getAgentConfigs } from "@/app/actions/config";
+import { getAgentConfigs, syncManagedAgents } from "@/app/actions/config";
 import { getSkills } from "@/app/actions/skills";
 import { getTools } from "@/app/actions/tools";
-import { getSystemPrompts } from "@/app/actions/prompts";
+import { getSystemPrompts, syncManagedPersonas } from "@/app/actions/prompts";
 import { AgentPageClient } from "@/components/AgentConfiguration/AgentPageClient";
 
 import { getCachedRepositories, getRepoDataByFullName } from "@/app/actions/repositories";
@@ -13,9 +13,6 @@ export default async function AgentPage({
 }: {
     searchParams: { repo?: string }
 }) {
-    let configs = await getAgentConfigs();
-    let systemPrompts = await getSystemPrompts();
-
     const allRepos = await getCachedRepositories();
     const configRepo = allRepos.find(r => r.isConfigRepository);
     const targetRepo = searchParams.repo || configRepo?.fullName;
@@ -23,20 +20,27 @@ export default async function AgentPage({
     if (targetRepo) {
         try {
             const repoData = await getRepoDataByFullName(targetRepo, 'agent-config');
-            if (repoData.agents.length > 0) {
-                const managedAgents = repoData.agents.map(a => ({ ...a, isManaged: true }));
-                // Merge managed agents, keep database ones
-                configs = [...configs, ...managedAgents] as unknown as typeof configs;
-            }
+            
+            // Sync personas first since agents depend on them
             if (repoData.personas.length > 0) {
-                const managedPersonas = repoData.personas.map(p => ({ ...p, isManaged: true }));
-                // Merge managed personas, keep database ones
-                systemPrompts = [...systemPrompts, ...managedPersonas] as unknown as SystemPrompt[];
+                await syncManagedPersonas(repoData.personas as unknown as SystemPrompt[]);
+            } else {
+                await syncManagedPersonas([]); // Clear if none in repo
+            }
+
+            if (repoData.agents.length > 0) {
+                await syncManagedAgents(repoData.agents);
+            } else {
+                await syncManagedAgents([]); // Clear if none in repo
             }
         } catch (error) {
-            console.error("Failed to load repo data:", error);
+            console.error("Failed to sync repo data:", error);
         }
     }
+
+    // Load after sync (now contains both local and managed)
+    const configs = await getAgentConfigs();
+    const systemPrompts = await getSystemPrompts();
 
     const initialSkills = await getSkills();
     const initialTools = await getTools();

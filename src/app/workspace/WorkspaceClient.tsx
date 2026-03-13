@@ -1,48 +1,29 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+    setSelectedRepoId,
+    setSelectedBranch,
+    setActiveTabPath,
+    setActiveLeftTab,
+} from "@/lib/store/features/workspace/workspaceSlice";
+import { setIsTerminalOpen } from "@/lib/store/features/terminal/terminalSlice";
+import { setChatTab, setSelectedAgentId } from "@/lib/store/features/chat/chatSlice";
+
 import WorkspaceTopBar from "./components/WorkspaceTopBar";
 import FileTree from "./components/FileTree";
 import EditorArea from "./components/EditorArea";
 import ChatPanel from "./components/ChatPanel";
 import Terminal from "./components/Terminal";
-import GitLog from "./components/GitLog";
+import SourceControlPanel from "./components/SourceControlPanel";
 
-import { initWorkspace } from "@/app/actions/workspace";
-import { 
-    listSandboxes, 
-    executeSandboxCommand,
-    SandboxInfo 
-} from "@/app/actions/docker-sandboxes";
-import {
-    getRepoBranches,
-    checkoutBranch,
-    createBranch,
-    commitChanges,
-    pushChanges,
-    stageFile,
-    unstageFile,
-    setupGitAuth,
-    getCurrentBranch
-} from "@/app/actions/git";
-import {
-    PendingSuggestion,
-    FileChange,
-    ChatMessage
-} from "@/app/actions/chat";
-import {
-    getRepoFileTree,
-    getWorkspaceFileContent,
-    saveWorkspaceFile,
-    getWorkspaceChangedFiles,
-    getGitFileContent,
-    revertWorkspaceFile,
-    FileNode
-} from "@/app/actions/workspace-files";
-import { getAgentConfigs } from "@/app/actions/config";
-import { getBranchProtection } from "@/app/actions/settings";
-
+import { useWorkspaceInit } from "./hooks/useWorkspaceInit";
+import { useFileManagement } from "./hooks/useFileManagement";
+import { useGitOperations } from "./hooks/useGitOperations";
+import { useChatInteraction } from "./hooks/useChatInteraction";
+import { useTerminalExecution } from "./hooks/useTerminalExecution";
 
 interface Repo {
     id: string;
@@ -60,582 +41,107 @@ export interface Tab {
     isDirty: boolean;
 }
 
-interface LogEntry {
-    type: "input" | "stdout" | "stderr" | "info";
-    content: string;
-    timestamp: number;
+export interface FileNode {
+    name: string;
+    type: "file" | "directory";
+    children?: FileNode[];
 }
 
 export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[] }) {
+    const dispatch = useAppDispatch();
+    
+    // Core State from Redux
+    const selectedRepoId = useAppSelector((state) => state.workspace.selectedRepoId);
+    const branches = useAppSelector((state) => state.workspace.branches);
+    const selectedBranch = useAppSelector((state) => state.workspace.selectedBranch);
+    const fileTree = useAppSelector((state) => state.workspace.fileTree);
+    const changedFiles = useAppSelector((state) => state.workspace.changedFiles);
+    const isMainProtected = useAppSelector((state) => state.workspace.isMainProtected);
+    const activeLeftTab = useAppSelector((state) => state.workspace.activeLeftTab);
+    const isTerminalOpen = useAppSelector((state) => state.terminal.isTerminalOpen);
+    const activeSandbox = useAppSelector((state) => state.terminal.activeSandbox);
+
+    // Initial Repos
     const [repos] = useState<Repo[]>(initialRepos);
-    const [selectedRepoId, setSelectedRepoId] = useState<string>("");
-    const [branches, setBranches] = useState<string[]>([]);
-    const [selectedBranch, setSelectedBranch] = useState<string>("main");
 
-    const [fileTree, setFileTree] = useState<FileNode[]>([]);
-    const [openTabs, setOpenTabs] = useState<Tab[]>([]);
-    const [activeTabPath, setActiveTabPath] = useState<string | null>(null);
-    const [changedFiles, setChangedFiles] = useState<{ path: string, status: string }[]>([]);
-    // Files used as reference by our agent
-    const [contextFiles, setContextFiles] = useState<string[]>([]);
-    const [pendingSuggestion, setPendingSuggestion] = useState<PendingSuggestion | null>(null);
-    const [chatTab, setChatTab] = useState<"context" | "suggestions" | null>(null);
+    // Hooks
+    const { isLoadingInit, syncCurrentBranch, addLog } = useWorkspaceInit();
+    const {
+        openTabs,
+        activeTabPath,
+        handleFileSelect,
+        handleTabClose,
+        handleContentChange,
+        handleSaveFile,
+        handleRevertFile,
+        loadChangedFiles,
+    } = useFileManagement();
+    const {
+        commitMessage,
+        setCommitMessage,
+        isPushing,
+        isCommitting,
+        gitRefreshKey,
+        refreshGit,
+        handleCreateBranch,
+        handleCommit,
+        handlePush,
+        handleStageFile,
+        handleUnstageFile,
+    } = useGitOperations(loadChangedFiles, syncCurrentBranch, addLog);
+    const {
+        isChatLoading,
+        chatMessages,
+        agents,
+        selectedAgentId,
+        pendingSuggestion,
+        chatTab,
+        contextFiles,
+        handleSendMessage,
+        handleApproveSuggestion,
+        handleRejectSuggestion,
+        handleRemoveContext,
+        handleAddContext,
+    } = useChatInteraction(handleSaveFile, loadChangedFiles, refreshGit);
+    const {
+        terminalLogs,
+        isFollowMode,
+        handleExecuteCommand,
+        handleClearLogs,
+        toggleFollowMode,
+    } = useTerminalExecution(syncCurrentBranch, addLog);
 
-    const [commitMessage, setCommitMessage] = useState("");
-    const [isPushing, setIsPushing] = useState(false);
-    const [isCommitting, setIsCommitting] = useState(false);
-
-    // Terminal State
-    const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-    const [terminalLogs, setTerminalLogs] = useState<LogEntry[]>([]);
-    const [isFollowMode, setIsFollowMode] = useState(true);
-    const [activeSandbox, setActiveSandbox] = useState<SandboxInfo | null>(null);
-
-    const [isLoadingInit, setIsLoadingInit] = useState(false);
-    const [isMainProtected, setIsMainProtected] = useState(true);
-    const [gitRefreshKey, setGitRefreshKey] = useState(0);
-    const [activeLeftTab, setActiveLeftTab] = useState<"files" | "git">("files");
-    const [agents, setAgents] = useState<{ id: string, name: string }[]>([]);
-    const [selectedAgentId, setSelectedAgentId] = useState<string>("");
-    const [chatMessages, setChatMessages] = useState<{ role: "system" | "user" | "assistant", content: string }[]>([]);
-    const [isChatLoading, setIsChatLoading] = useState(false);
-    const savingFiles = useRef<Set<string>>(new Set());
-
-    const refreshGit = useCallback(() => setGitRefreshKey(prev => prev + 1), []);
-
-    const syncCurrentBranch = useCallback(async () => {
-        if (!selectedRepoId) return;
-        const res = await getCurrentBranch(selectedRepoId);
-        if (res.success) {
-            setSelectedBranch(current => current !== res.branch ? res.branch : current);
-        }
-    }, [selectedRepoId]);
-
-    const loadChangedFiles = useCallback(async (repoId: string) => {
-        const changes = await getWorkspaceChangedFiles(repoId);
-        setChangedFiles(changes);
-    }, []);
-
-    const addLog = useCallback((type: LogEntry["type"], content: string) => {
-        setTerminalLogs(prev => [...prev, { type, content, timestamp: Date.now() }]);
-    }, []);
-
-    // Clear state when repo changes
-    useEffect(() => {
-        setOpenTabs([]);
-        setActiveTabPath(null);
-        setContextFiles([]);
-        setPendingSuggestion(null);
-        setChatTab(null);
-        setFileTree([]);
-        setBranches([]);
-        setSelectedBranch("main");
-        
-        // Reset terminal logs when repo changes? Maybe keep them?
-        // Let's reset for now to keep it clean per repo.
-        setTerminalLogs([]);
-        setActiveSandbox(null);
-    }, [selectedRepoId]);
-
-    // Load agents on mount
-    useEffect(() => {
-        let active = true;
-        async function loadAgents() {
-            const configs = await getAgentConfigs();
-            if (!active) return;
-            setAgents(configs.map(c => ({ id: c.id, name: c.name })));
-            if (configs.length > 0) {
-                setSelectedAgentId(prev => prev || configs[0].id);
-            }
-        }
-        loadAgents();
-        return () => { active = false; };
-    }, []);
-
-    // Load workspace when repo changes
-    useEffect(() => {
-        if (!selectedRepoId) return;
-
-        let active = true;
-
-        async function loadRepoEnv() {
-            setIsLoadingInit(true);
-            try {
-                await initWorkspace(selectedRepoId);
-                if (!active) return;
-
-                const bs = await getRepoBranches(selectedRepoId);
-                if (!active) return;
-                setBranches(bs);
-
-                const initialBranch = bs.includes("main") ? "main" : (bs[0] || "main");
-                setSelectedBranch(initialBranch);
-
-                const protection = await getBranchProtection();
-                if (active) setIsMainProtected(protection);
-                
-                await syncCurrentBranch();
-            } catch (e) {
-                console.error("Failed to init workspace", e);
-            } finally {
-                if (active) setIsLoadingInit(false);
-            }
-        }
-
-        loadRepoEnv();
-
-        // Detect sandbox for this repo
-        async function detectSandbox() {
-            const sandboxes = await listSandboxes();
-            const matching = sandboxes.find(s => s.repoIds.includes(selectedRepoId));
-            if (matching) {
-                setActiveSandbox(matching);
-                addLog("info", `Connected to sandbox: ${matching.name}`);
-                // Setup Git Auth for the sandbox
-                await setupGitAuth(selectedRepoId, matching.id);
-            } else {
-                // If no sandbox, still setup git auth for local workspace
-                await setupGitAuth(selectedRepoId);
-            }
-        }
-        detectSandbox();
-
-        return () => { active = false; };
-    }, [selectedRepoId, addLog, syncCurrentBranch]);
-
-    // Load branch constraints when repo + branch changes
-    useEffect(() => {
-        if (!selectedRepoId || !selectedBranch || isLoadingInit) return;
-        let active = true;
-
-        async function loadBranchEnv() {
-            try {
-                const res = await checkoutBranch(selectedRepoId, selectedBranch);
-                const isProtectedBranch = isMainProtected && selectedBranch === "main";
-                if (isProtectedBranch) {
-                    setIsTerminalOpen(false);
-                } else if (active && isFollowMode) {
-                    if (!isTerminalOpen) setIsTerminalOpen(true);
-                    // Only log if it's NOT a redundant "Already on..." tip
-                    if (res?.stdout) addLog("stdout", res.stdout);
-                    if (res?.stderr && !res.stderr.includes("Already on")) {
-                        addLog("stderr", res.stderr);
-                    }
-                }
-                
-                if (!active) return;
-
-                const tree = await getRepoFileTree(selectedRepoId);
-                if (!active) return;
-                setFileTree(tree);
-
-                await loadChangedFiles(selectedRepoId);
-            } catch (e) {
-                console.error("Failed branch env setup", e);
-            }
-        }
-
-        loadBranchEnv();
-        refreshGit();
-        // optionally clear tabs on branch switch
-        return () => { active = false; };
-        // We omit isTerminalOpen to avoid re-triggering when we auto-open it
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedRepoId, selectedBranch, isLoadingInit, loadChangedFiles, addLog, isFollowMode, isMainProtected]);
-
-    const handleRefreshTree = useCallback(async () => {
-        if (!selectedRepoId) return;
-        const tree = await getRepoFileTree(selectedRepoId);
-        setFileTree(tree);
-        await loadChangedFiles(selectedRepoId);
-    }, [selectedRepoId, loadChangedFiles]);
-
-    const handleFileSelect = async (path: string) => {
-
-        const existingTab = openTabs.find(t => t.path === path);
-        if (existingTab) {
-            setActiveTabPath(path);
-            return;
-        }
-
-        try {
-            const [content, gitHeadContent, gitIndexContent] = await Promise.all([
-                getWorkspaceFileContent(selectedRepoId, path).catch(() => ""),
-                getGitFileContent(selectedRepoId, path, "HEAD").catch(() => null),
-                getGitFileContent(selectedRepoId, path, "").catch(() => null)
-            ]);
- 
-            const newTab: Tab = {
-                path,
-                content,
-                originalContent: content,
-                gitHeadContent,
-                gitIndexContent,
-                isDirty: false
-            };
-            setOpenTabs(prev => [...prev, newTab]);
-            setActiveTabPath(path);
-        } catch (e) {
-            console.error("Failed to read file", e);
-            alert("Could not load file");
-        }
-    };
-
-    const handleSendMessage = async (message: string) => {
-        if (!selectedAgentId) {
-            alert("Please select an agent first.");
-            return;
-        }
-
-        if (!selectedRepoId) return;
-
-        const newUserMessage: ChatMessage = { role: "user", content: message };
-        setChatMessages(prev => [...prev, newUserMessage]);
-        setIsChatLoading(true);
-
-        try {
-            const response = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    repoId: selectedRepoId,
-                    filePath: activeTabPath,
-                    prompt: message,
-                    agentId: selectedAgentId,
-                    history: chatMessages
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-
-            const res = await response.json();
-            
-            const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
-            setChatMessages(prev => [...prev, newAssistantMessage]);
-
-            if (res.suggestion) {
-                setPendingSuggestion(res.suggestion);
-                setChatTab("suggestions");
-
-                // Update all affected tab contents that are already open
-                (Object.entries(res.suggestion.filesChanged) as [string, FileChange][]).forEach(([path, change]) => {
-                    const isOpen = openTabs.some(t => t.path === path);
-                    if (isOpen) {
-                        handleContentChange(path, change.suggestedContent);
-                    }
-                    if (!contextFiles.includes(path)) {
-                        setContextFiles(prev => [...prev, path]);
-                    }
-                });
-            } else {
-                alert("AI did not suggest any changes. Response: " + res.message);
-            }
-        } catch (e) {
-            console.error("Chat failed", e);
-            alert("Chat failed: " + (e instanceof Error ? e.message : String(e)));
-        } finally {
-            setIsChatLoading(false);
-        }
-    };
-
-    const handleApproveSuggestion = async () => {
-        if (pendingSuggestion) {
-            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
-                const isOpen = openTabs.some(t => t.path === path);
-                if (isOpen) {
-                    // Update the editor content first
-                    handleContentChange(path, change.suggestedContent);
-                    // Then save it
-                    await handleSaveFile(path);
-                } else {
-                    // For files not currently open, we save directly to disk
-                    try {
-                        await saveWorkspaceFile(selectedRepoId, path, change.suggestedContent);
-                    } catch (e) {
-                        console.error("Failed to save background file", e);
-                    }
-                }
-            }
-            // Trigger a refresh of changed files
-            await loadChangedFiles(selectedRepoId);
-            refreshGit();
-        }
-        setPendingSuggestion(null);
-        setChatTab(null);
-    };
-
-    const handleRejectSuggestion = () => {
-        if (pendingSuggestion) {
-            for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
-                const isOpen = openTabs.some(t => t.path === path);
-                if (isOpen) {
-                    handleContentChange(path, change.originalContent);
-                }
-            }
-            setPendingSuggestion(null);
-            setChatTab(null);
-        }
-    };
-
-    const handleTabClose = (path: string) => {
-        setOpenTabs(prev => {
-            const newTabs = prev.filter(t => t.path !== path);
-            if (activeTabPath === path) {
-                setActiveTabPath(newTabs.length > 0 ? newTabs[newTabs.length - 1].path : null);
-            }
-            return newTabs;
-        });
-    };
-
-    const handleContentChange = (path: string, newContent: string) => {
-        setOpenTabs(prev => prev.map(tab => {
-            if (tab.path === path) {
-                return { ...tab, content: newContent, isDirty: newContent !== tab.originalContent };
-            }
-            return tab;
-        }));
-    };
-
-    const handleSaveFile = async (path: string) => {
-        if (savingFiles.current.has(path)) return;
-
-        const tab = openTabs.find(t => t.path === path);
-        if (!tab || !tab.isDirty) return;
-
-        savingFiles.current.add(path);
-
-        try {
-            await saveWorkspaceFile(selectedRepoId, path, tab.content);
-            const gitIndexContent = await getGitFileContent(selectedRepoId, path, "").catch(() => null);
-            setOpenTabs(prev => prev.map(t => {
-                if (t.path === path) {
-                    return { ...t, originalContent: t.content, gitIndexContent, isDirty: false };
-                }
-                return t;
-            }));
-            await loadChangedFiles(selectedRepoId);
-            refreshGit();
-        } catch (e) {
-            console.error("Failed to save", e);
-            alert("Failed to save file");
-        } finally {
-            savingFiles.current.delete(path);
-        }
-    };
-
-    const handleRevertFile = async (path: string) => {
-        if (!confirm(`Are you sure you want to revert changes to ${path}?`)) return;
-
-        try {
-            const res = await revertWorkspaceFile(selectedRepoId, path);
-            if (res.success) {
-                // If it was restored, we fetch the latest content to update tabs.
-                if (res.action === "restored") {
-                    const content = await getWorkspaceFileContent(selectedRepoId, path);
-                    const gitHeadContent = await getGitFileContent(selectedRepoId, path, "HEAD");
-                    const gitIndexContent = await getGitFileContent(selectedRepoId, path, "");
-                    setOpenTabs(prev => prev.map(t => {
-                        if (t.path === path) {
-                            return { ...t, content, originalContent: content, gitHeadContent, gitIndexContent, isDirty: false };
-                        }
-                        return t;
-                    }));
-                } else if (res.action === "deleted") {
-                    // It was an untracked file and got deleted; close it
-                    handleTabClose(path);
-                }
-                await loadChangedFiles(selectedRepoId);
-                refreshGit();
-            }
-        } catch (e) {
-            console.error("Failed to revert file", e);
-            alert("Failed to revert file");
-        }
-    };
-
-    const handleRemoveContext = (path: string) => {
-        setContextFiles(prev => prev.filter(p => p !== path));
-    };
-
-    const handleAddContext = (path: string) => {
-        if (!contextFiles.includes(path)) {
-            setContextFiles(prev => [...prev, path]);
-        }
-    };
-
-    const getAllFiles = (nodes: FileNode[], prefix = ""): string[] => {
+    // Helpers
+    const getAllFiles = useCallback(function getAll(nodes: FileNode[], prefix = ""): string[] {
         let files: string[] = [];
         for (const node of nodes) {
             const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
             if (node.type === "file") {
                 files.push(currentPath);
             } else if (node.children) {
-                files = [...files, ...getAllFiles(node.children, currentPath)];
+                files = [...files, ...getAll(node.children, currentPath)];
             }
         }
         return files;
-    };
-
-    const handleCreateBranch = async (name: string) => {
-        setIsLoadingInit(true);
-        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
-        if (isFollowMode) addLog("info", `Creating branch: ${name}`);
-
-        try {
-            const res = await createBranch(selectedRepoId, name);
-            if (isFollowMode) {
-                if (res?.stdout) addLog("stdout", res.stdout);
-                if (res?.stderr) addLog("stderr", res.stderr);
-            }
-            const bs = await getRepoBranches(selectedRepoId);
-            setBranches(bs);
-            setSelectedBranch(name);
-        } catch (e) {
-            console.error("Failed to create branch", e);
-            alert("Failed to create branch");
-        } finally {
-            setIsLoadingInit(false);
-        }
-    };
-
-    const handleCommit = async () => {
-        if (!commitMessage.trim()) return;
-        setIsCommitting(true);
-        
-        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
-        if (isFollowMode) addLog("info", `Committing: ${commitMessage}`);
-
-        try {
-            // Safety Check: Ground truth branch verification
-            const branchRes = await getCurrentBranch(selectedRepoId);
-            if (branchRes.success && branchRes.branch === "main" && isMainProtected) {
-                alert("Cannot commit directly to protected branch 'main'. Please switch branches.");
-                await syncCurrentBranch();
-                setIsCommitting(false);
-                return;
-            }
-
-            const res = await commitChanges(selectedRepoId, commitMessage);
-            if (res.success) {
-                if (isFollowMode) addLog("stdout", res.stdout);
-                setCommitMessage("");
-                await loadChangedFiles(selectedRepoId);
-                refreshGit();
-            } else {
-                if (isFollowMode) addLog("stderr", res.stderr);
-            }
-        } catch (e) {
-            console.error("Commit failed", e);
-        } finally {
-            setIsCommitting(false);
-        }
-    };
-
-    const handlePush = async () => {
-        setIsPushing(true);
-
-        if (isFollowMode && !isTerminalOpen) setIsTerminalOpen(true);
-        if (isFollowMode) addLog("info", `Pushing branch: ${selectedBranch}`);
-
-        try {
-            // Safety Check: Ground truth branch verification
-            const branchRes = await getCurrentBranch(selectedRepoId);
-            if (branchRes.success && branchRes.branch === "main" && isMainProtected) {
-                alert("Cannot push directly to protected branch 'main'. Please switch branches.");
-                await syncCurrentBranch();
-                setIsPushing(false);
-                return;
-            }
-
-            const res = await pushChanges(selectedRepoId, selectedBranch);
-            if (res.success) {
-                if (isFollowMode) addLog("stdout", res.stdout);
-                refreshGit();
-            } else {
-                if (isFollowMode) addLog("stderr", res.stderr);
-            }
-        } catch (e) {
-            console.error("Push failed", e);
-        } finally {
-            setIsPushing(false);
-        }
-    };
-
-    const handleExecuteCommand = async (command: string) => {
-        if (!activeSandbox) return;
-        
-        addLog("input", command);
-        const repo = repos.find(r => r.id === selectedRepoId);
-        
-        try {
-            const res = await executeSandboxCommand(activeSandbox.id, command, repo?.name);
-            if (res.stdout) addLog("stdout", res.stdout);
-            if (res.stderr) addLog("stderr", res.stderr);
-            
-            // Sync branch state after command execution in case user switched branches in terminal
-            await syncCurrentBranch();
-
-            if (!res.success && !res.stderr && !res.stdout) {
-                 addLog("stderr", "Command failed with no output");
-            }
-        } catch (e) {
-            addLog("stderr", `Error: ${e instanceof Error ? e.message : String(e)}`);
-        }
-    };
-    
-    const handleClearLogs = useCallback(() => {
-        setTerminalLogs([]);
     }, []);
 
-    const handleStageFile = async (filePath: string) => {
-        try {
-            await stageFile(selectedRepoId, filePath);
-            const gitIndexContent = await getGitFileContent(selectedRepoId, filePath, "").catch(() => null);
-            setOpenTabs(prev => prev.map(t => {
-                if (t.path === filePath) {
-                    return { ...t, gitIndexContent };
-                }
-                return t;
-            }));
-            await loadChangedFiles(selectedRepoId);
-            refreshGit();
-        } catch (e) {
-            console.error("Stage failed", e);
-        }
-    };
- 
-    const handleUnstageFile = async (filePath: string) => {
-        try {
-            await unstageFile(selectedRepoId, filePath);
-            const gitIndexContent = await getGitFileContent(selectedRepoId, filePath, "").catch(() => null);
-            setOpenTabs(prev => prev.map(t => {
-                if (t.path === filePath) {
-                    return { ...t, gitIndexContent };
-                }
-                return t;
-            }));
-            await loadChangedFiles(selectedRepoId);
-            refreshGit();
-        } catch (e) {
-            console.error("Unstage failed", e);
-        }
-    };
+    const handleRefreshTree = useCallback(async () => {
+        if (!selectedRepoId) return;
+        loadChangedFiles(selectedRepoId);
+    }, [selectedRepoId, loadChangedFiles]);
 
     return (
         <div className="flex flex-col flex-1 h-full bg-background border-t border-border">
             <WorkspaceTopBar
                 repos={repos}
                 selectedRepoId={selectedRepoId}
-                onSelectRepo={setSelectedRepoId}
+                onSelectRepo={(id) => dispatch(setSelectedRepoId(id))}
                 branches={branches}
                 selectedBranch={selectedBranch}
-                onSelectBranch={setSelectedBranch}
+                onSelectBranch={(branch) => dispatch(setSelectedBranch(branch))}
                 onCreateBranch={handleCreateBranch}
                 isTerminalOpen={isTerminalOpen}
-                onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+                onToggleTerminal={() => dispatch(setIsTerminalOpen(!isTerminalOpen))}
                 sandboxName={activeSandbox?.name}
                 isProtected={isMainProtected && selectedBranch === "main"}
             />
@@ -653,7 +159,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                             {/* Activity Bar */}
                             <div className="w-12 border-r border-border bg-background/50 flex flex-col items-center py-4 gap-4">
                                 <button 
-                                    onClick={() => setActiveLeftTab("files")}
+                                    onClick={() => dispatch(setActiveLeftTab("files"))}
                                     className={`p-2 rounded-lg transition-all ${activeLeftTab === "files" ? "bg-primary/10 text-primary shadow-sm" : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"}`}
                                     title="Explorer"
                                 >
@@ -665,7 +171,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                     </svg>
                                 </button>
                                 <button 
-                                    onClick={() => setActiveLeftTab("git")}
+                                    onClick={() => dispatch(setActiveLeftTab("git"))}
                                     className={`p-2 rounded-lg transition-all relative ${activeLeftTab === "git" ? "bg-primary/10 text-primary shadow-sm" : "text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"}`}
                                     title="Source Control"
                                 >
@@ -708,64 +214,18 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 )}
 
                                 {activeLeftTab === "git" && (
-                                    <div className="flex-1 flex flex-col min-h-0">
-                                        <div className="px-4 py-2 border-b border-border bg-foreground/[0.03]">
-                                            <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Source Control</span>
-                                        </div>
-                                        
-                                        <div className="flex-1 flex flex-col overflow-hidden">
-                                            {selectedRepoId ? (
-                                                <>
-                                                    <div className="p-4 bg-background/50">
-                                                        <div className="flex flex-col gap-3">
-                                                            <textarea 
-                                                                value={commitMessage}
-                                                                onChange={(e) => setCommitMessage(e.target.value)}
-                                                                placeholder="Commit message..."
-                                                                className="w-full p-2.5 text-xs bg-foreground/5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none transition-all placeholder:text-foreground/30"
-                                                            />
-                                                            <div className="flex gap-2">
-                                                                <button 
-                                                                    onClick={handleCommit}
-                                                                    disabled={isCommitting || !commitMessage.trim() || (isMainProtected && selectedBranch === "main")}
-                                                                    className="flex-1 px-3 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98]"
-                                                                >
-                                                                    {isCommitting ? "Committing..." : (isMainProtected && selectedBranch === "main" ? "Branch Protected" : "Commit")}
-                                                                </button>
-                                                                <button 
-                                                                    onClick={handlePush}
-                                                                    disabled={isPushing || (isMainProtected && selectedBranch === "main")}
-                                                                    className="px-3 py-2 text-xs font-bold bg-foreground/10 text-foreground rounded-lg hover:bg-foreground/20 disabled:opacity-50 transition-all active:scale-[0.98] flex items-center gap-2"
-                                                                    title="Push Changes"
-                                                                >
-                                                                    {isPushing ? (
-                                                                        <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
-                                                                    ) : (
-                                                                        <>
-                                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                                                                <polyline points="17 8 12 3 7 8"></polyline>
-                                                                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                                                                            </svg>
-                                                                            {isMainProtected && selectedBranch === "main" && "Push Protected"}
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex-1 min-h-0 px-4 pb-4 overflow-hidden flex flex-col">
-                                                        <GitLog repoId={selectedRepoId} refreshTrigger={gitRefreshKey} />
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="flex-1 flex items-center justify-center p-8 text-center text-foreground/40 text-xs italic">
-                                                    Select a repository to view source control actions
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <SourceControlPanel
+                                        selectedRepoId={selectedRepoId}
+                                        selectedBranch={selectedBranch}
+                                        commitMessage={commitMessage}
+                                        setCommitMessage={setCommitMessage}
+                                        isCommitting={isCommitting}
+                                        isPushing={isPushing}
+                                        isMainProtected={isMainProtected}
+                                        handleCommit={handleCommit}
+                                        handlePush={handlePush}
+                                        gitRefreshKey={gitRefreshKey}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -779,7 +239,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 <EditorArea
                                     tabs={openTabs}
                                     activeTabPath={activeTabPath}
-                                    onTabSelect={setActiveTabPath}
+                                    onTabSelect={(path) => dispatch(setActiveTabPath(path))}
                                     onTabClose={handleTabClose}
                                     onContentChange={handleContentChange}
                                     onSaveFile={handleSaveFile}
@@ -793,11 +253,11 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                     <Panel defaultSize={30} minSize={15}>
                                         <Terminal 
                                             logs={terminalLogs}
-                                            onExecute={handleExecuteCommand}
+                                            onExecute={(cmd) => handleExecuteCommand(cmd, repos.find(r => r.id === selectedRepoId)?.name)}
                                             isSandboxConnected={!!activeSandbox}
                                             sandboxName={activeSandbox?.name}
                                             isFollowMode={isFollowMode}
-                                            onToggleFollow={() => setIsFollowMode(!isFollowMode)}
+                                            onToggleFollow={toggleFollowMode}
                                             onClearLogs={handleClearLogs}
                                         />
                                     </Panel>
@@ -818,10 +278,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 onRejectSuggestion={handleRejectSuggestion}
                                 onJumpToFile={handleFileSelect}
                                 activeTab={chatTab}
-                                onTabChange={setChatTab}
+                                onTabChange={(tab) => dispatch(setChatTab(tab))}
                                 agents={agents}
                                 selectedAgentId={selectedAgentId}
-                                onSelectAgent={setSelectedAgentId}
+                                onSelectAgent={(id) => dispatch(setSelectedAgentId(id))}
                                 messages={chatMessages}
                                 isLoading={isChatLoading}
                                 allFiles={getAllFiles(fileTree)}
@@ -833,3 +293,6 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         </div>
     );
 }
+
+// Re-exporting for use in components/hooks
+export { setChatTab, setSelectedAgentId } from "@/lib/store/features/chat/chatSlice";

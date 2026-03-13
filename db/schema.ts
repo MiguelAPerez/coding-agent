@@ -183,6 +183,7 @@ export const agentConfigurations = sqliteTable("agent_configuration", {
     systemPromptId: text("systemPromptId").references(() => systemPrompts.id),
     systemPrompt: text("systemPrompt").notNull().default("You are a helpful coding assistant."),
     temperature: integer("temperature").notNull().default(70), // scaled by 100
+    isManaged: integer("isManaged", { mode: "boolean" }).notNull().default(false),
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
 
@@ -248,6 +249,7 @@ export const systemPrompts = sqliteTable("system_prompt", {
         .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     content: text("content").notNull(),
+    isManaged: integer("isManaged", { mode: "boolean" }).notNull().default(false),
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 })
 

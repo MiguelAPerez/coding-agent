@@ -41,6 +41,7 @@ const mockSystemPrompts: SystemPrompt[] = [
         userId: "1",
         name: "Test Persona",
         content: "You are a test persona.",
+        isManaged: false,
         updatedAt: new Date(),
     }
 ];

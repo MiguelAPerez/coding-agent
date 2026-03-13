@@ -2,10 +2,11 @@
 
 import { db } from "@/../db";
 import { agentConfigurations, backgroundJobs } from "@/../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, notInArray } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { AgentConfig } from "@/types/agent";
 
 export async function getAgentConfigs() {
     const session = await getServerSession(authOptions);
@@ -49,6 +50,62 @@ export async function saveAgentConfig(data: { id?: string; name: string; model: 
             .get();
         revalidatePath("/agent");
         return result;
+    }
+}
+
+export async function syncManagedAgents(agents: AgentConfig[]) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const userId = session.user.id;
+    const agentIds = agents.map(a => a.id);
+
+    // 1. Delete managed agents no longer in the repo
+    if (agentIds.length > 0) {
+        db.delete(agentConfigurations)
+            .where(and(
+                eq(agentConfigurations.userId, userId),
+                eq(agentConfigurations.isManaged, true),
+                notInArray(agentConfigurations.id, agentIds)
+            ))
+            .run();
+    } else {
+        db.delete(agentConfigurations)
+            .where(and(
+                eq(agentConfigurations.userId, userId),
+                eq(agentConfigurations.isManaged, true)
+            ))
+            .run();
+    }
+
+    // 2. Upsert managed agents
+    for (const agent of agents) {
+        const existing = db.select().from(agentConfigurations).where(eq(agentConfigurations.id, agent.id)).get();
+        
+        const values = {
+            userId,
+            name: agent.name,
+            model: agent.model,
+            systemPromptId: agent.systemPromptId,
+            systemPrompt: agent.systemPrompt || "You are a helpful coding assistant.",
+            temperature: agent.temperature,
+            isManaged: true,
+            updatedAt: new Date(),
+        };
+
+        if (existing) {
+            db.update(agentConfigurations)
+                .set(values)
+                .where(eq(agentConfigurations.id, agent.id))
+                .run();
+        } else {
+            db.insert(agentConfigurations)
+                .values({
+                    id: agent.id,
+                    ...values
+                })
+                .run();
+        }
     }
 }
 

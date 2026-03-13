@@ -21,7 +21,7 @@ describe("ContextGroupForm", () => {
     const props = {
         form: mockForm,
         skills: [{ id: "s1", name: "Skill 1", description: "d", content: "c", isEnabled: true, userId: "u", agentId: null, updatedAt: new Date() }],
-        prompts: [{ id: "p1", name: "Prompt 1", content: "c", userId: "u", updatedAt: new Date() }],
+        prompts: [{ id: "p1", name: "Prompt 1", content: "c", userId: "u", isManaged: false, updatedAt: new Date() }],
         promptSets: [{ id: "set1", name: "Set 1", description: "d", systemPromptIds: "[]", userId: "u", updatedAt: new Date() }],
         onFieldChange: jest.fn(),
         onToggleSkill: jest.fn(),

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ReferenceItem } from "../ReferenceItem";
 
 describe("ReferenceItem", () => {
-    const prompts = [{ id: "p1", name: "Prompt 1", content: "content", userId: "u1", updatedAt: new Date() }];
+    const prompts = [{ id: "p1", name: "Prompt 1", content: "content", userId: "u1", isManaged: false, updatedAt: new Date() }];
     const promptSets = [{ id: "s1", name: "Set 1", description: "desc", systemPromptIds: "[]", userId: "u1", updatedAt: new Date() }];
     const onRemove = jest.fn();
 
