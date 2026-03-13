@@ -1,5 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { makeStore } from "@/lib/store/store";
 import WorkspaceClient from "../WorkspaceClient";
 // Mock the server actions
 jest.mock("@/app/actions/workspace", () => ({
@@ -40,11 +42,17 @@ jest.mock("@/app/actions/config", () => ({
 
 jest.mock("@/app/actions/workspace-files", () => ({
     getRepoFileTree: jest.fn(),
-    getWorkspaceFileContent: jest.fn(),
+    getWorkspaceFileContent: jest.fn().mockResolvedValue(""),
     saveWorkspaceFile: jest.fn(),
-    getWorkspaceChangedFiles: jest.fn(),
-    getGitFileContent: jest.fn(),
+    getWorkspaceChangedFiles: jest.fn().mockResolvedValue([]),
+    getGitFileContent: jest.fn().mockResolvedValue(""),
     revertWorkspaceFile: jest.fn(),
+}));
+
+jest.mock("@/app/actions/docker-sandboxes", () => ({
+    listSandboxes: jest.fn().mockResolvedValue([]),
+    executeSandboxCommand: jest.fn(),
+    SandboxInfo: jest.fn(),
 }));
 
 import * as workspaceActions from "@/app/actions/workspace";
@@ -130,6 +138,15 @@ describe("WorkspaceClient", () => {
         global.fetch = jest.fn() as jest.Mock;
     });
 
+    const renderWithRedux = (ui: React.ReactElement) => {
+        const store = makeStore();
+        return render(
+            <Provider store={store}>
+                {ui}
+            </Provider>
+        );
+    };
+
     beforeEach(() => {
         jest.clearAllMocks();
         (workspaceActions.initWorkspace as jest.Mock).mockResolvedValue({ success: true });
@@ -137,12 +154,14 @@ describe("WorkspaceClient", () => {
         (gitActions.checkoutBranch as jest.Mock).mockResolvedValue({ success: true });
         (fileActions.getRepoFileTree as jest.Mock).mockResolvedValue([{ name: "test.ts", path: "test.ts", type: "file" }]);
         (fileActions.getWorkspaceChangedFiles as jest.Mock).mockResolvedValue([]);
+        (fileActions.getWorkspaceFileContent as jest.Mock).mockResolvedValue("file content");
+        (fileActions.getGitFileContent as jest.Mock).mockResolvedValue("git content");
         (settingsActions.getBranchProtection as jest.Mock).mockResolvedValue(true);
     });
 
     it("does not initialize workspace on mount if no repo is selected", async () => {
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         // Should not call init until a repo is selected
@@ -151,7 +170,7 @@ describe("WorkspaceClient", () => {
 
     it("initializes workspace when a repository is selected", async () => {
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -166,7 +185,7 @@ describe("WorkspaceClient", () => {
 
     it("checks out branch and loads file tree when repo is selected", async () => {
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -183,7 +202,7 @@ describe("WorkspaceClient", () => {
         (fileActions.getWorkspaceFileContent as jest.Mock).mockResolvedValue("file content");
         (fileActions.getGitFileContent as jest.Mock).mockResolvedValue("git content");
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         // Select first repo
@@ -212,7 +231,7 @@ describe("WorkspaceClient", () => {
         (fileActions.getGitFileContent as jest.Mock).mockResolvedValue("git content");
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -237,7 +256,7 @@ describe("WorkspaceClient", () => {
         (fileActions.saveWorkspaceFile as jest.Mock).mockResolvedValue({ success: true });
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -266,7 +285,7 @@ describe("WorkspaceClient", () => {
         (fileActions.saveWorkspaceFile as jest.Mock).mockResolvedValue({ success: true });
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -318,7 +337,7 @@ describe("WorkspaceClient", () => {
         (gitActions.getRepoBranches as jest.Mock).mockResolvedValue(["main", "dev", "new-branch"]);
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -340,7 +359,7 @@ describe("WorkspaceClient", () => {
         (settingsActions.getBranchProtection as jest.Mock).mockResolvedValue(false);
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -372,7 +391,7 @@ describe("WorkspaceClient", () => {
         (settingsActions.getBranchProtection as jest.Mock).mockResolvedValue(false);
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -399,7 +418,7 @@ describe("WorkspaceClient", () => {
         (gitActions.stageFile as jest.Mock).mockResolvedValue({ success: true });
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -418,7 +437,7 @@ describe("WorkspaceClient", () => {
         (gitActions.unstageFile as jest.Mock).mockResolvedValue({ success: true });
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -435,7 +454,7 @@ describe("WorkspaceClient", () => {
 
     it("switches between Explorer and Source Control tabs", async () => {
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -472,7 +491,7 @@ describe("WorkspaceClient", () => {
         ]);
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -492,7 +511,7 @@ describe("WorkspaceClient", () => {
         (gitActions.getRepoBranches as jest.Mock).mockResolvedValue(["main", "dev"]);
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
@@ -529,7 +548,7 @@ describe("WorkspaceClient", () => {
         (gitActions.getRepoBranches as jest.Mock).mockResolvedValue(["main", "dev"]);
 
         await act(async () => {
-            render(<WorkspaceClient initialRepos={mockRepos} />);
+            renderWithRedux(<WorkspaceClient initialRepos={mockRepos} />);
         });
 
         await act(async () => {
