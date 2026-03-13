@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import WorkspaceTopBar from "./components/WorkspaceTopBar";
 import FileTree from "./components/FileTree";
@@ -102,6 +102,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     const [isMainProtected, setIsMainProtected] = useState(true);
     const [gitRefreshKey, setGitRefreshKey] = useState(0);
     const [activeLeftTab, setActiveLeftTab] = useState<"files" | "git">("files");
+    const savingFiles = useRef<Set<string>>(new Set());
 
     const refreshGit = useCallback(() => setGitRefreshKey(prev => prev + 1), []);
 
@@ -361,8 +362,12 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     };
 
     const handleSaveFile = async (path: string) => {
+        if (savingFiles.current.has(path)) return;
+
         const tab = openTabs.find(t => t.path === path);
         if (!tab || !tab.isDirty) return;
+
+        savingFiles.current.add(path);
 
         try {
             await saveWorkspaceFile(selectedRepoId, path, tab.content);
@@ -377,6 +382,8 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         } catch (e) {
             console.error("Failed to save", e);
             alert("Failed to save file");
+        } finally {
+            savingFiles.current.delete(path);
         }
     };
 
@@ -519,6 +526,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
             addLog("stderr", `Error: ${e instanceof Error ? e.message : String(e)}`);
         }
     };
+    
+    const handleClearLogs = useCallback(() => {
+        setTerminalLogs([]);
+    }, []);
 
     const handleStageFile = async (filePath: string) => {
         try {
@@ -713,6 +724,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                             sandboxName={activeSandbox?.name}
                                             isFollowMode={isFollowMode}
                                             onToggleFollow={() => setIsFollowMode(!isFollowMode)}
+                                            onClearLogs={handleClearLogs}
                                         />
                                     </Panel>
                                 </>

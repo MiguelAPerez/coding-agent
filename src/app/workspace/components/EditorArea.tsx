@@ -233,6 +233,15 @@ export default function EditorArea({
         monacoRef.current = monaco;
         setEditorMountCount(c => c + 1);
 
+        // Add Save shortcut
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+            if (activeTabPath) onSaveFile(activeTabPath);
+        });
+
+        // Add Clear Terminal shortcut (if needed, but usually cmd+k is for terminal)
+        // Actually, we'll implement cmd+k in the Terminal component, 
+        // but adding it here prevents the default browser search/action if desired.
+
         editor.addAction({
             id: 'revert-git-change',
             label: 'Revert Git Change',

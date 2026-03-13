@@ -1,10 +1,10 @@
-"use client";
-
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { saveTool, deleteTool } from "@/app/actions/tools";
 import { Tool } from "@/types/agent";
 
 export const ToolsManager = ({ initialTools, agentId }: { initialTools: Tool[], agentId: string | null }) => {
+    const router = useRouter();
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ name: "", description: "", schema: "", isEnabled: true });
 
@@ -16,7 +16,7 @@ export const ToolsManager = ({ initialTools, agentId }: { initialTools: Tool[], 
         }
         try {
             await saveTool({ ...editForm, id: isEditing || undefined, agentId });
-            window.location.reload();
+            router.refresh();
         } catch {
             alert("Failed to save tool.");
         }
@@ -26,7 +26,7 @@ export const ToolsManager = ({ initialTools, agentId }: { initialTools: Tool[], 
         if (confirm("Are you sure you want to delete this tool?")) {
             try {
                 await deleteTool(id);
-                window.location.reload();
+                router.refresh();
             } catch {
                 alert("Failed to delete tool.");
             }

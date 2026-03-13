@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { syncRepositories } from "@/app/actions/repositories";
 
 export default function SyncButton() {
+    const router = useRouter();
     const [isSyncing, setIsSyncing] = useState(false);
 
     const handleSync = async () => {
         setIsSyncing(true);
         try {
             await syncRepositories();
-            window.location.reload(); // Refresh the page to show new data
+            router.refresh(); // Refresh the page to show new data
         } catch (error) {
             console.error("Sync failed:", error);
             alert("Failed to sync repositories. Please check your configuration.");

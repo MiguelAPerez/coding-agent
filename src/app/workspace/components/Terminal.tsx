@@ -15,6 +15,7 @@ interface TerminalProps {
     sandboxName?: string;
     isFollowMode: boolean;
     onToggleFollow: () => void;
+    onClearLogs: () => void;
 }
 
 export default function Terminal({
@@ -23,7 +24,8 @@ export default function Terminal({
     isSandboxConnected,
     sandboxName,
     isFollowMode,
-    onToggleFollow
+    onToggleFollow,
+    onClearLogs
 }: TerminalProps) {
     const [inputValue, setInputValue] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,10 @@ export default function Terminal({
         if (e.key === "Enter" && inputValue.trim()) {
             onExecute(inputValue.trim());
             setInputValue("");
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+            e.preventDefault();
+            onClearLogs();
         }
     };
 

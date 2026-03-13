@@ -41,7 +41,7 @@ export default function FileTree({ tree, changedFiles = [], onSelectFile, onReve
                                         </span>
                                         <span className="truncate flex-1">{file.path.split("/").pop()}</span>
                                         <button 
-                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-foreground/10 rounded text-foreground/50 hover:text-foreground transition-all flex-shrink-0"
+                                            className="p-1 hover:bg-foreground/10 rounded text-foreground/50 hover:text-foreground transition-all flex-shrink-0"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onUnstageFile(file.path);
@@ -67,7 +67,7 @@ export default function FileTree({ tree, changedFiles = [], onSelectFile, onReve
                                             {file.status[1] === ' ' ? file.status[0] : file.status[1]}
                                         </span>
                                         <span className="truncate flex-1">{file.path.split("/").pop()}</span>
-                                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                                        <div className="flex gap-0.5 transition-all">
                                             <button 
                                                 className="p-1 hover:bg-foreground/10 rounded text-foreground/50 hover:text-foreground flex-shrink-0"
                                                 onClick={(e) => {

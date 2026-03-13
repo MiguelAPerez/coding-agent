@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { saveAgentConfig, deleteAgent } from "@/app/actions/config";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { AgentConfig, SystemPrompt } from "@/types/agent";
@@ -10,6 +11,7 @@ export const AgentConfigForm = ({
     initialConfig: AgentConfig | null,
     systemPrompts: SystemPrompt[]
 }) => {
+    const router = useRouter();
     const [name, setName] = useState(initialConfig?.name || "");
     const [model, setModel] = useState(initialConfig?.model || "");
     const [systemPromptId, setSystemPromptId] = useState(initialConfig?.systemPromptId || "");
@@ -45,7 +47,7 @@ export const AgentConfigForm = ({
             });
             setMessage("Configuration saved successfully!");
             if (!initialConfig) {
-                window.location.reload();
+                router.refresh();
             }
         } catch {
             setMessage("Failed to save configuration.");
@@ -61,7 +63,7 @@ export const AgentConfigForm = ({
         setIsDeleting(true);
         try {
             await deleteAgent(initialConfig.id);
-            window.location.reload();
+            router.refresh();
         } catch {
             alert("Failed to delete agent.");
         } finally {

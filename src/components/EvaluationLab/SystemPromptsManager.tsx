@@ -1,6 +1,5 @@
-"use client";
-
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { saveSystemPrompt, deleteSystemPrompt } from "@/app/actions/prompts";
 import { SystemPrompt } from "@/types/agent";
 
@@ -9,6 +8,7 @@ export const SystemPromptsManager = ({
 }: {
     initialPrompts: SystemPrompt[];
 }) => {
+    const router = useRouter();
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({
         name: "",
@@ -22,7 +22,7 @@ export const SystemPromptsManager = ({
                 ...editForm,
                 id: isEditing || undefined
             });
-            window.location.reload();
+            router.refresh();
         } catch {
             alert("Failed to save system prompt.");
         }

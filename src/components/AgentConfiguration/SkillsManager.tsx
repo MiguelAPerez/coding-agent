@@ -1,10 +1,10 @@
-"use client";
-
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { saveSkill, deleteSkill } from "@/app/actions/skills";
 import { Skill } from "@/types/agent";
 
 export const SkillsManager = ({ initialSkills, agentId }: { initialSkills: Skill[], agentId: string | null }) => {
+    const router = useRouter();
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ name: "", description: "", content: "", isEnabled: true });
 
@@ -16,7 +16,7 @@ export const SkillsManager = ({ initialSkills, agentId }: { initialSkills: Skill
         }
         try {
             await saveSkill({ ...editForm, id: isEditing || undefined, agentId });
-            window.location.reload();
+            router.refresh();
         } catch {
             alert("Failed to save skill.");
         }
@@ -26,7 +26,7 @@ export const SkillsManager = ({ initialSkills, agentId }: { initialSkills: Skill
         if (confirm("Are you sure you want to delete this skill?")) {
             try {
                 await deleteSkill(id);
-                window.location.reload();
+                router.refresh();
             } catch {
                 alert("Failed to delete skill.");
             }

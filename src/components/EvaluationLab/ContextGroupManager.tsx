@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ContextGroup, SystemPrompt, SystemPromptSet } from "@/types/agent";
 import { useContextGroupForm } from "./ContextGroup/useContextGroupForm";
 import { ContextGroupForm } from "./ContextGroup/ContextGroupForm";
@@ -16,6 +16,7 @@ export const ContextGroupManager = ({
     prompts?: SystemPrompt[];
     promptSets?: SystemPromptSet[];
 }) => {
+    const router = useRouter();
     const {
         isEditing,
         editForm,
@@ -33,7 +34,7 @@ export const ContextGroupManager = ({
         removeReference,
         onFieldChange,
         cancelEdit
-    } = useContextGroupForm(() => window.location.reload());
+    } = useContextGroupForm(() => router.refresh());
 
     const searchParams = useSearchParams();
     const urlSearch = searchParams.get("search") || "";

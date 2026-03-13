@@ -60,7 +60,7 @@ export default function GitLog({ repoId, refreshTrigger }: GitLogProps) {
                     </svg>
                 </button>
             </div>
-            <div className="flex-1 overflow-auto p-2 font-mono text-[10px] leading-tight whitespace-pre text-foreground/80 custom-scrollbar selection:bg-primary/30">
+            <div className="flex-1 overflow-auto p-3 font-mono text-[9px] leading-relaxed whitespace-pre-wrap text-foreground/80 custom-scrollbar selection:bg-primary/30">
                 {isLoading && !log ? (
                     <div className="flex items-center justify-center h-full text-foreground/40 italic">
                         Loading tree...
