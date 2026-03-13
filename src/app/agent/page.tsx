@@ -24,10 +24,14 @@ export default async function AgentPage({
         try {
             const repoData = await getRepoDataByFullName(targetRepo, 'agent-config');
             if (repoData.agents.length > 0) {
-                configs = repoData.agents as unknown as typeof configs;
+                const managedAgents = repoData.agents.map(a => ({ ...a, isManaged: true }));
+                // Merge managed agents, keep database ones
+                configs = [...configs, ...managedAgents] as unknown as typeof configs;
             }
             if (repoData.personas.length > 0) {
-                systemPrompts = repoData.personas as unknown as SystemPrompt[];
+                const managedPersonas = repoData.personas.map(p => ({ ...p, isManaged: true }));
+                // Merge managed personas, keep database ones
+                systemPrompts = [...systemPrompts, ...managedPersonas] as unknown as SystemPrompt[];
             }
         } catch (error) {
             console.error("Failed to load repo data:", error);
