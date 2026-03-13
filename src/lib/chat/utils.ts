@@ -2,7 +2,8 @@ import { FileChange, PendingSuggestion } from "./types";
 
 export function extractMentionedPaths(text: string): string[] {
     const paths: string[] = [];
-    const mentionRegex = /@([^\s\n\`]+)/g;
+    // Matches @path but excludes @[... structured mentions
+    const mentionRegex = /@(?!!\[)([^\s\n\`\[\]]+)/g;
     let match;
     while ((match = mentionRegex.exec(text)) !== null) {
         paths.push(match[1]);
@@ -65,7 +66,7 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
     }
 
     // 2. Fallback: Search for @path or FILE: path followed by code block
-    const looseRegex = /(?:@|FILE:\s*)([^\s\n\`]+)[^`]{0,150}```(?:[\w-]*)?\n([\s\S]*?)\n```/gi;
+    const looseRegex = /(?:@|FILE:\s*)([^\s\n\`\[\]]+)[^`]{0,150}```(?:[\w-]*)?\n([\s\S]*?)\n```/gi;
     cleanContent = cleanContent.replace(looseRegex, (match, path, code) => {
         if (!filesChanged[path]) {
             filesChanged[path] = {

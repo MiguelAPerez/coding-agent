@@ -13,6 +13,12 @@ describe("Chat Utils", () => {
             const paths = extractMentionedPaths(text);
             expect(paths).toEqual(["file.ts"]);
         });
+
+        it("should not extract structured terminal mentions as file paths", () => {
+            const text = "Check @[TerminalName: node, ProcessId: 28934] and @src/app/page.tsx";
+            const paths = extractMentionedPaths(text);
+            expect(paths).toEqual(["src/app/page.tsx"]);
+        });
     });
 
     describe("parseDiffs", () => {

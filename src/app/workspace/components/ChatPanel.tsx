@@ -81,9 +81,10 @@ export default function ChatPanel({
         const lastAtIndex = value.lastIndexOf('@', cursorPosition - 1);
         if (lastAtIndex !== -1) {
             const textAfterAt = value.substring(lastAtIndex + 1, cursorPosition);
-            // If there's a space before the @ or it's at the start, and no space in the mention query
             const charBeforeAt = lastAtIndex > 0 ? value[lastAtIndex - 1] : ' ';
-            if ((charBeforeAt === ' ' || charBeforeAt === '\n') && !textAfterAt.includes(' ')) {
+            // Relaxed trigger: space, newline, or common punctuation/openers
+            const isWordBoundary = /[\s\n\(\[\{\,\;]/.test(charBeforeAt);
+            if (isWordBoundary && !textAfterAt.includes(' ')) {
                 setShowMentions(true);
                 setMentionQuery(textAfterAt.toLowerCase());
                 setMentionStartIndex(lastAtIndex);
