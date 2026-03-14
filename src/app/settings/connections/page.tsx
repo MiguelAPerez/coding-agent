@@ -67,7 +67,7 @@ export default function ConnectionsSettingsPage() {
         try {
             const config = JSON.parse(conn.config);
             setDiscordToken(config.token || "");
-        } catch (e) {
+        } catch {
             setDiscordToken("");
         }
     };

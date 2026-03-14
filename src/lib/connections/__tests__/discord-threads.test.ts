@@ -50,6 +50,7 @@ describe("DiscordBot Thread Tracking", () => {
             content: "hello",
             mentions: { has: jest.fn(() => false) },
             reference: null,
+            channel: { isThread: jest.fn(() => false) },
         } as unknown as Message;
 
         const handleMessage = (bot as unknown as { handleMessage: (m: Message) => Promise<void> }).handleMessage.bind(bot);

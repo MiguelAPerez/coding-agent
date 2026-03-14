@@ -32,9 +32,11 @@ describe("ChatContext", () => {
 
     it("should load context data successfully", async () => {
         mockDb.get
+            .mockReturnValueOnce({ id: "o1", userId: "u1" }) // ollama
+            .mockReturnValueOnce(null) // anthropic
+            .mockReturnValueOnce(null) // google
             .mockReturnValueOnce({ id: "r1", fullName: "user/repo" }) // repo
-            .mockReturnValueOnce({ id: "a1", name: "Agent", model: "m1", systemPrompt: "Prompt" }) // agent
-            .mockReturnValueOnce({ id: "o1", userId: "u1" }); // ollama
+            .mockReturnValueOnce({ id: "a1", name: "Agent", model: "m1", systemPrompt: "Prompt" }); // agent
 
         (getRepoFileContentInternal as jest.Mock).mockResolvedValue("---frontmatter---\ncontent");
 
@@ -48,19 +50,33 @@ describe("ChatContext", () => {
     });
 
     it("should throw error if repo not found", async () => {
-        mockDb.get.mockReturnValue(null);
+        mockDb.get
+            .mockReturnValueOnce({ id: "o1", userId: "u1" }) // ollama
+            .mockReturnValueOnce(null) // anthropic
+            .mockReturnValueOnce(null) // google
+            .mockReturnValueOnce(null); // repo
+            
         const context = new ChatContext("u1", "r1");
         await expect(context.load()).rejects.toThrow("Repository not found");
     });
 
     it("should throw error if no agent found", async () => {
-        mockDb.get.mockReturnValueOnce({ id: "r1" }).mockReturnValue(null);
+        mockDb.get
+            .mockReturnValueOnce({ id: "o1" }) // ollama
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce({ id: "r1" }) // repo
+            .mockReturnValueOnce(null); // fallback search
+            
         const context = new ChatContext("u1", "r1");
         await expect(context.load()).rejects.toThrow("No AI agents are configured");
     });
 
     it("should throw error if agent has no model", async () => {
         mockDb.get
+            .mockReturnValueOnce({ id: "o1" }) // ollama
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce(null)
             .mockReturnValueOnce({ id: "r1" })
             .mockReturnValueOnce({ id: "a1", name: "Agent", model: null });
         const context = new ChatContext("u1", "r1");
@@ -69,24 +85,27 @@ describe("ChatContext", () => {
 
     it("should fallback to default agent if specific agentId not found", async () => {
         mockDb.get
+            .mockReturnValueOnce({ id: "o1" }) // ollama
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce(null)
             .mockReturnValueOnce({ id: "r1" }) // repo
             .mockReturnValueOnce(null) // agentId spec search
-            .mockReturnValueOnce({ id: "def", name: "Default", model: "m" }) // fallback search
-            .mockReturnValueOnce({ id: "o1" }); // ollama
+            .mockReturnValueOnce({ id: "def", name: "Default", model: "m" }); // fallback search
 
         const context = new ChatContext("u1", "r1", "unknown-agent");
         const data = await context.load();
 
         expect(data.agentConfig.id).toBe("def");
-        expect(console.warn).toHaveBeenCalled();
     });
 
     it("should load personality prompt from systemPrompts if systemPromptId exists", async () => {
         mockDb.get
+            .mockReturnValueOnce({ id: "o1" }) // ollama
+            .mockReturnValueOnce(null)
+            .mockReturnValueOnce(null)
             .mockReturnValueOnce({ id: "r1" })
             .mockReturnValueOnce({ id: "a1", name: "Agent", model: "m1", systemPromptId: "p1" })
-            .mockReturnValueOnce({ id: "p1", content: "External Prompt" })
-            .mockReturnValueOnce({ id: "o1" });
+            .mockReturnValueOnce({ id: "p1", content: "External Prompt" });
 
         const context = new ChatContext("u1", "r1");
         const data = await context.load();

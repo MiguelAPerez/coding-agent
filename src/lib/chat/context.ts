@@ -32,6 +32,9 @@ export class ChatContext {
         let repo = null;
         if (this.repoId && this.repoId !== "default") {
             repo = db.select().from(repositories).where(eq(repositories.id, this.repoId)).get();
+            if (!repo) {
+                throw new Error("Repository not found");
+            }
         }
 
         let agentConfig;

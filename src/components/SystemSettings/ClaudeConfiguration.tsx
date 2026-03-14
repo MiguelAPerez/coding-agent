@@ -122,7 +122,7 @@ export default function ClaudeConfiguration() {
             setSyncedModels([]);
             setTestResult(null);
             router.refresh();
-        } catch (_err) {
+        } catch {
             setError("Failed to clear configuration");
         }
     };

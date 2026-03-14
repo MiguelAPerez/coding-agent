@@ -5,7 +5,6 @@ import { ChatResponse } from "@/lib/chat/types";
 import { db } from "@/../db";
 import { chats } from "@/../db/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { TextChannel, ThreadChannel, NewsChannel } from "discord.js";
 
 export class DiscordBot {
     private client: Client;
@@ -47,8 +46,10 @@ export class DiscordBot {
         // Only respond if mentioned or if it's a reply
         const isMentioned = this.client.user && message.mentions.has(this.client.user);
         const isReply = !!message.reference?.messageId;
-        const isThread = message.channel.isThread?.() || false;
-        
+        const isThread = message.channel && 'isThread' in message.channel && typeof message.channel.isThread === 'function'
+            ? message.channel.isThread()
+            : false;
+
         if (!isMentioned && !isReply) return;
 
         try {
@@ -79,10 +80,10 @@ export class DiscordBot {
                     try {
                         const fetched: Message = await message.channel.messages.fetch(traceId);
                         chainRootId = fetched.id;
-                        
+
                         const fromBot = fetched.author.id === this.client.user?.id;
                         const mentionsBot = this.client.user && fetched.mentions.has(this.client.user);
-                        
+
                         if (fromBot || mentionsBot) {
                             isChainOurs = true;
                         }
@@ -142,10 +143,14 @@ export class DiscordBot {
 
             // Trigger agent inference with persistent typing indicator
             let typingInterval: NodeJS.Timeout | null = null;
-            if (message.channel instanceof TextChannel || message.channel instanceof ThreadChannel || message.channel instanceof NewsChannel) {
-                await message.channel.sendTyping();
+            const channel = message.channel;
+            const canSendTyping = channel && 'sendTyping' in channel && typeof (channel as unknown as { sendTyping: unknown }).sendTyping === 'function';
+
+            if (canSendTyping) {
+                const sendTyping = (channel as unknown as { sendTyping: () => Promise<void> }).sendTyping.bind(channel);
+                await sendTyping();
                 typingInterval = setInterval(() => {
-                    (message.channel as TextChannel | ThreadChannel | NewsChannel).sendTyping().catch(() => {});
+                    sendTyping().catch(() => { });
                 }, 9000); // Discord typing indicator lasts ~10 seconds
             }
 
