@@ -12,6 +12,8 @@ export function register() {
         const { runBackgroundJob } = require("./lib/background-jobs");
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { CRON_DEFINITIONS } = require("./lib/cron-constants");
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { ConnectionManager } = require("./lib/connections/manager");
 
         const jobs: Record<string, () => Promise<unknown>> = {
             repository_sync: syncRepositories,
@@ -32,5 +34,10 @@ export function register() {
         }
 
         console.log("Internal cron jobs registered from centralized definitions");
+
+        // Start all enabled connections
+        ConnectionManager.getInstance().startAll().catch((err: Error) => {
+            console.error("Failed to start connections:", err);
+        });
     }
 }

@@ -405,3 +405,67 @@ export const backgroundJobs = sqliteTable("background_job", {
     error: text("error"),
     details: text("details"), // JSON string for arbitrary metadata
 })
+
+export const connections = sqliteTable("connection", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type", { enum: ["discord"] }).notNull(),
+    name: text("name").notNull(),
+    config: text("config").notNull(), // JSON string for tokens/config
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+})
+
+export const chats = sqliteTable("chat", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    agentId: text("agentId")
+        .references(() => agentConfigurations.id, { onDelete: "set null" }),
+    repoId: text("repoId")
+        .references(() => repositories.id, { onDelete: "set null" }),
+    type: text("type", { enum: ["web", "discord"] }).notNull().default("web"),
+    externalId: text("externalId"), // e.g. Discord channel ID
+    title: text("title"),
+    createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+})
+
+export const messages = sqliteTable("message", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    chatId: text("chatId")
+        .notNull()
+        .references(() => chats.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["system", "user", "assistant"] }).notNull(),
+    content: text("content").notNull(),
+    createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+})
+
+export const chatsRelations = relations(chats, ({ one, many }) => ({
+    user: one(users, {
+        fields: [chats.userId],
+        references: [users.id],
+    }),
+    agent: one(agentConfigurations, {
+        fields: [chats.agentId],
+        references: [agentConfigurations.id],
+    }),
+    messages: many(messages),
+}))
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+    chat: one(chats, {
+        fields: [messages.chatId],
+        references: [chats.id],
+    }),
+}))
