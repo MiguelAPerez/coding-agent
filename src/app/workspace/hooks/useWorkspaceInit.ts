@@ -3,6 +3,8 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
     setBranches,
     setSelectedBranch,
+    setFileTree,
+    setChangedFiles,
     setIsLoadingInit,
     setIsMainProtected,
 } from "@/lib/store/features/workspace/workspaceSlice";
@@ -15,6 +17,7 @@ import {
 import { initWorkspace } from "@/app/actions/workspace";
 import { listSandboxes } from "@/app/actions/docker-sandboxes";
 import { getRepoBranches, setupGitAuth, getCurrentBranch } from "@/app/actions/git";
+import { getRepoFileTree, getWorkspaceChangedFiles } from "@/app/actions/workspace-files";
 import { getAgentConfigs } from "@/app/actions/config";
 import { getBranchProtection } from "@/app/actions/settings";
 
@@ -78,8 +81,18 @@ export function useWorkspaceInit() {
                 if (!active) return;
                 dispatch(setBranches(bs));
 
-                const initialBranch = bs.includes("main") ? "main" : (bs[0] || "main");
-                dispatch(setSelectedBranch(initialBranch));
+                // Only set default branch if none is selected
+                if (!selectedBranch) {
+                    const initialBranch = bs.includes("main") ? "main" : (bs[0] || "main");
+                    dispatch(setSelectedBranch(initialBranch));
+                }
+
+                // Load file tree and changes
+                const tree = await getRepoFileTree(selectedRepoId);
+                dispatch(setFileTree(tree));
+
+                const changes = await getWorkspaceChangedFiles(selectedRepoId);
+                dispatch(setChangedFiles(changes));
 
                 const protection = await getBranchProtection();
                 if (active) dispatch(setIsMainProtected(protection));
@@ -108,7 +121,9 @@ export function useWorkspaceInit() {
         detectSandbox();
 
         return () => { active = false; };
-    }, [selectedRepoId, dispatch, addLog, syncCurrentBranch]);
+        // We exclude syncCurrentBranch from dependencies to avoid infinite loops,
+        // but it will be called once upon initial load.
+    }, [selectedRepoId, dispatch, addLog]);
 
     return { isLoadingInit, syncCurrentBranch, addLog };
 }

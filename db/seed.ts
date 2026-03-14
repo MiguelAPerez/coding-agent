@@ -4,6 +4,7 @@ import bcryptjs from "bcryptjs"
 import fs from "fs"
 import path from "path"
 import { systemPrompts, systemPromptSets, contextGroups, permissions, users, userPermissions } from "./schema"
+import { ensureUserScaffold } from "../src/lib/scaffold"
 
 // const repoDataPath = path.join(process.cwd(), "data", "repos", "mperez", "devtools")
 // const mockContexts = JSON.parse(fs.readFileSync(path.join(repoDataPath, "contexts.json"), "utf8"))
@@ -81,6 +82,9 @@ async function seed() {
             console.log("Admin user already exists.")
             adminUserId = existingAdmin.id
         }
+
+        // Ensure scaffold for admin
+        await ensureUserScaffold(adminUserId);
 
         // Grant the admin user the 'admin' permission
         const adminPerm = await db.select().from(permissions).where(eq(permissions.name, "admin")).get()

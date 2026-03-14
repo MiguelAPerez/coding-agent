@@ -10,7 +10,7 @@ import { isPathBlocked, ALLOWLIST } from "./constants";
 import { syncRepositories } from "./sync";
 
 const execAsync = promisify(exec);
-const REPOS_BASE_DIR = path.join(process.cwd(), "data", "repos");
+const DATA_BASE_DIR = path.join(process.cwd(), "data");
 
 export async function analyzeRepoDocs(repoIds?: string[]) {
     console.log("Starting repository analysis...");
@@ -33,7 +33,7 @@ export async function analyzeRepoDocs(repoIds?: string[]) {
         for (const repo of allRepos) {
             console.log(`Analyzing ${repo.fullName}...`);
             try {
-                const repoDir = path.join(REPOS_BASE_DIR, repo.userId, repo.fullName);
+                const repoDir = path.join(DATA_BASE_DIR, repo.userId, "repos", repo.fullName);
 
                 try {
                     await fs.access(repoDir);

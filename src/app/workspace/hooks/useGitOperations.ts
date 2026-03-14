@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
     setBranches,
     setSelectedBranch,
+    setFileTree,
     setIsLoadingInit,
 } from "@/lib/store/features/workspace/workspaceSlice";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/lib/store/features/terminal/terminalSlice";
 import {
     getRepoBranches,
+    checkoutBranch,
     createBranch,
     commitChanges,
     pushChanges,
@@ -17,6 +19,7 @@ import {
     unstageFile,
     getCurrentBranch,
 } from "@/app/actions/git";
+import { getRepoFileTree } from "@/app/actions/workspace-files";
 
 export function useGitOperations(
     loadChangedFiles: (repoId: string) => Promise<void>,
@@ -59,6 +62,35 @@ export function useGitOperations(
             dispatch(setIsLoadingInit(false));
         }
     }, [selectedRepoId, isFollowMode, isTerminalOpen, addLog, dispatch]);
+
+    const handleCheckoutBranch = useCallback(async (name: string) => {
+        if (!selectedRepoId) return;
+        dispatch(setIsLoadingInit(true));
+        if (isFollowMode && !isTerminalOpen) dispatch(setIsTerminalOpen(true));
+        if (isFollowMode) addLog("info", `Checking out branch: ${name}`);
+
+        try {
+            const res = await checkoutBranch(selectedRepoId, name);
+            if (res.success) {
+                if (isFollowMode) {
+                    if (res.stdout) addLog("stdout", res.stdout);
+                }
+                dispatch(setSelectedBranch(name));
+                await loadChangedFiles(selectedRepoId);
+                // Reload file tree after checkout
+                const tree = await getRepoFileTree(selectedRepoId);
+                dispatch(setFileTree(tree));
+            } else {
+                if (isFollowMode && res.stderr) addLog("stderr", res.stderr);
+                alert(`Failed to checkout branch: ${res.stderr}`);
+            }
+        } catch (e) {
+            console.error("Failed to checkout branch", e);
+            alert("Failed to checkout branch");
+        } finally {
+            dispatch(setIsLoadingInit(false));
+        }
+    }, [selectedRepoId, isFollowMode, isTerminalOpen, addLog, loadChangedFiles, dispatch]);
 
     const handleCommit = useCallback(async () => {
         if (!selectedRepoId || !commitMessage.trim()) return;
@@ -152,6 +184,7 @@ export function useGitOperations(
         gitRefreshKey,
         refreshGit,
         handleCreateBranch,
+        handleCheckoutBranch,
         handleCommit,
         handlePush,
         handleStageFile,

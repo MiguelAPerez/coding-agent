@@ -5,7 +5,6 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "reac
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
     setSelectedRepoId,
-    setSelectedBranch,
     setActiveTabPath,
     setActiveLeftTab,
 } from "@/lib/store/features/workspace/workspaceSlice";
@@ -84,6 +83,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         gitRefreshKey,
         refreshGit,
         handleCreateBranch,
+        handleCheckoutBranch,
         handleCommit,
         handlePush,
         handleStageFile,
@@ -138,7 +138,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 onSelectRepo={(id) => dispatch(setSelectedRepoId(id))}
                 branches={branches}
                 selectedBranch={selectedBranch}
-                onSelectBranch={(branch) => dispatch(setSelectedBranch(branch))}
+                onSelectBranch={handleCheckoutBranch}
                 onCreateBranch={handleCreateBranch}
                 isTerminalOpen={isTerminalOpen}
                 onToggleTerminal={() => dispatch(setIsTerminalOpen(!isTerminalOpen))}

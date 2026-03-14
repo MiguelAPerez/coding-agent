@@ -5,7 +5,7 @@ import { repositories } from "@/../db/schema";
 import { eq } from "drizzle-orm";
 import { isPathBlocked } from "@/lib/constants";
 
-const REPOS_BASE_DIR = path.join(process.cwd(), "data", "repos");
+const DATA_BASE_DIR = path.join(process.cwd(), "data");
 
 export async function getRepoFileContentInternal(repoId: string, filePath: string, userId: string) {
     // Security check: ensure path is not blocked
@@ -23,7 +23,7 @@ export async function getRepoFileContentInternal(repoId: string, filePath: strin
         throw new Error("Invalid file path");
     }
 
-    const fullPath = path.join(REPOS_BASE_DIR, userId, repo.fullName, normalizedPath);
+    const fullPath = path.join(DATA_BASE_DIR, userId, "repos", repo.fullName, normalizedPath);
     const content = await fs.readFile(fullPath, "utf-8");
     return content;
 }

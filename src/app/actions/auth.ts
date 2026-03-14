@@ -4,6 +4,7 @@ import { db } from "@/../db"
 import { users } from "@/../db/schema"
 import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
+import { ensureUserScaffold } from "@/lib/scaffold"
 
 export async function updateProfile(
     userId: string,
@@ -96,12 +97,16 @@ export async function registerUser(formData: FormData) {
     const hashedPassword = await bcryptjs.hash(password, 10)
 
     try {
-        await db.insert(users).values({
+        const [insertedUser] = await db.insert(users).values({
             name,
             username,
             email,
             password: hashedPassword,
-        })
+        }).returning()
+        
+        if (insertedUser) {
+            await ensureUserScaffold(insertedUser.id)
+        }
         return { success: true }
     } catch (error) {
         console.error("Failed to register user:", error)
