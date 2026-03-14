@@ -1,9 +1,9 @@
 import { db } from "./index"
 import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
-import fs from "fs"
-import path from "path"
-import { systemPrompts, systemPromptSets, contextGroups, permissions, users, userPermissions } from "./schema"
+// import fs from "fs"
+// import path from "path"
+import { permissions, users, userPermissions } from "./schema"
 import { ensureUserScaffold } from "../src/lib/scaffold"
 
 // const repoDataPath = path.join(process.cwd(), "data", "repos", "mperez", "devtools")
@@ -97,12 +97,11 @@ async function seed() {
                     permissionId: adminPerm.id
                 })
                 console.log("Granted 'admin' permission to admin user.")
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (e: any) {
-                if (e.message && e.message.includes("UNIQUE constraint failed")) {
+            } catch (error) {
+                if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
                     console.log("Admin user already has 'admin' permission.")
                 } else {
-                    throw e
+                    throw error
                 }
             }
         }

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/../db";
-import { agentConfigurations, backgroundJobs } from "@/../db/schema";
+import { agentConfigurations, backgroundJobs, users } from "@/../db/schema";
 import { eq, and, desc, notInArray } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
@@ -29,7 +29,7 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
                 provider: data.provider,
                 model: data.model,
                 systemPromptId: data.systemPromptId,
-                systemPrompt: data.systemPrompt || (await getPromptFromFile("CODER")),
+                systemPrompt: data.systemPrompt || (await getPromptFromFile("DEFAULT_PERSONALITY")),
                 temperature: data.temperature,
                 updatedAt: now,
             })
@@ -46,7 +46,7 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
                 provider: data.provider,
                 model: data.model,
                 systemPromptId: data.systemPromptId,
-                systemPrompt: data.systemPrompt || (await getPromptFromFile("CODER")),
+                systemPrompt: data.systemPrompt || (await getPromptFromFile("DEFAULT_PERSONALITY")),
                 temperature: data.temperature,
                 updatedAt: now,
             })
@@ -86,7 +86,7 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
     // 2. Upsert managed agents
     for (const agent of agents) {
         const existing = db.select().from(agentConfigurations).where(eq(agentConfigurations.id, agent.id)).get();
-        
+
         const values = {
             userId,
             name: agent.name,
@@ -94,7 +94,7 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
             model: agent.model,
 
             systemPromptId: agent.systemPromptId,
-            systemPrompt: agent.systemPrompt || (await getPromptFromFile("CODER")),
+            systemPrompt: agent.systemPrompt || (await getPromptFromFile("DEFAULT_PERSONALITY")),
             temperature: agent.temperature,
             isManaged: true,
             updatedAt: new Date(),
@@ -139,12 +139,12 @@ export async function triggerRepositoryAnalysis() {
     const { analyzeRepoDocs } = require("@/lib/analysis");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { runBackgroundJob } = require("@/lib/background-jobs");
-    
+
     runBackgroundJob("repository_analysis_docs", async () => {
         await analyzeRepoDocs();
         return "Manual analysis complete";
     }).catch(console.error);
-    
+
     revalidatePath("/admin/jobs");
     return { success: true };
 }
@@ -157,12 +157,12 @@ export async function triggerRepositorySync() {
     const { syncRepositories } = require("@/lib/sync");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { runBackgroundJob } = require("@/lib/background-jobs");
-    
+
     runBackgroundJob("repository_sync", async () => {
         await syncRepositories();
         return "Manual sync complete";
     }).catch(console.error);
-    
+
     revalidatePath("/admin/jobs");
     return { success: true };
 }
@@ -173,9 +173,40 @@ export async function triggerSemanticIndexing() {
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { semanticIndexing } = require("@/lib/semanticIndexing");
-    
+
     semanticIndexing().catch(console.error);
-    
+
     revalidatePath("/admin/jobs");
+    return { success: true };
+}
+
+export async function triggerChatCleanup() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { cleanupOldExternalChats } = require("@/lib/chat-cleanup");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { runBackgroundJob } = require("@/lib/background-jobs");
+
+    runBackgroundJob("chat_cleanup", async () => {
+        return await cleanupOldExternalChats();
+    }).catch(console.error);
+
+    revalidatePath("/admin/jobs");
+    return { success: true };
+}
+
+export async function updateDefaultAgent(agentId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    db.update(users)
+        .set({ defaultAgentId: agentId })
+        .where(eq(users.id, session.user.id))
+        .run();
+
+    revalidatePath("/chat");
+    revalidatePath("/settings");
     return { success: true };
 }

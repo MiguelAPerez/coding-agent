@@ -9,14 +9,19 @@ export function register() {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { semanticIndexing } = require("./lib/semanticIndexing");
         // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { cleanupOldExternalChats } = require("./lib/chat-cleanup");
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { runBackgroundJob } = require("./lib/background-jobs");
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { CRON_DEFINITIONS } = require("./lib/cron-constants");
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { ConnectionManager } = require("./lib/connections/manager");
 
         const jobs: Record<string, () => Promise<unknown>> = {
             repository_sync: syncRepositories,
             repository_analysis_docs: analyzeRepoDocs,
             semantic_indexing: semanticIndexing,
+            chat_cleanup: cleanupOldExternalChats,
         };
 
         for (const def of CRON_DEFINITIONS) {
@@ -32,5 +37,13 @@ export function register() {
         }
 
         console.log("Internal cron jobs registered from centralized definitions");
+
+        // Start all enabled connections
+        console.log("[Instrumentation] Starting connection manager...");
+        ConnectionManager.getInstance().startAll().catch((err: Error) => {
+            console.error("[Instrumentation] Failed to start connections:", err);
+        });
+    } else {
+        console.log(`[Instrumentation] Skipping runtime: ${process.env.NEXT_RUNTIME}`);
     }
 }

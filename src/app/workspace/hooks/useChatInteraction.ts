@@ -15,11 +15,11 @@ import {
     Tab,
 } from "@/lib/store/features/workspace/workspaceSlice";
 import {
-    chatWithAgent,
     getTechnicalPlan,
     ChatMessage,
     FileChange,
     PendingSuggestion,
+    chatWithCoder,
 } from "@/app/actions/chat";
 import {
     saveWorkspaceFile,
@@ -70,8 +70,8 @@ export function useChatInteraction(
                 return;
             }
 
-            const res = await chatWithAgent(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
-            
+            const res = await chatWithCoder(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
+
             const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
             dispatch(addChatMessage(newAssistantMessage));
 
@@ -112,18 +112,18 @@ export function useChatInteraction(
         try {
             for (const step of technicalPlan.steps) {
                 dispatch(updatePlanStepStatus({ file: step.file, status: "in-progress" }));
-                
+
                 // Focus on the specific file
                 const stepPrompt = `Plan Step: ${step.action} ${step.file}\nRationale: ${step.rationale}\n\nPlease implement this change now according to the technical plan. Provide the FULL FILE content.`;
-                const res = await chatWithAgent(selectedRepoId, step.file, stepPrompt, selectedAgentId, chatMessages);
-                
+                const res = await chatWithCoder(selectedRepoId, step.file, stepPrompt, selectedAgentId, chatMessages);
+
                 if (res.suggestion) {
                     // Merge suggestions
                     combinedSuggestion.filesChanged = {
                         ...combinedSuggestion.filesChanged,
                         ...res.suggestion.filesChanged
                     };
-                    
+
                     // Update tab content for real-time feedback
                     Object.entries(res.suggestion.filesChanged).forEach(([path, change]) => {
                         const isOpen = openTabs.some((t: Tab) => t.path === path);
@@ -133,7 +133,7 @@ export function useChatInteraction(
                         dispatch(addContextFile(path));
                     });
                 }
-                
+
                 dispatch(updatePlanStepStatus({ file: step.file, status: "completed" }));
             }
 
@@ -154,7 +154,7 @@ export function useChatInteraction(
             try {
                 // Always save directly to disk with the suggested content to avoid stale state issues
                 await saveWorkspaceFile(selectedRepoId, path, change.suggestedContent);
-                
+
                 // If it's open, update the tab to match what's on disk
                 const isOpen = openTabs.some((t: Tab) => t.path === path);
                 if (isOpen) {

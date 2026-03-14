@@ -13,6 +13,7 @@ declare module "next-auth" {
             id: string
             username: string
             permissions: string[]
+            defaultAgentId: string | null
         } & DefaultSession["user"]
     }
 }
@@ -22,6 +23,7 @@ declare module "next-auth/jwt" {
         id: string
         username: string
         permissions: string[]
+        defaultAgentId: string | null
     }
 }
 
@@ -75,6 +77,17 @@ export const authOptions: NextAuthOptions = {
                 // @ts-expect-error adding custom field
                 token.username = user.username
 
+                // Fetch full user to get defaultAgentId and permissions
+                const fullUser = await db.query.users.findFirst({
+                    where: (u, { eq }) => eq(u.id, user.id),
+                    with: {
+                        // We need a way to get permissions too if possible, 
+                        // but let's stick to the current logic for permissions
+                    }
+                });
+                
+                token.defaultAgentId = fullUser?.defaultAgentId || null;
+
                 // Fetch permissions for this user
                 const userPerms = await db
                     .select({ name: permissions.name })
@@ -91,6 +104,7 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = token.id as string
                 session.user.username = token.username as string
                 session.user.permissions = (token.permissions as string[]) || []
+                session.user.defaultAgentId = token.defaultAgentId as string | null
             }
             return session
         },

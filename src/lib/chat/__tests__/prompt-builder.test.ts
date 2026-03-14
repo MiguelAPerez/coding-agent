@@ -58,7 +58,7 @@ describe("PromptBuilder", () => {
     });
 
     it("should build a complete system prompt", async () => {
-        const prompt = await PromptBuilder.buildSystemPrompt(mockContext, "src/file.ts", "console.log('test')");
+        const prompt = await PromptBuilder.buildSystemPrompt(mockContext, "src/file.ts", "console.log('test')", "Documentation instructions with CRITICAL INSTRUCTIONS:");
         
         expect(prompt).toContain("You are a specialized bot.");
         expect(prompt).toContain("Format prompt.");
@@ -76,13 +76,13 @@ describe("PromptBuilder", () => {
     it("should use default personality if none provided", async () => {
         (getPromptFromFile as jest.Mock).mockResolvedValue("You are a documentation specialist.");
         const context = { ...mockContext, agentPersonalityPrompt: "" };
-        const prompt = await PromptBuilder.buildSystemPrompt(context, null, "");
+        const prompt = await PromptBuilder.buildSystemPrompt(context, null, "", "Default prompt.");
         expect(prompt).toContain("You are a documentation specialist.");
     });
 
     it("should handle empty skills and tools", async () => {
         const context = { ...mockContext, enabledSkills: [], enabledTools: [] };
-        const prompt = await PromptBuilder.buildSystemPrompt(context, null, "");
+        const prompt = await PromptBuilder.buildSystemPrompt(context, null, "", "Default prompt.");
         expect(prompt).not.toContain("Available Skills:");
         expect(prompt).not.toContain("Available Tools:");
     });
@@ -92,13 +92,13 @@ describe("PromptBuilder", () => {
             ...mockContext, 
             repo: { fullName: "test/empty", docsMetadata: null } as any // eslint-disable-line @typescript-eslint/no-explicit-any
         };
-        const prompt = await PromptBuilder.buildSystemPrompt(context, null, "");
+        const prompt = await PromptBuilder.buildSystemPrompt(context, null, "", "Default prompt.");
         expect(prompt).toContain("Repository: test/empty");
         expect(prompt).not.toContain("Available Documentation Files:");
     });
 
     it("should handle current file path being null", async () => {
-        const prompt = await PromptBuilder.buildSystemPrompt(mockContext, null, "");
+        const prompt = await PromptBuilder.buildSystemPrompt(mockContext, null, "", "Default prompt.");
         expect(prompt).not.toContain("Currently viewed file:");
     });
 });

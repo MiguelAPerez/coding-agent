@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 // Since I can't use drizzle directly in a client component for all queries,
 // I'll need a server action to fetch the jobs.
-import { getBackgroundJobs, triggerRepositoryAnalysis, triggerRepositorySync, triggerSemanticIndexing } from "@/app/actions/config";
+import { getBackgroundJobs, triggerRepositoryAnalysis, triggerRepositorySync, triggerSemanticIndexing, triggerChatCleanup } from "@/app/actions/config";
 
 interface Job {
     id: string;
@@ -43,6 +43,8 @@ export default function JobsPage() {
                 await triggerRepositorySync();
             } else if (cronId === "semantic_indexing") {
                 await triggerSemanticIndexing();
+            } else if (cronId === "chat_cleanup") {
+                await triggerChatCleanup();
             }
             // Refresh quickly to show it started
             setTimeout(fetchJobs, 500);

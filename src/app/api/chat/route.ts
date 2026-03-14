@@ -3,10 +3,16 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { ChatContext } from "@/lib/chat/context";
 import { ChatClientFactory } from "@/lib/chat/client-factory";
+import { PromptBuilder } from "@/lib/chat/prompt-builder";
 import { extractMentionedPaths } from "@/lib/chat/utils";
 
 import { getPromptFromFile } from "@/app/actions/prompts";
 
+/**
+ * General Chat API Route
+ * 
+ * This route is used to handle general chat requests.
+ */
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -14,9 +20,13 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { repoId, filePath, prompt, agentId, history } = await req.json();
+        const { repoId, filePath, prompt, sysPrompt, agentId, history } = await req.json();
+        let basePrompt = sysPrompt;
+        if (!basePrompt) {
+            basePrompt = await getPromptFromFile("GENERAL");
+        }
 
-        if (!repoId || !prompt || !agentId) {
+        if (!prompt || !agentId) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -27,31 +37,23 @@ export async function POST(req: NextRequest) {
 
         const chatClient = ChatClientFactory.getClient(contextData);
 
-
-        let systemPrompt = await getPromptFromFile("CODER");
-        if (contextData.agentPersonalityPrompt) {
-            systemPrompt = `${contextData.agentPersonalityPrompt}\n\n${systemPrompt}`;
-        }
-
-        if (contextData.enabledSkills.length > 0) {
-            systemPrompt += "\n\nAvailable Skills:\n" + contextData.enabledSkills.map((s) => `- ${s.name}: ${s.description}\n${s.content}`).join("\n\n");
-        }
+        const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", basePrompt);
 
         const messages = [
             { role: "system", content: systemPrompt },
             ...(history || []),
         ];
 
-        if (Object.keys(contextData.fileContents).length > 0) {
-            let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";
-            for (const [path, content] of Object.entries(contextData.fileContents)) {
-                contextMessage += `FILE: ${path}\n\`\`\`\n${content}\n\`\`\`\n\n`;
-            }
-            contextMessage += `User Request: ${prompt}`;
-            messages.push({ role: "user", content: contextMessage });
-        } else {
-            messages.push({ role: "user", content: prompt });
-        }
+        // if (Object.keys(contextData.fileContents).length > 0) {
+        //     let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";
+        //     for (const [path, content] of Object.entries(contextData.fileContents)) {
+        //         contextMessage += `FILE: ${path}\n\`\`\`\n${content}\n\`\`\`\n\n`;
+        //     }
+        //     contextMessage += `User Request: ${prompt}`;
+        //     messages.push({ role: "user", content: contextMessage });
+        // } else {
+        //     messages.push({ role: "user", content: prompt });
+        // }
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
                 }
             },
         });
+        console.log("Stream", stream);
 
         return new Response(stream, {
             headers: {

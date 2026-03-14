@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
     { label: "Dashboard", href: "/dashboard" },
+    { label: "Chat", href: "/chat" },
     { label: "Workspaces", href: "/workspace" },
     { label: "Knowledge Base", href: "/docs-chat" },
     { label: "Code Search", href: "/code-search", shortcut: "⌘K" },

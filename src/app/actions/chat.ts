@@ -7,12 +7,102 @@ import { ChatClientFactory } from "@/lib/chat/client-factory";
 import { InferenceRunner } from "@/lib/chat/inference-runner";
 import { ChatMessage, ChatResponse } from "@/lib/chat/types";
 import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
+import { PromptBuilder } from "@/lib/chat/prompt-builder";
 import { getPromptFromFile } from "./prompts";
+import { ChatService } from "@/lib/chat/service";
+import { revalidatePath } from "next/cache";
 
 export type { ChatMessage, ChatResponse, FileChange, PendingSuggestion, TechnicalPlan, PlanStep } from "@/lib/chat/types";
 
 // --- Public Actions ---
 
+export async function clearChatMessages(chatId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    
+    await ChatService.deleteChatMessages(chatId);
+    revalidatePath(`/chat/${chatId}`);
+}
+
+
+/**
+ * Chat with the agent. 
+ * 
+ * A generic entry point, will not use any specific mode just use the agent personality prompt.
+ */
+export async function chatWithAgent(
+    agentId: string,
+    prompt: string,
+    history: ChatMessage[] = [],
+    instructions: string | null = null,
+    repoId: string | null = null,
+    filePath: string | null = null,
+): Promise<ChatResponse> {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    return chatWithAgentInternal(agentId, prompt, session.user.id, history, instructions, repoId, filePath);
+}
+
+export async function chatWithAgentInternal(
+    agentId: string,
+    prompt: string,
+    userId: string,
+    history: ChatMessage[] = [],
+    instructions: string | null = null,
+    repoId: string | null = null,
+    filePath: string | null = null,
+    discordChannelId: string | null = null, // @todo - will extract for something more generic
+): Promise<ChatResponse> {
+
+    if (!prompt) throw new Error("Empty prompt");
+
+    const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
+
+    const start = Date.now();
+    const context = new ChatContext(userId, repoId, agentId, filePath, extraPaths);
+    const contextData = await context.load();
+    const contextLoadTime = Date.now() - start;
+
+    const client = ChatClientFactory.getClient(contextData);
+
+    const messages: ChatMessage[] = [
+        { role: "system", content: "" }, // Placeholder
+        ...history,
+    ];
+
+    // Avoid duplication if history already contains the current prompt
+    const lastUserMessage = [...history].reverse().find(m => m.role === "user");
+    const isDuplicate = lastUserMessage && lastUserMessage.content.trim() === prompt.trim();
+    
+    if (isDuplicate) {
+        console.log(`[DEDUPE] Skipping redundant prompt. (Content matches last user message)`);
+    } else {
+        messages.push({ role: "user", content: prompt });
+    }
+
+    // Simple Channel Response
+    const promptStart = Date.now();
+    instructions = (discordChannelId) ? await getPromptFromFile("DISCORD") : null;
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, null, contextData.initialFileContent || "", instructions);
+    messages[0].content = systemPrompt;
+    const promptBuildTime = Date.now() - promptStart;
+
+    const inferenceStart = Date.now();
+    const responseContent = await client.chat(messages);
+    const inferenceTime = Date.now() - inferenceStart;
+
+    console.log(`[chatWithAgentInternal] userId: ${userId} context: ${contextLoadTime}ms, prompt: ${promptBuildTime}ms, inference: ${inferenceTime}ms, total: ${Date.now() - start}ms`);
+
+    // We don't expect an specific format here, just a message
+    return {
+        message: responseContent || "",
+    };
+}
+
+
+/**
+ * Chat with the agent in documentation mode.
+ */
 export async function chatWithDoc(repoId: string, filePath: string | null, prompt: string, agentId?: string): Promise<ChatResponse> {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
@@ -20,35 +110,31 @@ export async function chatWithDoc(repoId: string, filePath: string | null, promp
 }
 
 export async function chatWithDocInternal(repoId: string, filePath: string | null, prompt: string, userId: string, agentId?: string): Promise<ChatResponse> {
+    const docPrompt = await getPromptFromFile("DOCUMENTATION");
     const context = new ChatContext(userId, repoId, agentId, filePath);
     const contextData = await context.load();
 
     const client = ChatClientFactory.getClient(contextData);
+    // TODO: move json parser into a global place like parseDiff
     const runner = new InferenceRunner(userId, repoId, contextData, client);
 
-    return runner.run(prompt, filePath, contextData.initialFileContent);
+    return runner.run(prompt, filePath, contextData.initialFileContent, docPrompt);
 }
 
-export async function chatWithAgent(
-    repoId: string,
-    filePath: string | null,
-    prompt: string,
-    agentId: string,
-    history: ChatMessage[] = []
-): Promise<ChatResponse> {
+
+export async function chatWithCoder(repoId: string, filePath: string | null, prompt: string, agentId: string, history: ChatMessage[] = []): Promise<ChatResponse> {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
-
-    return chatWithAgentInternal(repoId, filePath, prompt, agentId, session.user.id, history);
+    return chatWithCoderInternal(repoId, filePath, prompt, agentId, session.user.id, history);
 }
 
-export async function chatWithAgentInternal(
+export async function chatWithCoderInternal(
     repoId: string,
     filePath: string | null,
     prompt: string,
     agentId: string,
     userId: string,
-    history: ChatMessage[] = []
+    history: ChatMessage[] = [],
 ): Promise<ChatResponse> {
     const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
 
@@ -57,27 +143,16 @@ export async function chatWithAgentInternal(
 
     const client = ChatClientFactory.getClient(contextData);
 
-    // Build the system prompt with the "Diff Generator" instructions
-    const [baseFormat, coderInstructions] = await Promise.all([
-        getPromptFromFile("FORMAT"),
-        getPromptFromFile("CODER")
-    ]);
-
-    let systemPrompt = `${baseFormat}\n\n${coderInstructions}`;
-
-    if (contextData.agentPersonalityPrompt) {
-        systemPrompt = `${contextData.agentPersonalityPrompt}\n\n${systemPrompt}`;
-    }
-
-    // Add existing skills
-    if (contextData.enabledSkills.length > 0) {
-        systemPrompt += "\n\nAvailable Skills:\n" + contextData.enabledSkills.map((s) => `- ${s.name}: ${s.description}\n${s.content}`).join("\n\n");
-    }
+    // Build the system prompt
+    const instructions = await getPromptFromFile("CODER");
 
     const messages: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: "" }, // Placeholder
         ...history,
     ];
+
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", instructions);
+    messages[0].content = systemPrompt;
 
     if (Object.keys(contextData.fileContents).length > 0) {
         let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";
@@ -102,6 +177,9 @@ export async function chatWithAgentInternal(
     };
 }
 
+/**
+ * Get technical plan for a given prompt.
+ */
 export async function getTechnicalPlan(
     repoId: string,
     filePath: string | null,
@@ -119,15 +197,15 @@ export async function getTechnicalPlan(
     const client = ChatClientFactory.getClient(contextData);
 
     // Build the system prompt with the "Planner" instructions
-    let systemPrompt = await getPromptFromFile("PLANNER");
-    if (contextData.agentPersonalityPrompt) {
-        systemPrompt = `${contextData.agentPersonalityPrompt}\n\n${systemPrompt}`;
-    }
+    const plannerInstructions = await getPromptFromFile("PLANNER");
 
     const messages: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: "" }, // Placeholder
         ...history,
     ];
+
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", plannerInstructions);
+    messages[0].content = systemPrompt;
 
     if (Object.keys(contextData.fileContents).length > 0) {
         let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";

@@ -8,27 +8,42 @@ import { ContextData } from "./types";
 export class ChatContext {
     constructor(
         public readonly userId: string,
-        public readonly repoId: string,
+        public readonly repoId: string | null = null,
         public readonly agentId?: string,
         public filePath: string | null = null,
         public extraFilePaths: string[] = []
     ) { }
 
     async load(): Promise<ContextData> {
-        const repo = db.select().from(repositories).where(eq(repositories.id, this.repoId)).get();
-        if (!repo) throw new Error("Repository not found");
+        const [
+            ollamaConfig,
+            anthropicConfig,
+            googleConfig
+        ] = await Promise.all([
+            db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get(),
+            db.select().from(anthropicConfigurations).where(eq(anthropicConfigurations.userId, this.userId)).get(),
+            db.select().from(googleConfigurations).where(eq(googleConfigurations.userId, this.userId)).get(),
+        ]);
+
+        if (!ollamaConfig && !anthropicConfig && !googleConfig) {
+            throw new Error("No LLM providers configured. Please configure Ollama, Claude, or Gemini in Settings.");
+        }
+
+        let repo = null;
+        if (this.repoId && this.repoId !== "default") {
+            repo = db.select().from(repositories).where(eq(repositories.id, this.repoId)).get();
+            if (!repo) {
+                throw new Error("Repository not found");
+            }
+        }
 
         let agentConfig;
         if (this.agentId) {
             agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.id, this.agentId), eq(agentConfigurations.userId, this.userId))).get();
-            if (!agentConfig) {
-                console.warn(`Requested agent ${this.agentId} not found for user ${this.userId}. Falling back to default.`);
-                agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.userId, this.userId), isNull(agentConfigurations.isManaged))).get() 
-                    || db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, this.userId)).get();
-            }
-        } else {
-            // Get the first agent that has a model configured
-            agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.userId, this.userId))).get();
+        }
+
+        if (!agentConfig) {
+            agentConfig = db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, this.userId)).get();
         }
 
         if (!agentConfig) {
@@ -57,12 +72,6 @@ export class ChatContext {
             this.agentId ? eq(tools.agentId, this.agentId) : isNull(tools.agentId)
         )).all();
 
-        const ollamaConfig = db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get();
-        const anthropicConfig = db.select().from(anthropicConfigurations).where(eq(anthropicConfigurations.userId, this.userId)).get();
-        const googleConfig = db.select().from(googleConfigurations).where(eq(googleConfigurations.userId, this.userId)).get();
-        
-        if (!ollamaConfig && !anthropicConfig && !googleConfig) throw new Error("No LLM providers configured. Please configure Ollama, Claude, or Gemini in Settings.");
-
 
         // Load multiple files for context
         const allFilePaths = Array.from(new Set([
@@ -71,19 +80,21 @@ export class ChatContext {
         ]));
 
         const fileContents: Record<string, string> = {};
-        for (const path of allFilePaths) {
-            try {
-                let content = await getRepoFileContentInternal(this.repoId, path, this.userId);
-                // Remove frontmatter if present
-                content = content.replace(/^---\s*[\s\S]*?---\s*/, '');
-                fileContents[path] = content;
-            } catch (e) {
-                console.error(`Error reading context file ${path}:`, e);
+        if (this.repoId && this.repoId !== "default") {
+            for (const path of allFilePaths) {
+                try {
+                    let content = await getRepoFileContentInternal(this.repoId, path, this.userId);
+                    // Remove frontmatter if present
+                    content = content.replace(/^---\s*[\s\S]*?---\s*/, '');
+                    fileContents[path] = content;
+                } catch (e) {
+                    console.error(`Error reading context file ${path}:`, e);
+                }
             }
         }
 
         return {
-            repo,
+            repo: repo || undefined,
             agentConfig,
             agentPersonalityPrompt,
             enabledSkills,

@@ -36,6 +36,7 @@ export const UserProfileDropdown = ({ user }: UserProfileDropdownProps) => {
         { href: "/agent", label: "Agents" },
         { href: "/admin/jobs", label: "Jobs" },
         { href: "/repositories", label: "Repositories" },
+        { href: "/settings/connections", label: "Connections" },
         { href: "/evaluation-lab", label: "Evaluation Lab" },
     ];
 

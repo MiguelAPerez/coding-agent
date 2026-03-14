@@ -5,7 +5,7 @@ export interface ChatMessage {
 
 export interface ChatResponse {
     message: string;
-    redirect: string | null;
+    redirect?: string | null;
     suggestion?: PendingSuggestion | null;
     plan?: TechnicalPlan | null;
 }
@@ -48,7 +48,7 @@ import { repositories, agentConfigurations, skills, tools, ollamaConfigurations,
 
 
 export interface ContextData {
-    repo: InferSelectModel<typeof repositories>;
+    repo?: InferSelectModel<typeof repositories>;
     agentConfig: InferSelectModel<typeof agentConfigurations>;
     agentPersonalityPrompt: string | null;
     enabledSkills: InferSelectModel<typeof skills>[];

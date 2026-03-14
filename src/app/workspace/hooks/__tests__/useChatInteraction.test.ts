@@ -12,7 +12,7 @@ describe("useChatInteraction", () => {
     const handleSaveFile = jest.fn();
     const loadChangedFiles = jest.fn();
     const refreshGit = jest.fn();
-    
+
     const mockState = {
         workspace: {
             selectedRepoId: "repo-1",
@@ -42,7 +42,7 @@ describe("useChatInteraction", () => {
             message: "I have a plan.",
             plan: mockState.chat.technicalPlan
         });
-        (chatActions.chatWithAgent as jest.Mock).mockResolvedValue({
+        (chatActions.chatWithCoder as jest.Mock).mockResolvedValue({
             message: "I suggested some changes.",
             suggestion: {
                 filesChanged: { "test.ts": { suggestedContent: "new content", originalContent: "initial content" } }
@@ -52,12 +52,12 @@ describe("useChatInteraction", () => {
 
     it("handles sending a message", async () => {
         const { result } = renderHook(() => useChatInteraction(handleSaveFile, loadChangedFiles, refreshGit));
-        
+
         await act(async () => {
             await result.current.handleSendMessage("fix bug");
         });
 
-        expect(chatActions.chatWithAgent).toHaveBeenCalledWith("repo-1", "test.ts", "fix bug", "agent-1", []);
+        expect(chatActions.chatWithCoder).toHaveBeenCalledWith("repo-1", "test.ts", "fix bug", "agent-1", []);
         expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: expect.stringContaining("addChatMessage") }));
     });
 });

@@ -20,4 +20,11 @@ export const CRON_DEFINITIONS = [
         displaySchedule: "Every 5 hours",
         description: "Generates vector embeddings for enabled repositories."
     },
+    {
+        id: "chat_cleanup",
+        name: "Chat Cleanup",
+        schedule: "0 0 * * *", // Daily at midnight
+        displaySchedule: "Daily",
+        description: "Deletes external chats older than 2 days."
+    },
 ] as const;
