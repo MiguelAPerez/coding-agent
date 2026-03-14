@@ -6,6 +6,7 @@ import fs from 'fs';
 const dbPath = path.join(process.cwd(), 'data', 'sqlite.db');
 
 /**
+
  * Cache the database connection in a global variable to maintain a singleton
  * across Hot Module Replacement (HMR) during development.
  */

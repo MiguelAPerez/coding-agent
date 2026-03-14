@@ -10,6 +10,12 @@ export interface ChatResponse {
     plan?: TechnicalPlan | null;
 }
 
+export interface ChatClient {
+    chat(messages: ChatMessage[]): Promise<string>;
+    streamChat(messages: ChatMessage[]): AsyncGenerator<string>;
+}
+
+
 export interface PlanStep {
     file: string;
     action: "modify" | "new" | "delete";
@@ -38,7 +44,8 @@ export interface PendingSuggestion {
 }
 
 import { InferSelectModel } from "drizzle-orm";
-import { repositories, agentConfigurations, skills, tools, ollamaConfigurations } from "@/../db/schema";
+import { repositories, agentConfigurations, skills, tools, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
+
 
 export interface ContextData {
     repo: InferSelectModel<typeof repositories>;
@@ -46,7 +53,11 @@ export interface ContextData {
     agentPersonalityPrompt: string | null;
     enabledSkills: InferSelectModel<typeof skills>[];
     enabledTools: InferSelectModel<typeof tools>[];
-    ollamaConfig: InferSelectModel<typeof ollamaConfigurations>;
+    ollamaConfig?: InferSelectModel<typeof ollamaConfigurations>;
+    anthropicConfig?: InferSelectModel<typeof anthropicConfigurations>;
+    googleConfig?: InferSelectModel<typeof googleConfigurations>;
+
     initialFileContent: string;
     fileContents: Record<string, string>;
 }
+

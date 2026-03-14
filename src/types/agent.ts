@@ -2,7 +2,9 @@ export interface AgentConfig {
     id: string;
     userId: string;
     name: string;
+    provider: string;
     model: string;
+
     systemPromptId: string | null;
     systemPrompt: string;
     temperature: number;

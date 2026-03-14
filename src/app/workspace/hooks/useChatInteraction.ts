@@ -11,6 +11,7 @@ import {
 } from "@/lib/store/features/chat/chatSlice";
 import {
     updateTabContent,
+    setTabSaved,
     Tab,
 } from "@/lib/store/features/workspace/workspaceSlice";
 import {
@@ -150,16 +151,18 @@ export function useChatInteraction(
         if (!selectedRepoId || !pendingSuggestion) return;
 
         for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
-            const isOpen = openTabs.some((t: Tab) => t.path === path);
-            if (isOpen) {
-                dispatch(updateTabContent({ path, content: change.suggestedContent }));
-                await handleSaveFile(path);
-            } else {
-                try {
-                    await saveWorkspaceFile(selectedRepoId, path, change.suggestedContent);
-                } catch (e) {
-                    console.error("Failed to save background file", e);
+            try {
+                // Always save directly to disk with the suggested content to avoid stale state issues
+                await saveWorkspaceFile(selectedRepoId, path, change.suggestedContent);
+                
+                // If it's open, update the tab to match what's on disk
+                const isOpen = openTabs.some((t: Tab) => t.path === path);
+                if (isOpen) {
+                    dispatch(updateTabContent({ path, content: change.suggestedContent }));
+                    dispatch(setTabSaved(path));
                 }
+            } catch (e) {
+                console.error(`Failed to save ${path}`, e);
             }
         }
         await loadChangedFiles(selectedRepoId);
@@ -167,7 +170,7 @@ export function useChatInteraction(
         dispatch(setPendingSuggestion(null));
         dispatch(setTechnicalPlan(null));
         dispatch(setChatTab(null));
-    }, [selectedRepoId, pendingSuggestion, openTabs, handleSaveFile, loadChangedFiles, refreshGit, dispatch]);
+    }, [selectedRepoId, pendingSuggestion, openTabs, loadChangedFiles, refreshGit, dispatch]);
 
     const handleRejectSuggestion = useCallback(() => {
         if (pendingSuggestion) {

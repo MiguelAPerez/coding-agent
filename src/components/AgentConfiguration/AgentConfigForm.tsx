@@ -2,7 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { saveAgentConfig, deleteAgent } from "@/app/actions/config";
 import { getOllamaModels } from "@/app/actions/ollama";
+import { getAnthropicModels } from "@/app/actions/anthropic";
 import { AgentConfig, SystemPrompt } from "@/types/agent";
+import { getGoogleModels } from "@/app/actions/google";
+
 
 export const AgentConfigForm = ({
     initialConfig,
@@ -13,6 +16,7 @@ export const AgentConfigForm = ({
 }) => {
     const router = useRouter();
     const [name, setName] = useState(initialConfig?.name || "");
+    const [provider, setProvider] = useState(initialConfig?.provider || "ollama");
     const [model, setModel] = useState(initialConfig?.model || "");
     const [systemPromptId, setSystemPromptId] = useState(initialConfig?.systemPromptId || "");
     const [temperature, setTemperature] = useState(initialConfig?.temperature || 70);
@@ -20,18 +24,28 @@ export const AgentConfigForm = ({
     const [isDeleting, setIsDeleting] = useState(false);
     const [message, setMessage] = useState("");
     const [ollamaModels, setOllamaModels] = useState<{ name: string; details: string | null }[]>([]);
+    const [anthropicModels, setAnthropicModels] = useState<{ name: string; details: string | null }[]>([]);
+    const [googleModels, setGoogleModels] = useState<{ name: string; details: string | null }[]>([]);
+
 
     useEffect(() => {
-        async function loadOllamaModels() {
+        async function loadModels() {
             try {
-                const models = await getOllamaModels();
-                setOllamaModels(models);
+                const [olModels, antModels, gooModels] = await Promise.all([
+                    getOllamaModels(),
+                    getAnthropicModels(),
+                    getGoogleModels()
+                ]);
+                setOllamaModels(olModels);
+                setAnthropicModels(antModels);
+                setGoogleModels(gooModels);
             } catch (err) {
-                console.error("Failed to load Ollama models", err);
+                console.error("Failed to load models", err);
             }
         }
-        loadOllamaModels();
+        loadModels();
     }, []);
+
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,14 +55,14 @@ export const AgentConfigForm = ({
             await saveAgentConfig({
                 id: initialConfig?.id,
                 name,
+                provider,
                 model,
                 systemPromptId: systemPromptId || null,
                 temperature
             });
+
             setMessage("Configuration saved successfully!");
-            if (!initialConfig) {
-                router.refresh();
-            }
+            router.refresh();
         } catch {
             setMessage("Failed to save configuration.");
         } finally {
@@ -78,7 +92,7 @@ export const AgentConfigForm = ({
             {isManaged && (
                 <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-4 text-primary mb-8">
                     <div className="p-2 bg-primary/10 rounded-xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     </div>
                     <div>
                         <p className="font-semibold text-sm text-foreground">Managed by Repository</p>
@@ -100,7 +114,30 @@ export const AgentConfigForm = ({
                 />
             </div>
 
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/70">LLM Provider</label>
+                <div className="relative group/select">
+                    <select
+                        value={provider}
+                        onChange={(e) => {
+                            setProvider(e.target.value);
+                            setModel(""); // Reset model when provider changes
+                        }}
+                        disabled={isManaged}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none disabled:opacity-50"
+                    >
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="anthropic">Anthropic Claude (Cloud)</option>
+                        <option value="google">Google Gemini (Cloud)</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground/70">Model</label>
                     <div className="relative group/select">
@@ -112,7 +149,7 @@ export const AgentConfigForm = ({
                             className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none disabled:opacity-50"
                         >
                             <option value="" disabled>Select a model...</option>
-                            {ollamaModels.length > 0 && (
+                            {provider === 'ollama' && ollamaModels.length > 0 && (
                                 <optgroup label="Local (Ollama)">
                                     {ollamaModels.map(m => {
                                         let labelSuffix = "";
@@ -123,7 +160,7 @@ export const AgentConfigForm = ({
                                             if (caps.includes("thinking")) labels.push("thinking");
                                             if (caps.includes("tools") || caps.includes("tool_use")) labels.push("tools");
                                             if (labels.length > 0) labelSuffix = ` (${labels.join(", ")})`;
-                                        } catch {}
+                                        } catch { }
 
                                         return (
                                             <option key={m.name} value={m.name}>
@@ -133,12 +170,36 @@ export const AgentConfigForm = ({
                                     })}
                                 </optgroup>
                             )}
-                            <optgroup label="Cloud Models (Coming Soon)">
-                                <option value="gpt-4" disabled>GPT-4</option>
-                            </optgroup>
+                            {provider === 'google' && googleModels.length > 0 && (
+                                <optgroup label="Google Gemini">
+                                    {googleModels.map(m => (
+                                        <option key={m.name} value={m.name}>
+                                            {m.name}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )}
+                            {provider === 'google' && googleModels.length === 0 && (
+                                <option value="" disabled>No Google models synced. Go to Settings.</option>
+                            )}
+
+                            {provider === 'anthropic' && anthropicModels.length > 0 && (
+                                <optgroup label="Anthropic Claude">
+                                    {anthropicModels.map(m => (
+                                        <option key={m.name} value={m.name}>
+                                            {m.name}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )}
+                            {provider === 'anthropic' && anthropicModels.length === 0 && (
+                                <option value="" disabled>No Claude models synced. Go to Settings.</option>
+                            )}
+
                         </select>
+
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                         </div>
                     </div>
                 </div>
@@ -158,7 +219,7 @@ export const AgentConfigForm = ({
                             ))}
                         </select>
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                         </div>
                     </div>
                 </div>

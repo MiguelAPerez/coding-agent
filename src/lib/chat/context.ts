@@ -1,5 +1,6 @@
 import { db } from "@/../db";
-import { agentConfigurations, skills, tools, repositories, systemPrompts, ollamaConfigurations } from "@/../db/schema";
+import { agentConfigurations, skills, tools, repositories, systemPrompts, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
+
 import { eq, and, isNull } from "drizzle-orm";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
 import { ContextData } from "./types";
@@ -57,7 +58,11 @@ export class ChatContext {
         )).all();
 
         const ollamaConfig = db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get();
-        if (!ollamaConfig) throw new Error("Ollama not configured.");
+        const anthropicConfig = db.select().from(anthropicConfigurations).where(eq(anthropicConfigurations.userId, this.userId)).get();
+        const googleConfig = db.select().from(googleConfigurations).where(eq(googleConfigurations.userId, this.userId)).get();
+        
+        if (!ollamaConfig && !anthropicConfig && !googleConfig) throw new Error("No LLM providers configured. Please configure Ollama, Claude, or Gemini in Settings.");
+
 
         // Load multiple files for context
         const allFilePaths = Array.from(new Set([
@@ -83,8 +88,12 @@ export class ChatContext {
             agentPersonalityPrompt,
             enabledSkills,
             enabledTools,
-            ollamaConfig,
+            ollamaConfig: ollamaConfig || undefined,
+            anthropicConfig: anthropicConfig || undefined,
+            googleConfig: googleConfig || undefined,
             initialFileContent: this.filePath ? (fileContents[this.filePath] || "") : "",
+
+
             fileContents
         };
     }

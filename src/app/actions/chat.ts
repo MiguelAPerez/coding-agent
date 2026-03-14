@@ -3,7 +3,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { ChatContext } from "@/lib/chat/context";
-import { OllamaClient } from "@/lib/chat/ollama-client";
+import { ChatClientFactory } from "@/lib/chat/client-factory";
 import { InferenceRunner } from "@/lib/chat/inference-runner";
 import { ChatMessage, ChatResponse } from "@/lib/chat/types";
 import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
@@ -23,13 +23,8 @@ export async function chatWithDocInternal(repoId: string, filePath: string | nul
     const context = new ChatContext(userId, repoId, agentId, filePath);
     const contextData = await context.load();
 
-    const ollama = new OllamaClient(
-        contextData.ollamaConfig,
-        contextData.agentConfig.model!,
-        contextData.agentConfig.temperature
-    );
-
-    const runner = new InferenceRunner(userId, repoId, contextData, ollama);
+    const client = ChatClientFactory.getClient(contextData);
+    const runner = new InferenceRunner(userId, repoId, contextData, client);
 
     return runner.run(prompt, filePath, contextData.initialFileContent);
 }
@@ -60,11 +55,7 @@ export async function chatWithAgentInternal(
     const context = new ChatContext(userId, repoId, agentId, filePath, extraPaths);
     const contextData = await context.load();
 
-    const ollama = new OllamaClient(
-        contextData.ollamaConfig,
-        contextData.agentConfig.model!,
-        contextData.agentConfig.temperature
-    );
+    const client = ChatClientFactory.getClient(contextData);
 
     // Build the system prompt with the "Diff Generator" instructions
     let systemPrompt = await getPromptFromFile("CODER");
@@ -94,7 +85,7 @@ export async function chatWithAgentInternal(
         messages.push({ role: "user", content: prompt });
     }
 
-    const responseContent = await ollama.chat(messages);
+    const responseContent = await client.chat(messages);
 
     // Parse diffs and clean content
     const { suggestion, cleanContent } = parseDiffs(responseContent, filePath, contextData.fileContents);
@@ -120,11 +111,7 @@ export async function getTechnicalPlan(
     const context = new ChatContext(session.user.id, repoId, agentId, filePath, extraPaths);
     const contextData = await context.load();
 
-    const ollama = new OllamaClient(
-        contextData.ollamaConfig,
-        contextData.agentConfig.model!,
-        contextData.agentConfig.temperature
-    );
+    const client = ChatClientFactory.getClient(contextData);
 
     // Build the system prompt with the "Planner" instructions
     let systemPrompt = await getPromptFromFile("PLANNER");
@@ -148,7 +135,7 @@ export async function getTechnicalPlan(
         messages.push({ role: "user", content: prompt });
     }
 
-    const responseContent = await ollama.chat(messages);
+    const responseContent = await client.chat(messages);
     const plan = parseTechnicalPlan(responseContent);
 
     // Clean up the message content by removing the JSON block

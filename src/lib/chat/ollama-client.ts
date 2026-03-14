@@ -1,7 +1,8 @@
-import { ChatMessage } from "./types";
+import { ChatMessage, ChatClient } from "./types";
 
-export class OllamaClient {
+export class OllamaClient implements ChatClient {
     constructor(private readonly config: { url: string }, private readonly model: string, private readonly temperature: number) { }
+
 
     async chat(messages: ChatMessage[]): Promise<string> {
         console.log(messages);

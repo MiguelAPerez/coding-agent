@@ -7,61 +7,46 @@ async function clear() {
     try {
         // Order matters if there are foreign key constraints without cascade (though schema has onDelete: "cascade")
 
-        console.log("- Clearing repositories...")
-        await db.delete(repositories)
+    const tables = [
+        { name: "repositories", table: repositories },
+        { name: "ollamaModels", table: ollamaModels },
+        { name: "ollamaConfigurations", table: ollamaConfigurations },
+        { name: "benchmarkEntries", table: benchmarkEntries },
+        { name: "benchmarks", table: benchmarks },
+        { name: "contextGroups", table: contextGroups },
+        { name: "skills", table: skills },
+        { name: "tools", table: tools },
+        { name: "agentConfigurations", table: agentConfigurations },
+        { name: "userPermissions", table: userPermissions },
+        { name: "giteaConfigurations", table: giteaConfigurations },
+        { name: "sessions", table: sessions },
+        { name: "accounts", table: accounts },
+        { name: "verificationTokens", table: verificationTokens },
+        { name: "users", table: users },
+        { name: "permissions", table: permissions },
+    ];
 
-        console.log("- Clearing Ollama models...")
-        await db.delete(ollamaModels)
+    for (const { name, table } of tables) {
+        try {
+            console.log(`- Clearing ${name}...`);
+            await db.delete(table);
+        } catch (error: unknown) {
+            const err = error as Error;
+            if (err.message && err.message.includes("no such table")) {
+                console.log(`  (Table ${name} does not exist, skipping)`);
+            } else {
+                console.error(`❌ Failed to clear ${name}:`, err.message);
+            }
+        }
 
-        console.log("- Clearing Ollama configurations...")
-        await db.delete(ollamaConfigurations)
-
-        console.log("- Clearing benchmark entries...")
-
-        await db.delete(benchmarkEntries)
-
-        console.log("- Clearing benchmarks...")
-        await db.delete(benchmarks)
-
-        console.log("- Clearing context groups...")
-        await db.delete(contextGroups)
-
-        console.log("- Clearing skills...")
-        await db.delete(skills)
-
-
-        console.log("- Clearing tools...")
-        await db.delete(tools)
-
-        console.log("- Clearing agent configurations...")
-        await db.delete(agentConfigurations)
-
-        console.log("- Clearing user permissions...")
-        await db.delete(userPermissions)
-
-        console.log("- Clearing Gitea configurations...")
-        await db.delete(giteaConfigurations)
-
-        console.log("- Clearing sessions...")
-        await db.delete(sessions)
-
-        console.log("- Clearing accounts...")
-        await db.delete(accounts)
-
-        console.log("- Clearing verification tokens...")
-        await db.delete(verificationTokens)
-
-        console.log("- Clearing users...")
-        await db.delete(users)
-
-        console.log("- Clearing permissions...")
-        await db.delete(permissions)
-
-        console.log("\n✅ Database cleared successfully!")
-    } catch (error) {
-        console.error("❌ Clearing failed:", error)
-        process.exit(1)
     }
+
+    console.log("\n✅ Database clear process completed!");
+} catch (error) {
+    console.error("❌ Clearing failed:", error)
+    process.exit(1)
+}
+
 }
 
 clear()
