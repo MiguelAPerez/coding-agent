@@ -9,6 +9,8 @@ export function register() {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { semanticIndexing } = require("./lib/semanticIndexing");
         // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { cleanupOldExternalChats } = require("./lib/chat-cleanup");
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { runBackgroundJob } = require("./lib/background-jobs");
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { CRON_DEFINITIONS } = require("./lib/cron-constants");
@@ -19,6 +21,7 @@ export function register() {
             repository_sync: syncRepositories,
             repository_analysis_docs: analyzeRepoDocs,
             semantic_indexing: semanticIndexing,
+            chat_cleanup: cleanupOldExternalChats,
         };
 
         for (const def of CRON_DEFINITIONS) {

@@ -8,6 +8,7 @@ import ChatInterface, { Message } from "@/components/chat/ChatInterface";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { updateDefaultAgent } from "@/app/actions/config";
+import { clearChatMessages } from "@/app/actions/chat";
 
 export default function UnifiedChatPage() {
     const router = useRouter();
@@ -207,11 +208,18 @@ export default function UnifiedChatPage() {
     const handleSetGlobalDefaultAgent = async (agentId: string) => {
         try {
             await updateDefaultAgent(agentId);
-            // The session won't automatically update on the client, 
-            // but the state will stay as selected.
-            // In a real app, you might want to force a session refresh.
         } catch (err) {
             console.error("Failed to set global default agent:", err);
+        }
+    };
+
+    const handleClearMessages = async () => {
+        if (!activeThreadId) return;
+        try {
+            await clearChatMessages(activeThreadId);
+            setMessages([]);
+        } catch (err) {
+            console.error("Failed to clear messages:", err);
         }
     };
 
@@ -240,6 +248,7 @@ export default function UnifiedChatPage() {
                     onAgentSelect={setCurrentAgentId}
                     onSetDefaultAgent={handleSetDefaultAgent}
                     onSetGlobalDefaultAgent={handleSetGlobalDefaultAgent}
+                    onClear={handleClearMessages}
                 />
             </div>
         </div>

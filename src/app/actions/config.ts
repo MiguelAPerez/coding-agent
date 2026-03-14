@@ -180,6 +180,23 @@ export async function triggerSemanticIndexing() {
     return { success: true };
 }
 
+export async function triggerChatCleanup() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { cleanupOldExternalChats } = require("@/lib/chat-cleanup");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { runBackgroundJob } = require("@/lib/background-jobs");
+
+    runBackgroundJob("chat_cleanup", async () => {
+        return await cleanupOldExternalChats();
+    }).catch(console.error);
+
+    revalidatePath("/admin/jobs");
+    return { success: true };
+}
+
 export async function updateDefaultAgent(agentId: string) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");

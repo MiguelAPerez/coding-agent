@@ -103,5 +103,16 @@ export const ChatService = {
                 messages: true,
             },
         });
+    },
+
+    async deleteChatMessages(chatId: string) {
+        return await db.delete(messages)
+            .where(eq(messages.chatId, chatId));
+    },
+
+    async deleteChat(chatId: string) {
+        // Since messages has onDelete: "cascade", we just need to delete the chat
+        return await db.delete(chats)
+            .where(eq(chats.id, chatId));
     }
 };

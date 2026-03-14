@@ -10,6 +10,7 @@ interface ChatHeaderProps {
     onAgentSelect?: (agentId: string) => void;
     onSetDefaultAgent?: (agentId: string) => void;
     onSetGlobalDefaultAgent?: (agentId: string) => void;
+    onClear?: () => void;
     isLoading: boolean;
 }
 
@@ -21,10 +22,19 @@ export default function ChatHeader({
     onAgentSelect,
     onSetDefaultAgent,
     onSetGlobalDefaultAgent,
+    onClear,
     isLoading
 }: ChatHeaderProps) {
     const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
+    const [isConfirmingClear, setIsConfirmingClear] = useState(false);
     const agentMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isConfirmingClear) {
+            const timer = setTimeout(() => setIsConfirmingClear(false), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [isConfirmingClear]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -50,6 +60,32 @@ export default function ChatHeader({
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {onClear && (
+                        <button
+                            onClick={() => {
+                                if (isConfirmingClear) {
+                                    onClear();
+                                    setIsConfirmingClear(false);
+                                } else {
+                                    setIsConfirmingClear(true);
+                                }
+                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-sm font-medium ${
+                                isConfirmingClear 
+                                    ? "bg-red-500/10 border-red-500/50 text-red-500" 
+                                    : "border-border/50 hover:bg-red-500/5 hover:text-red-500 text-foreground/40"
+                            }`}
+                            title={isConfirmingClear ? "Are you sure?" : "Clear Chat"}
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="hidden sm:inline">
+                                {isConfirmingClear ? "Confirm Clear" : "Clear"}
+                            </span>
+                        </button>
+                    )}
+
                     {agents.length > 0 && (
                         <div className="relative" ref={agentMenuRef}>
                             <button

@@ -9,10 +9,20 @@ import { ChatMessage, ChatResponse } from "@/lib/chat/types";
 import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
 import { PromptBuilder } from "@/lib/chat/prompt-builder";
 import { getPromptFromFile } from "./prompts";
+import { ChatService } from "@/lib/chat/service";
+import { revalidatePath } from "next/cache";
 
 export type { ChatMessage, ChatResponse, FileChange, PendingSuggestion, TechnicalPlan, PlanStep } from "@/lib/chat/types";
 
 // --- Public Actions ---
+
+export async function clearChatMessages(chatId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    
+    await ChatService.deleteChatMessages(chatId);
+    revalidatePath(`/chat/${chatId}`);
+}
 
 
 /**
