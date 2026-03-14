@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { ChatContext } from "@/lib/chat/context";
-import { OllamaClient } from "@/lib/chat/ollama-client";
+import { ChatClientFactory } from "@/lib/chat/client-factory";
 import { extractMentionedPaths } from "@/lib/chat/utils";
+
 import { getPromptFromFile } from "@/app/actions/prompts";
 
 export async function POST(req: NextRequest) {
@@ -24,11 +25,8 @@ export async function POST(req: NextRequest) {
         const context = new ChatContext(userId, repoId, agentId, filePath, extraPaths);
         const contextData = await context.load();
 
-        const ollama = new OllamaClient(
-            contextData.ollamaConfig,
-            contextData.agentConfig.model!,
-            contextData.agentConfig.temperature
-        );
+        const chatClient = ChatClientFactory.getClient(contextData);
+
 
         let systemPrompt = await getPromptFromFile("CODER");
         if (contextData.agentPersonalityPrompt) {
@@ -59,7 +57,8 @@ export async function POST(req: NextRequest) {
         const stream = new ReadableStream({
             async start(controller) {
                 try {
-                    for await (const chunk of ollama.streamChat(messages)) {
+                    for await (const chunk of chatClient.streamChat(messages)) {
+
                         controller.enqueue(encoder.encode(chunk));
                     }
                     controller.close();

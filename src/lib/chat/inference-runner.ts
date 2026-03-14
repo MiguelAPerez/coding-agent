@@ -1,5 +1,4 @@
-import { ChatMessage, ChatResponse, ContextData } from "./types";
-import { OllamaClient } from "./ollama-client";
+import { ChatMessage, ChatResponse, ContextData, ChatClient } from "./types";
 import { PromptBuilder } from "./prompt-builder";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
 
@@ -8,8 +7,9 @@ export class InferenceRunner {
         private readonly userId: string,
         private readonly repoId: string,
         private readonly contextData: ContextData,
-        private readonly ollama: OllamaClient
+        private readonly chatClient: ChatClient
     ) { }
+
 
     async run(prompt: string, initialFilePath: string | null, initialFileContent: string): Promise<ChatResponse> {
         const messages: ChatMessage[] = [
@@ -26,7 +26,8 @@ export class InferenceRunner {
             const systemPrompt = await PromptBuilder.buildSystemPrompt(this.contextData, currentFilePath, currentFileContent);
             messages[0].content = systemPrompt; // Refresh system prompt with new context if navigated
 
-            const content = await this.ollama.chat(messages);
+            const content = await this.chatClient.chat(messages);
+
 
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             let parsed = null;

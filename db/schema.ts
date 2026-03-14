@@ -116,6 +116,21 @@ export const ollamaConfigurations = sqliteTable("ollama_configuration", {
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
 
+export const anthropicConfigurations = sqliteTable("anthropic_configuration", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .unique()
+        .references(() => users.id, { onDelete: "cascade" }),
+    apiKey: text("apiKey").notNull(),
+    totalInputTokens: integer("totalInputTokens").notNull().default(0),
+    totalOutputTokens: integer("totalOutputTokens").notNull().default(0),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+
 export const githubConfigurations = sqliteTable("github_configuration", {
     id: text("id")
         .primaryKey()
@@ -143,6 +158,19 @@ export const ollamaModels = sqliteTable("ollama_model", {
     details: text("details"), // JSON string for metadata
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
+
+export const anthropicModels = sqliteTable("anthropic_model", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    details: text("details"), // JSON string for metadata
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
 
 export const repositories = sqliteTable("repository", {
     id: text("id")
@@ -179,6 +207,7 @@ export const agentConfigurations = sqliteTable("agent_configuration", {
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    provider: text("provider").notNull().default("ollama"),
     model: text("model").notNull().default(""),
     systemPromptId: text("systemPromptId").references(() => systemPrompts.id),
     systemPrompt: text("systemPrompt").notNull().default("You are a helpful coding assistant."),
@@ -186,6 +215,7 @@ export const agentConfigurations = sqliteTable("agent_configuration", {
     isManaged: integer("isManaged", { mode: "boolean" }).notNull().default(false),
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
+
 
 export const skills = sqliteTable("skill", {
     id: text("id")

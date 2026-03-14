@@ -5,7 +5,9 @@ import { useTheme } from "@/context/ThemeContext";
 import GiteaConfiguration from "@/components/SystemSettings/GiteaConfiguration";
 import OllamaConfiguration from "@/components/SystemSettings/OllamaConfiguration";
 import GitHubConfiguration from "@/components/SystemSettings/GitHubConfiguration";
+import ClaudeConfiguration from "@/components/SystemSettings/ClaudeConfiguration";
 import RepositoriesConfiguration from "@/components/SystemSettings/RepositoriesConfiguration";
+
 import DockerConfiguration from "@/components/SystemSettings/DockerConfiguration";
 import { getBranchProtection, updateBranchProtection } from "@/app/actions/settings";
 import { useState, useEffect } from "react";
@@ -88,7 +90,9 @@ export default function SettingsPage() {
                         <GiteaConfiguration />
                         <GitHubConfiguration />
                         <OllamaConfiguration />
+                        <ClaudeConfiguration />
                     </div>
+
                 </div>
             </div>
         </div>

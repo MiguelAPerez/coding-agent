@@ -16,7 +16,8 @@ export async function getAgentConfigs() {
     return db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, session.user.id)).all();
 }
 
-export async function saveAgentConfig(data: { id?: string; name: string; model: string; systemPromptId?: string | null; systemPrompt?: string; temperature: number }) {
+export async function saveAgentConfig(data: { id?: string; name: string; provider: string; model: string; systemPromptId?: string | null; systemPrompt?: string; temperature: number }) {
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -41,12 +42,14 @@ export async function saveAgentConfig(data: { id?: string; name: string; model: 
             .values({
                 userId: session.user.id,
                 name: data.name,
+                provider: data.provider,
                 model: data.model,
                 systemPromptId: data.systemPromptId,
                 systemPrompt: data.systemPrompt || (await getPromptFromFile("CODER")),
                 temperature: data.temperature,
                 updatedAt: now,
             })
+
             .returning()
             .get();
         revalidatePath("/agent");
@@ -86,7 +89,9 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
         const values = {
             userId,
             name: agent.name,
+            provider: 'ollama',
             model: agent.model,
+
             systemPromptId: agent.systemPromptId,
             systemPrompt: agent.systemPrompt || (await getPromptFromFile("CODER")),
             temperature: agent.temperature,
