@@ -21,8 +21,8 @@ export class InferenceRunner {
         let currentFileContent = initialFileContent;
         let currentRedirect = initialFilePath;
 
-        for (let step = 0; step < 3; step++) {
-            console.log(`[Chat Inference] Step ${step + 1}/3...`);
+        for (let step = 0; step < 2; step++) {
+            console.log(`[Chat Inference] Step ${step + 1}/2...`);
             const systemPrompt = await PromptBuilder.buildSystemPrompt(this.contextData, currentFilePath, currentFileContent);
             messages[0].content = systemPrompt; // Refresh system prompt with new context if navigated
 

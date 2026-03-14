@@ -1,6 +1,7 @@
 import { ContextData, ChatClient } from "./types";
 import { OllamaClient } from "./ollama-client";
 import { ClaudeClient } from "./anthropic-client";
+import { GoogleClient } from "./google-client";
 
 export class ChatClientFactory {
     static getClient(context: ContextData): ChatClient {
@@ -14,6 +15,20 @@ export class ChatClientFactory {
                 {
                     id: context.anthropicConfig.id,
                     apiKey: context.anthropicConfig.apiKey
+                },
+                context.agentConfig.model,
+                context.agentConfig.temperature
+            );
+        }
+
+        if (provider === 'google') {
+            if (!context.googleConfig) {
+                throw new Error("Google Gemini is not configured. Please add your API key in Settings.");
+            }
+            return new GoogleClient(
+                {
+                    id: context.googleConfig.id,
+                    apiKey: context.googleConfig.apiKey
                 },
                 context.agentConfig.model,
                 context.agentConfig.temperature

@@ -6,6 +6,7 @@ import GiteaConfiguration from "@/components/SystemSettings/GiteaConfiguration";
 import OllamaConfiguration from "@/components/SystemSettings/OllamaConfiguration";
 import GitHubConfiguration from "@/components/SystemSettings/GitHubConfiguration";
 import ClaudeConfiguration from "@/components/SystemSettings/ClaudeConfiguration";
+import GoogleConfiguration from "@/components/SystemSettings/GoogleConfiguration";
 import RepositoriesConfiguration from "@/components/SystemSettings/RepositoriesConfiguration";
 
 import DockerConfiguration from "@/components/SystemSettings/DockerConfiguration";
@@ -91,6 +92,7 @@ export default function SettingsPage() {
                         <GitHubConfiguration />
                         <OllamaConfiguration />
                         <ClaudeConfiguration />
+                        <GoogleConfiguration />
                     </div>
 
                 </div>

@@ -26,6 +26,7 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
         const result = db.update(agentConfigurations)
             .set({
                 name: data.name,
+                provider: data.provider,
                 model: data.model,
                 systemPromptId: data.systemPromptId,
                 systemPrompt: data.systemPrompt || (await getPromptFromFile("CODER")),

@@ -130,6 +130,32 @@ export const anthropicConfigurations = sqliteTable("anthropic_configuration", {
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })
 
+export const googleConfigurations = sqliteTable("google_configuration", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .unique()
+        .references(() => users.id, { onDelete: "cascade" }),
+    apiKey: text("apiKey").notNull(),
+    totalInputTokens: integer("totalInputTokens").notNull().default(0),
+    totalOutputTokens: integer("totalOutputTokens").notNull().default(0),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const googleModels = sqliteTable("google_model", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    details: text("details"), // JSON string for metadata
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+})
+
 
 export const githubConfigurations = sqliteTable("github_configuration", {
     id: text("id")

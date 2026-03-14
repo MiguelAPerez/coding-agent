@@ -44,7 +44,7 @@ export interface PendingSuggestion {
 }
 
 import { InferSelectModel } from "drizzle-orm";
-import { repositories, agentConfigurations, skills, tools, ollamaConfigurations, anthropicConfigurations } from "@/../db/schema";
+import { repositories, agentConfigurations, skills, tools, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
 
 
 export interface ContextData {
@@ -55,6 +55,7 @@ export interface ContextData {
     enabledTools: InferSelectModel<typeof tools>[];
     ollamaConfig?: InferSelectModel<typeof ollamaConfigurations>;
     anthropicConfig?: InferSelectModel<typeof anthropicConfigurations>;
+    googleConfig?: InferSelectModel<typeof googleConfigurations>;
 
     initialFileContent: string;
     fileContents: Record<string, string>;

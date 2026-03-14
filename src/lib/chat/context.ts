@@ -1,5 +1,5 @@
 import { db } from "@/../db";
-import { agentConfigurations, skills, tools, repositories, systemPrompts, ollamaConfigurations, anthropicConfigurations } from "@/../db/schema";
+import { agentConfigurations, skills, tools, repositories, systemPrompts, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
 
 import { eq, and, isNull } from "drizzle-orm";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
@@ -59,8 +59,9 @@ export class ChatContext {
 
         const ollamaConfig = db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get();
         const anthropicConfig = db.select().from(anthropicConfigurations).where(eq(anthropicConfigurations.userId, this.userId)).get();
+        const googleConfig = db.select().from(googleConfigurations).where(eq(googleConfigurations.userId, this.userId)).get();
         
-        if (!ollamaConfig && !anthropicConfig) throw new Error("No LLM providers configured. Please configure Ollama or Claude in Settings.");
+        if (!ollamaConfig && !anthropicConfig && !googleConfig) throw new Error("No LLM providers configured. Please configure Ollama, Claude, or Gemini in Settings.");
 
 
         // Load multiple files for context
@@ -89,6 +90,7 @@ export class ChatContext {
             enabledTools,
             ollamaConfig: ollamaConfig || undefined,
             anthropicConfig: anthropicConfig || undefined,
+            googleConfig: googleConfig || undefined,
             initialFileContent: this.filePath ? (fileContents[this.filePath] || "") : "",
 
 

@@ -4,6 +4,7 @@ import { saveAgentConfig, deleteAgent } from "@/app/actions/config";
 import { getOllamaModels } from "@/app/actions/ollama";
 import { getAnthropicModels } from "@/app/actions/anthropic";
 import { AgentConfig, SystemPrompt } from "@/types/agent";
+import { getGoogleModels } from "@/app/actions/google";
 
 
 export const AgentConfigForm = ({
@@ -24,17 +25,20 @@ export const AgentConfigForm = ({
     const [message, setMessage] = useState("");
     const [ollamaModels, setOllamaModels] = useState<{ name: string; details: string | null }[]>([]);
     const [anthropicModels, setAnthropicModels] = useState<{ name: string; details: string | null }[]>([]);
+    const [googleModels, setGoogleModels] = useState<{ name: string; details: string | null }[]>([]);
 
 
     useEffect(() => {
         async function loadModels() {
             try {
-                const [olModels, antModels] = await Promise.all([
+                const [olModels, antModels, gooModels] = await Promise.all([
                     getOllamaModels(),
-                    getAnthropicModels()
+                    getAnthropicModels(),
+                    getGoogleModels()
                 ]);
                 setOllamaModels(olModels);
                 setAnthropicModels(antModels);
+                setGoogleModels(gooModels);
             } catch (err) {
                 console.error("Failed to load models", err);
             }
@@ -90,7 +94,7 @@ export const AgentConfigForm = ({
             {isManaged && (
                 <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-4 text-primary mb-8">
                     <div className="p-2 bg-primary/10 rounded-xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     </div>
                     <div>
                         <p className="font-semibold text-sm text-foreground">Managed by Repository</p>
@@ -126,9 +130,10 @@ export const AgentConfigForm = ({
                     >
                         <option value="ollama">Ollama (Local)</option>
                         <option value="anthropic">Anthropic Claude (Cloud)</option>
+                        <option value="google">Google Gemini (Cloud)</option>
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                     </div>
                 </div>
             </div>
@@ -157,7 +162,7 @@ export const AgentConfigForm = ({
                                             if (caps.includes("thinking")) labels.push("thinking");
                                             if (caps.includes("tools") || caps.includes("tool_use")) labels.push("tools");
                                             if (labels.length > 0) labelSuffix = ` (${labels.join(", ")})`;
-                                        } catch {}
+                                        } catch { }
 
                                         return (
                                             <option key={m.name} value={m.name}>
@@ -167,6 +172,19 @@ export const AgentConfigForm = ({
                                     })}
                                 </optgroup>
                             )}
+                            {provider === 'google' && googleModels.length > 0 && (
+                                <optgroup label="Google Gemini">
+                                    {googleModels.map(m => (
+                                        <option key={m.name} value={m.name}>
+                                            {m.name}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )}
+                            {provider === 'google' && googleModels.length === 0 && (
+                                <option value="" disabled>No Google models synced. Go to Settings.</option>
+                            )}
+
                             {provider === 'anthropic' && anthropicModels.length > 0 && (
                                 <optgroup label="Anthropic Claude">
                                     {anthropicModels.map(m => (
@@ -183,7 +201,7 @@ export const AgentConfigForm = ({
                         </select>
 
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                         </div>
                     </div>
                 </div>
@@ -203,7 +221,7 @@ export const AgentConfigForm = ({
                             ))}
                         </select>
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-foreground/20 group-hover/select:text-foreground/40 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                         </div>
                     </div>
                 </div>
