@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits, Message, TextChannel } from "discord.js";
 import { ChatService } from "@/lib/chat/service";
-import { chatWithAgentInternal } from "@/app/actions/chat";
+import { chatWithAgentInternal, getPromptFromFile } from "@/app/actions/chat";
 import { db } from "@/../db";
 
 export class DiscordBot {
@@ -17,7 +17,6 @@ export class DiscordBot {
             intents: [
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
-                GatewayIntentBits.MessageContent,
                 GatewayIntentBits.DirectMessages,
             ],
         });
@@ -29,7 +28,9 @@ export class DiscordBot {
     }
 
     async start() {
+        console.log(`[DiscordBot] Attempting login for connection ${this.connectionId}...`);
         await this.client.login(this.token);
+        console.log(`[DiscordBot] Login call completed for connection ${this.connectionId}.`);
     }
 
     async stop() {
@@ -59,10 +60,17 @@ export class DiscordBot {
             // For now, just pick the first ones or use defaults
             let agentId: string | null = chat.agentId;
             if (!agentId) {
-                const defaultAgent = await db.query.agentConfigurations.findFirst({
-                    where: (agent, { eq }) => eq(agent.userId, this.userId),
+                const user = await db.query.users.findFirst({
+                    where: (u, { eq }) => eq(u.id, this.userId),
                 });
-                agentId = defaultAgent?.id || null;
+                agentId = user?.defaultAgentId || null;
+
+                if (!agentId) {
+                    const firstAgent = await db.query.agentConfigurations.findFirst({
+                        where: (agent, { eq }) => eq(agent.userId, this.userId),
+                    });
+                    agentId = firstAgent?.id || null;
+                }
             }
 
             let repoId: string | null = chat.repoId;
@@ -87,13 +95,16 @@ export class DiscordBot {
                 await message.channel.sendTyping();
             }
 
+            const discordPrompt = await getPromptFromFile("DISCORD");
+
             const response = await chatWithAgentInternal(
                 repoId as string, // Cast for type safety, context handles null
                 null, // No specific file path from Discord yet
                 message.content,
                 agentId,
                 this.userId,
-                chatMessages
+                chatMessages,
+                discordPrompt
             );
 
             // Save assistant message
@@ -127,35 +138,57 @@ export class ConnectionManager {
     }
 
     async startAll() {
+        console.log("[ConnectionManager] Starting all enabled connections...");
         const activeConnections = await db.query.connections.findMany({
             where: (conn, { eq }) => eq(conn.enabled, true),
         });
 
+        console.log(`[ConnectionManager] Found ${activeConnections.length} active connections.`);
         for (const conn of activeConnections) {
             await this.startConnection(conn.id, conn.type, conn.userId, conn.config);
         }
     }
 
     async startConnection(id: string, type: string, userId: string, configJson: string) {
-        if (this.bots.has(id)) return;
+        if (this.bots.has(id)) {
+            console.log(`[ConnectionManager] Connection ${id} already running.`);
+            return;
+        }
 
         try {
+            console.log(`[ConnectionManager] Starting connection ${id} (${type})...`);
             const config = JSON.parse(configJson);
             if (type === "discord" && config.token) {
                 const bot = new DiscordBot(config.token, userId, id);
                 await bot.start();
                 this.bots.set(id, bot);
+                console.log(`[ConnectionManager] Discord bot started successfully for connection ${id}.`);
+            } else {
+                console.warn(`[ConnectionManager] Unsupported connection type or missing token: ${type}`);
             }
         } catch (error) {
-            console.error(`Failed to start connection ${id}:`, error);
+            console.error(`[ConnectionManager] Failed to start connection ${id}:`, error);
         }
     }
 
     async stopConnection(id: string) {
         const bot = this.bots.get(id);
         if (bot) {
+            console.log(`[ConnectionManager] Stopping connection ${id}...`);
             await bot.stop();
             this.bots.delete(id);
+            console.log(`[ConnectionManager] Connection ${id} stopped.`);
         }
+    }
+
+    getStatus() {
+        const status: Record<string, { type: string, status: string }> = {};
+        for (const [id] of this.bots.entries()) {
+            status[id] = {
+                type: "discord",
+                status: "online"
+            };
+        }
+        return status;
     }
 }

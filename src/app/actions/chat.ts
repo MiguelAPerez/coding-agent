@@ -8,7 +8,7 @@ import { InferenceRunner } from "@/lib/chat/inference-runner";
 import { ChatMessage, ChatResponse } from "@/lib/chat/types";
 import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
 import { PromptBuilder } from "@/lib/chat/prompt-builder";
-import { getPromptFromFile } from "./prompts";
+export { getPromptFromFile } from "./prompts";
 
 export type { ChatMessage, ChatResponse, FileChange, PendingSuggestion, TechnicalPlan, PlanStep } from "@/lib/chat/types";
 
@@ -50,7 +50,8 @@ export async function chatWithAgentInternal(
     prompt: string,
     agentId: string,
     userId: string,
-    history: ChatMessage[] = []
+    history: ChatMessage[] = [],
+    sysPrompt?: string
 ): Promise<ChatResponse> {
     const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
 
@@ -59,15 +60,15 @@ export async function chatWithAgentInternal(
 
     const client = ChatClientFactory.getClient(contextData);
 
-    // Build the system prompt with the "Diff Generator" instructions
-    const coderInstructions = await getPromptFromFile("CODER");
+    // Build the system prompt
+    const instructions = sysPrompt || await getPromptFromFile("CODER");
 
     const messages: ChatMessage[] = [
         { role: "system", content: "" }, // Placeholder
         ...history,
     ];
 
-    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", coderInstructions);
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", instructions);
     messages[0].content = systemPrompt;
 
     if (Object.keys(contextData.fileContents).length > 0) {

@@ -94,7 +94,10 @@ export default function UnifiedChatPage() {
                 const res = await fetch("/api/chats", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ title: content.substring(0, 30) + "..." })
+                    body: JSON.stringify({ 
+                        title: content.slice(0, 30),
+                        agentId: currentAgentId
+                    })
                 });
                 const newChat = await res.json();
                 setActiveThreadId(newChat.id);

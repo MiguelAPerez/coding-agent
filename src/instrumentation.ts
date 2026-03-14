@@ -36,8 +36,11 @@ export function register() {
         console.log("Internal cron jobs registered from centralized definitions");
 
         // Start all enabled connections
+        console.log("[Instrumentation] Starting connection manager...");
         ConnectionManager.getInstance().startAll().catch((err: Error) => {
-            console.error("Failed to start connections:", err);
+            console.error("[Instrumentation] Failed to start connections:", err);
         });
+    } else {
+        console.log(`[Instrumentation] Skipping runtime: ${process.env.NEXT_RUNTIME}`);
     }
 }
