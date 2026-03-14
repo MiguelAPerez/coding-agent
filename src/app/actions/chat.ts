@@ -48,30 +48,44 @@ export async function chatWithAgentInternal(
 
     const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
 
+    const start = Date.now();
     const context = new ChatContext(userId, repoId, agentId, filePath, extraPaths);
     const contextData = await context.load();
+    const contextLoadTime = Date.now() - start;
 
     const client = ChatClientFactory.getClient(contextData);
-
 
     const messages: ChatMessage[] = [
         { role: "system", content: "" }, // Placeholder
         ...history,
     ];
 
+    // Avoid duplication if history already contains the current prompt
+    const lastUserMessage = [...history].reverse().find(m => m.role === "user");
+    const isDuplicate = lastUserMessage && lastUserMessage.content.trim() === prompt.trim();
+    
+    if (isDuplicate) {
+        console.log(`[DEDUPE] Skipping redundant prompt. (Content matches last user message)`);
+    } else {
+        messages.push({ role: "user", content: prompt });
+    }
 
     // Simple Channel Response
+    const promptStart = Date.now();
     instructions = (discordChannelId) ? await getPromptFromFile("DISCORD") : null;
     const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, null, contextData.initialFileContent || "", instructions);
     messages[0].content = systemPrompt;
+    const promptBuildTime = Date.now() - promptStart;
 
-    messages.push({ role: "user", content: prompt });
-
+    const inferenceStart = Date.now();
     const responseContent = await client.chat(messages);
+    const inferenceTime = Date.now() - inferenceStart;
+
+    console.log(`[chatWithAgentInternal] userId: ${userId} context: ${contextLoadTime}ms, prompt: ${promptBuildTime}ms, inference: ${inferenceTime}ms, total: ${Date.now() - start}ms`);
 
     // We don't expect an specific format here, just a message
     return {
-        message: responseContent,
+        message: responseContent || "",
     };
 }
 

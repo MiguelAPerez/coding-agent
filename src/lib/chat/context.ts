@@ -15,25 +15,32 @@ export class ChatContext {
     ) { }
 
     async load(): Promise<ContextData> {
+        const [
+            ollamaConfig,
+            anthropicConfig,
+            googleConfig
+        ] = await Promise.all([
+            db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get(),
+            db.select().from(anthropicConfigurations).where(eq(anthropicConfigurations.userId, this.userId)).get(),
+            db.select().from(googleConfigurations).where(eq(googleConfigurations.userId, this.userId)).get(),
+        ]);
+
+        if (!ollamaConfig && !anthropicConfig && !googleConfig) {
+            throw new Error("No LLM providers configured. Please configure Ollama, Claude, or Gemini in Settings.");
+        }
+
         let repo = null;
         if (this.repoId && this.repoId !== "default") {
             repo = db.select().from(repositories).where(eq(repositories.id, this.repoId)).get();
-            if (!repo) {
-                console.warn(`Repository ${this.repoId} not found. Proceeding as global chat.`);
-            }
         }
 
         let agentConfig;
         if (this.agentId) {
             agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.id, this.agentId), eq(agentConfigurations.userId, this.userId))).get();
-            if (!agentConfig) {
-                console.warn(`Requested agent ${this.agentId} not found for user ${this.userId}. Falling back to default.`);
-                agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.userId, this.userId), isNull(agentConfigurations.isManaged))).get() 
-                    || db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, this.userId)).get();
-            }
-        } else {
-            // Get the first agent that has a model configured
-            agentConfig = db.select().from(agentConfigurations).where(and(eq(agentConfigurations.userId, this.userId))).get();
+        }
+
+        if (!agentConfig) {
+            agentConfig = db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, this.userId)).get();
         }
 
         if (!agentConfig) {
@@ -61,12 +68,6 @@ export class ChatContext {
             eq(tools.isEnabled, true),
             this.agentId ? eq(tools.agentId, this.agentId) : isNull(tools.agentId)
         )).all();
-
-        const ollamaConfig = db.select().from(ollamaConfigurations).where(eq(ollamaConfigurations.userId, this.userId)).get();
-        const anthropicConfig = db.select().from(anthropicConfigurations).where(eq(anthropicConfigurations.userId, this.userId)).get();
-        const googleConfig = db.select().from(googleConfigurations).where(eq(googleConfigurations.userId, this.userId)).get();
-        
-        if (!ollamaConfig && !anthropicConfig && !googleConfig) throw new Error("No LLM providers configured. Please configure Ollama, Claude, or Gemini in Settings.");
 
 
         // Load multiple files for context

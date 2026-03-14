@@ -42,12 +42,31 @@ export const ChatService = {
     },
 
     async saveMessage(params: SaveMessageParams) {
-        const [message] = await db.insert(messages).values({
-            chatId: params.chatId,
-            role: params.role,
-            content: params.content,
-            externalId: params.externalId,
-        }).returning();
+        let message;
+        if (params.externalId) {
+            const existing = await db.query.messages.findFirst({
+                where: eq(messages.externalId, params.externalId),
+            });
+            if (existing) {
+                [message] = await db.update(messages)
+                    .set({
+                        chatId: params.chatId,
+                        role: params.role,
+                        content: params.content,
+                    })
+                    .where(eq(messages.id, existing.id))
+                    .returning();
+            }
+        }
+
+        if (!message) {
+            [message] = await db.insert(messages).values({
+                chatId: params.chatId,
+                role: params.role,
+                content: params.content,
+                externalId: params.externalId,
+            }).returning();
+        }
 
         // Update chat updatedAt
         await db.update(chats)

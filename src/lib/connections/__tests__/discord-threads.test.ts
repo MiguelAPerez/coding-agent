@@ -1,7 +1,7 @@
 import { DiscordBot } from "../manager";
 import { ChatService } from "@/lib/chat/service";
 import { chatWithAgentInternal } from "@/app/actions/chat";
-import { db } from "@/../db";
+import { Message } from "discord.js";
 
 jest.mock("@/auth", () => ({
     authOptions: {},
@@ -50,9 +50,9 @@ describe("DiscordBot Thread Tracking", () => {
             content: "hello",
             mentions: { has: jest.fn(() => false) },
             reference: null,
-        } as any;
+        } as unknown as Message;
 
-        const handleMessage = (bot as any).handleMessage.bind(bot);
+        const handleMessage = (bot as unknown as { handleMessage: (m: Message) => Promise<void> }).handleMessage.bind(bot);
         await handleMessage(mockMessage);
 
         expect(ChatService.getOrCreateChat).not.toHaveBeenCalled();
@@ -70,6 +70,7 @@ describe("DiscordBot Thread Tracking", () => {
             channelId: "channel123",
             channel: { sendTyping: jest.fn() },
             reply: jest.fn().mockResolvedValue({ id: "reply-id" }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
 
         (ChatService.getMessageByExternalId as jest.Mock).mockResolvedValue({
@@ -88,6 +89,7 @@ describe("DiscordBot Thread Tracking", () => {
         (ChatService.getChatHistory as jest.Mock).mockResolvedValue([]);
         (chatWithAgentInternal as jest.Mock).mockResolvedValue({ message: "response" });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const handleMessage = (bot as any).handleMessage.bind(bot);
         await handleMessage(mockMessage);
 
@@ -108,6 +110,7 @@ describe("DiscordBot Thread Tracking", () => {
             channelId: "channel123",
             channel: { name: "general", sendTyping: jest.fn() },
             reply: jest.fn().mockResolvedValue({ id: "reply-id" }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
 
         (ChatService.getOrCreateChat as jest.Mock).mockResolvedValue({
@@ -118,6 +121,7 @@ describe("DiscordBot Thread Tracking", () => {
         (ChatService.getChatHistory as jest.Mock).mockResolvedValue([]);
         (chatWithAgentInternal as jest.Mock).mockResolvedValue({ message: "response" });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const handleMessage = (bot as any).handleMessage.bind(bot);
         await handleMessage(mockMessage);
 

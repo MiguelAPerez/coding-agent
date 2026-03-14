@@ -1,7 +1,11 @@
-import { Client, GatewayIntentBits, Message, TextChannel } from "discord.js";
+import { Client, GatewayIntentBits, Message } from "discord.js";
 import { ChatService } from "@/lib/chat/service";
-import { chatWithAgent, chatWithAgentInternal } from "@/app/actions/chat";
+import { chatWithAgentInternal } from "@/app/actions/chat";
+import { ChatResponse } from "@/lib/chat/types";
 import { db } from "@/../db";
+import { chats } from "@/../db/schema";
+import { InferSelectModel } from "drizzle-orm";
+import { TextChannel, ThreadChannel, NewsChannel } from "discord.js";
 
 export class DiscordBot {
     private client: Client;
@@ -43,38 +47,65 @@ export class DiscordBot {
         // Only respond if mentioned or if it's a reply
         const isMentioned = this.client.user && message.mentions.has(this.client.user);
         const isReply = !!message.reference?.messageId;
+        const isThread = message.channel.isThread?.() || false;
         
         if (!isMentioned && !isReply) return;
 
         try {
             await message;
-            // If we get an empty message throw
             if (!message.content) throw new Error("Empty message");
 
-            let chat: any; // Fallback to any for now to avoid complex union type issues with relations
+            let chat: InferSelectModel<typeof chats> | undefined;
+            let chainRootId: string = message.id;
+            let isChainOurs = isMentioned;
 
+            // --- Reply Chain Tracing ---
             if (isReply && message.reference?.messageId) {
-                const parentMessage = await ChatService.getMessageByExternalId(message.reference.messageId);
-                if (parentMessage) {
-                    chat = await ChatService.getChat(parentMessage.chatId);
+                let traceId: string | undefined = message.reference.messageId;
+                let depth = 0;
+                const MAX_DEPTH = 10;
+
+                while (traceId && depth < MAX_DEPTH) {
+                    depth++;
+                    // 1. Check DB first
+                    const dbMsg = await ChatService.getMessageByExternalId(traceId);
+                    if (dbMsg) {
+                        chat = await ChatService.getChat(dbMsg.chatId);
+                        isChainOurs = true;
+                        break;
+                    }
+
+                    // 2. Fetch from Discord to find parent
+                    try {
+                        const fetched: Message = await message.channel.messages.fetch(traceId);
+                        chainRootId = fetched.id;
+                        
+                        const fromBot = fetched.author.id === this.client.user?.id;
+                        const mentionsBot = this.client.user && fetched.mentions.has(this.client.user);
+                        
+                        if (fromBot || mentionsBot) {
+                            isChainOurs = true;
+                        }
+
+                        traceId = fetched.reference?.messageId;
+                    } catch {
+                        break;
+                    }
                 }
             }
 
-            // If not a reply, or parent message not found in our DB, check if we should still respond (was mentioned)
-            if (!chat) {
-                if (!isMentioned) return; // If it's a reply but not to us and we aren't mentioned, ignore.
-
-                // Fallback to channel-based chat (existing behavior)
-                const newChat = await ChatService.getOrCreateChat({
+            // If we found a chat in DB during trace, we are good.
+            // If not, but the chain is "ours", create/get a chat based on the chainRootId
+            if (!chat && isChainOurs) {
+                chat = await ChatService.getOrCreateChat({
                     userId: this.userId,
                     type: "discord",
-                    externalId: message.channelId,
-                    title: message.channel instanceof TextChannel ? `#${message.channel.name}` : `DM with ${message.author.username}`,
+                    externalId: chainRootId,
+                    title: isThread && 'name' in message.channel ? `Thread: ${message.channel.name}` : `Discord Chain: ${message.content.slice(0, 30)}...`,
                 });
-                chat = newChat;
             }
 
-            if (!chat) throw new Error("Could not find or create chat");
+            if (!chat) return;
 
             // Get default agent and repo if not set in chat
             let agentId: string | null = chat.agentId;
@@ -109,21 +140,40 @@ export class DiscordBot {
             const history = await ChatService.getChatHistory(chat.id);
             const chatMessages = history.map(h => ({ role: h.role as "user" | "assistant" | "system", content: h.content }));
 
-            // Trigger agent inference
-            if ("sendTyping" in message.channel) {
+            // Trigger agent inference with persistent typing indicator
+            let typingInterval: NodeJS.Timeout | null = null;
+            if (message.channel instanceof TextChannel || message.channel instanceof ThreadChannel || message.channel instanceof NewsChannel) {
                 await message.channel.sendTyping();
+                typingInterval = setInterval(() => {
+                    (message.channel as TextChannel | ThreadChannel | NewsChannel).sendTyping().catch(() => {});
+                }, 9000); // Discord typing indicator lasts ~10 seconds
             }
 
-            const response = await chatWithAgentInternal(
-                agentId,
-                message.content,
-                this.userId,
-                chatMessages,
-                null,
-                null,
-                null,
-                message.channelId,
-            );
+            const startTime = Date.now();
+            let response: ChatResponse;
+            try {
+                response = await chatWithAgentInternal(
+                    agentId,
+                    message.content,
+                    this.userId,
+                    chatMessages,
+                    null,
+                    null,
+                    null,
+                    message.channelId,
+                );
+            } finally {
+                if (typingInterval) clearInterval(typingInterval);
+            }
+
+            const duration = Date.now() - startTime;
+            console.log(`[DiscordBot] Inference took ${duration}ms for user ${this.userId}`);
+
+            if (!response.message || response.message.trim() === "") {
+                console.warn("[DiscordBot] Agent returned empty response.");
+                await message.reply("I'm sorry, I couldn't generate a response. Please try again.");
+                return;
+            }
 
             // Send response back to Discord
             const sentMessage = await message.reply(response.message);
