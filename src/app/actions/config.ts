@@ -90,7 +90,7 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
         const values = {
             userId,
             name: agent.name,
-            provider: 'ollama',
+            provider: agent.provider || 'ollama',
             model: agent.model,
 
             systemPromptId: agent.systemPromptId,

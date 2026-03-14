@@ -83,3 +83,11 @@ export async function testAnthropicConnection(apiKey: string) {
         return { success: false, error: e instanceof Error ? e.message : "Connection failed" };
     }
 }
+
+export async function deleteAnthropicConfig() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    await db.delete(anthropicConfigurations).where(eq(anthropicConfigurations.userId, session.user.id)).run();
+    await db.delete(anthropicModels).where(eq(anthropicModels.userId, session.user.id)).run();
+}

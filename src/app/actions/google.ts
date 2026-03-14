@@ -95,3 +95,11 @@ export async function testGoogleConnection(apiKey: string) {
         return { success: false, error: e instanceof Error ? e.message : "Connection failed" };
     }
 }
+
+export async function deleteGoogleConfig() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    await db.delete(googleConfigurations).where(eq(googleConfigurations.userId, session.user.id)).run();
+    await db.delete(googleModels).where(eq(googleModels.userId, session.user.id)).run();
+}

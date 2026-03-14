@@ -62,9 +62,7 @@ export const AgentConfigForm = ({
             });
 
             setMessage("Configuration saved successfully!");
-            if (!initialConfig) {
-                router.refresh();
-            }
+            router.refresh();
         } catch {
             setMessage("Failed to save configuration.");
         } finally {

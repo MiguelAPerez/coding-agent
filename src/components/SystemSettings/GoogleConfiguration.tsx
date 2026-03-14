@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { getGoogleConfig, saveGoogleConfig, testGoogleConnection, syncGoogleModels, getGoogleModels } from "@/app/actions/google";
+import { getGoogleConfig, saveGoogleConfig, testGoogleConnection, syncGoogleModels, getGoogleModels, deleteGoogleConfig } from "@/app/actions/google";
+import { useRouter } from "next/navigation";
 
 export default function GoogleConfiguration() {
+    const router = useRouter();
     const [apiKey, setApiKey] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -32,8 +34,8 @@ export default function GoogleConfiguration() {
                 }
                 const models = await getGoogleModels();
                 setSyncedModels(models);
-            } catch (err) {
-                console.error("Failed to load Google config", err);
+            } catch (_err) {
+                console.error("Failed to load Google config", _err);
             } finally {
                 setIsLoading(false);
             }
@@ -106,6 +108,22 @@ export default function GoogleConfiguration() {
             setError("An unexpected error occurred during connection test.");
         } finally {
             setIsTesting(false);
+        }
+    };
+
+    const handleClear = async () => {
+        if (!confirm("Are you sure you want to clear your Gemini configuration? This will delete your API key and synced models.")) return;
+        
+        try {
+            await deleteGoogleConfig();
+            setApiKey("");
+            setUsage({ input: 0, output: 0 });
+            setLastUpdated(null);
+            setSyncedModels([]);
+            setTestResult(null);
+            router.refresh();
+        } catch (_err) {
+            setError("Failed to clear configuration");
         }
     };
 
@@ -190,33 +208,43 @@ export default function GoogleConfiguration() {
                         </div>
                     </div>
                 )}
-
-                <div className="pt-4 border-t border-border flex justify-end gap-3">
+ 
+                <div className="pt-4 border-t border-border flex justify-between items-center">
                     <button
                         type="button"
-                        onClick={handleTestConnection}
-                        disabled={isTesting || isLoading || !apiKey}
-                        className="px-4 py-2 bg-foreground/5 text-foreground/80 rounded-lg font-medium hover:bg-foreground/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm active:scale-[0.98]"
+                        onClick={handleClear}
+                        disabled={!lastUpdated || isLoading}
+                        className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors disabled:opacity-0"
                     >
-                        {isTesting ? "Testing..." : "Test Connection"}
+                        Clear Configuration
                     </button>
-
-                    <button
-                        type="button"
-                        onClick={handleSync}
-                        disabled={isSyncing || isLoading || !apiKey}
-                        className="px-4 py-2 bg-foreground/5 text-foreground/80 rounded-lg font-medium hover:bg-foreground/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm active:scale-[0.98]"
-                    >
-                        {isSyncing ? "Syncing..." : "Sync Models"}
-                    </button>
-
-                    <button
-                        type="submit"
-                        disabled={isSaving || isLoading}
-                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px] shadow-sm active:scale-[0.98]"
-                    >
-                        {isSaving ? "Saving & Syncing..." : "Save & Sync Models"}
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={handleTestConnection}
+                            disabled={isTesting || isLoading || !apiKey}
+                            className="px-4 py-2 bg-foreground/5 text-foreground/80 rounded-lg font-medium hover:bg-foreground/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm active:scale-[0.98]"
+                        >
+                            {isTesting ? "Testing..." : "Test Connection"}
+                        </button>
+ 
+                        <button
+                            type="button"
+                            onClick={handleSync}
+                            disabled={isSyncing || isLoading || !apiKey}
+                            className="px-4 py-2 bg-foreground/5 text-foreground/80 rounded-lg font-medium hover:bg-foreground/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm active:scale-[0.98]"
+                        >
+                            {isSyncing ? "Syncing..." : "Sync Models"}
+                        </button>
+ 
+                        <button
+                            type="submit"
+                            disabled={isSaving || isLoading}
+                            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px] shadow-sm active:scale-[0.98]"
+                        >
+                            {isSaving ? "Saving & Syncing..." : "Save & Sync Models"}
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
