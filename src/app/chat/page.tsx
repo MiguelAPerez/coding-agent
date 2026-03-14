@@ -100,7 +100,7 @@ export default function UnifiedChatPage() {
                 const res = await fetch("/api/chats", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         title: content.slice(0, 30),
                         agentId: currentAgentId
                     })
@@ -136,13 +136,14 @@ export default function UnifiedChatPage() {
 
             // Trigger actual chat inference (we need a server action or API for this)
             // For now, let's use the existing chat API which returns a stream
+            console.log("Sending message to chat", content);
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     prompt: content,
-                    repoId: null, 
-                    agentId: currentAgentId || "default", 
+                    repoId: null,
+                    agentId: currentAgentId || "default",
                     history: messages.map(m => ({ role: m.role, content: m.content }))
                 })
             });
@@ -153,7 +154,7 @@ export default function UnifiedChatPage() {
 
             let assistantContent = "";
             const assistantMsgId = (Date.now() + 1).toString();
-            
+
             // Add empty assistant message to start streaming into it
             setMessages(prev => [...prev, { id: assistantMsgId, role: "assistant", content: "" }]);
 
@@ -219,7 +220,7 @@ export default function UnifiedChatPage() {
     return (
         <div className="flex h-[calc(100vh-4rem)] bg-background overflow-hidden">
             <div className="w-80 shrink-0 hidden md:block border-r border-border/50">
-                <ChatSidebar 
+                <ChatSidebar
                     threads={threads}
                     activeThreadId={activeThreadId}
                     onThreadSelect={setActiveThreadId}
@@ -228,7 +229,7 @@ export default function UnifiedChatPage() {
             </div>
 
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                <ChatInterface 
+                <ChatInterface
                     messages={messages}
                     isLoading={isLoading}
                     onSendMessage={handleSendMessage}

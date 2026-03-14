@@ -133,7 +133,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
     }, [selectedRepoId, loadChangedFiles]);
 
     return (
-        <div className="flex flex-col flex-1 h-full bg-background border-t border-border">
+        <div className="flex flex-col flex-1 bg-background min-h-0">
             <WorkspaceTopBar
                 repos={repos}
                 selectedRepoId={selectedRepoId}
@@ -148,7 +148,7 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                 isProtected={isMainProtected && selectedBranch === "main"}
             />
 
-            <div className="flex-1 overflow-hidden relative group">
+            <div className="flex-1 overflow-hidden relative group min-h-0">
                 {isLoadingInit && (
                     <div className="absolute inset-0 z-50 bg-background/50 flex items-center justify-center backdrop-blur-sm">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

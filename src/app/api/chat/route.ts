@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
                 }
             },
         });
+        console.log("Stream", stream);
 
         return new Response(stream, {
             headers: {

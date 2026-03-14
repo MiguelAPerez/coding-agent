@@ -40,20 +40,43 @@ export class DiscordBot {
     private async handleMessage(message: Message) {
         if (message.author.bot) return;
 
+        // Only respond if mentioned or if it's a reply
+        const isMentioned = this.client.user && message.mentions.has(this.client.user);
+        const isReply = !!message.reference?.messageId;
+        
+        if (!isMentioned && !isReply) return;
+
         try {
             await message;
-            // If we get an empty message htrow
+            // If we get an empty message throw
             if (!message.content) throw new Error("Empty message");
-            // Get or create chat for this Discord channel
-            const chat = await ChatService.getOrCreateChat({
-                userId: this.userId,
-                type: "discord",
-                externalId: message.channelId,
-                title: message.channel instanceof TextChannel ? `#${message.channel.name}` : `DM with ${message.author.username}`,
-            });
+
+            let chat: any; // Fallback to any for now to avoid complex union type issues with relations
+
+            if (isReply && message.reference?.messageId) {
+                const parentMessage = await ChatService.getMessageByExternalId(message.reference.messageId);
+                if (parentMessage) {
+                    chat = await ChatService.getChat(parentMessage.chatId);
+                }
+            }
+
+            // If not a reply, or parent message not found in our DB, check if we should still respond (was mentioned)
+            if (!chat) {
+                if (!isMentioned) return; // If it's a reply but not to us and we aren't mentioned, ignore.
+
+                // Fallback to channel-based chat (existing behavior)
+                const newChat = await ChatService.getOrCreateChat({
+                    userId: this.userId,
+                    type: "discord",
+                    externalId: message.channelId,
+                    title: message.channel instanceof TextChannel ? `#${message.channel.name}` : `DM with ${message.author.username}`,
+                });
+                chat = newChat;
+            }
+
+            if (!chat) throw new Error("Could not find or create chat");
 
             // Get default agent and repo if not set in chat
-            // For now, just pick the first ones or use defaults
             let agentId: string | null = chat.agentId;
             if (!agentId) {
                 const user = await db.query.users.findFirst({
@@ -74,9 +97,17 @@ export class DiscordBot {
                 return;
             }
 
-            // Get history for context
+            // Save user message first to persistence
+            await ChatService.saveMessage({
+                chatId: chat.id,
+                role: "user",
+                content: message.content,
+                externalId: message.id,
+            });
+
+            // Get history for context (including the message we just saved)
             const history = await ChatService.getChatHistory(chat.id);
-            const chatMessages = history.map(h => ({ role: h.role, content: h.content }));
+            const chatMessages = history.map(h => ({ role: h.role as "user" | "assistant" | "system", content: h.content }));
 
             // Trigger agent inference
             if ("sendTyping" in message.channel) {
@@ -94,15 +125,16 @@ export class DiscordBot {
                 message.channelId,
             );
 
-            // Save assistant message
+            // Send response back to Discord
+            const sentMessage = await message.reply(response.message);
+
+            // Save assistant message with its externalId
             await ChatService.saveMessage({
                 chatId: chat.id,
                 role: "assistant",
                 content: response.message,
+                externalId: sentMessage.id,
             });
-
-            // Send response back to Discord
-            await message.reply(response.message);
 
         } catch (error) {
             console.error("Discord Bot Error:", error);

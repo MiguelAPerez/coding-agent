@@ -25,7 +25,7 @@ Is a platform designed to help you manage your codebases
     - `DOCUMENTATION.md` - How the agent responds to documentation requests
     - `CODER.md` - How the agent responds to coding requests
     - `REVIEWER.md` - How the agent responds to code review requests
-    - `FORMAT.md` - How the agent formats its responses (our panel compoent generates the UI)
+    - `BASE_FORMAT.md` - How the agent formats its responses (our panel compoent generates the UI)
   - `skills` - The skills the agent has
     - `{name}`
       - `SKILL.md` - Description of the skill
@@ -48,6 +48,24 @@ Is a platform designed to help you manage your codebases
   - [docs-chat](docs-chat.md): Explains the DocsChat architecture and document parsing layout.
   - [background-jobs](background-jobs.md): Instructions on how to add and manage scheduled cron tasks.
   - [workspaces](workspaces.md): A place to pair program and make quick modifications
+
+## Chat
+
+```
+[PERSONALITY]
+[IDENTITY]
+[WORKFLOW]
+[SKILLS]
+[TOOLS]
+[CONTEXT]
+[WORKMODE]
+```
+
+- `PERSONALITY.md` - How the agent responses
+- `IDENTITY.md` - Who the agent is
+- `WORKFLOW.md` - How the agent works (rules to follow)
+- `CONTEXT` - What the agent is working on
+- `WORKMODE` - `CODER` or `DOCUMENTATION` or `REVIEWER` used to put the agent in a mode
 
 ## Development
 

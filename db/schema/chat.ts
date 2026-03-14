@@ -30,5 +30,6 @@ export const messages = sqliteTable("message", {
         .references(() => chats.id, { onDelete: "cascade" }),
     role: text("role", { enum: ["system", "user", "assistant"] }).notNull(),
     content: text("content").notNull(),
+    externalId: text("externalId"), // e.g. Discord message ID
     createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 })

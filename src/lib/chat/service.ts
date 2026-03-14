@@ -15,6 +15,7 @@ export interface SaveMessageParams {
     chatId: string;
     role: "system" | "user" | "assistant";
     content: string;
+    externalId?: string;
 }
 
 export const ChatService = {
@@ -45,6 +46,7 @@ export const ChatService = {
             chatId: params.chatId,
             role: params.role,
             content: params.content,
+            externalId: params.externalId,
         }).returning();
 
         // Update chat updatedAt
@@ -59,6 +61,12 @@ export const ChatService = {
         return await db.query.messages.findMany({
             where: eq(messages.chatId, chatId),
             orderBy: (messages, { asc }) => [asc(messages.createdAt)],
+        });
+    },
+
+    async getMessageByExternalId(externalId: string) {
+        return await db.query.messages.findFirst({
+            where: eq(messages.externalId, externalId),
         });
     },
 
