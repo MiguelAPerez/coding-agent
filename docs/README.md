@@ -41,6 +41,10 @@ Is a platform designed to help you manage your codebases
   - `{page_name}/`: Top level pages
     - `components/`: Reusable components for the page
     - `page.tsx`: Page content
+- `system-statics` - Contains the system prompts and templates for the agents and data system
+  - `system-prompts` - Contains the system prompts for the project (DOCUMENTATION.md, CODER.md, REVIEWER.md, BASE_FORMAT.md)
+  - `templates` - Contains the templates for the agents or other features
+    - `agent` - Agent templates (PERSONALITY.md, WORKFLOW.md, IDENTITY.md)
 - `docs/`: Comprehensive project documentation.
   - [authentication](authentication.md): Details the NextAuth permissions.
   - [orm](orm.md): Details the Drizzle database schema, seeder process, and DB clearing instructions.

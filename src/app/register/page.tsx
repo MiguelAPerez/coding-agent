@@ -9,6 +9,7 @@ export default function RegisterPage() {
     const router = useRouter()
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
+    const [loadingStatus, setLoadingStatus] = useState("")
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -25,11 +26,17 @@ export default function RegisterPage() {
         }
 
         try {
+            setLoadingStatus("Creating account...")
             const res = await registerUser(formData)
 
             if (res.error) {
                 setError(res.error)
             } else {
+                setLoadingStatus("Setting up workspace...")
+                // Small delay to show the status change clearly
+                await new Promise(r => setTimeout(r, 800));
+                setLoadingStatus("Almost ready...")
+                await new Promise(r => setTimeout(r, 500));
                 // Success! Redirect to login
                 router.push("/login?registered=true")
             }
@@ -38,6 +45,7 @@ export default function RegisterPage() {
             setError("An unexpected error occurred")
         } finally {
             setLoading(false)
+            setLoadingStatus("")
         }
     }
 
@@ -129,7 +137,10 @@ export default function RegisterPage() {
                         className="w-full mt-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-all duration-200 focus:ring-4 focus:ring-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transform hover:-translate-y-0.5"
                     >
                         {loading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>{loadingStatus}</span>
+                            </div>
                         ) : (
                             "Sign Up"
                         )}

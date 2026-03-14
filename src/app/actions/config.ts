@@ -8,6 +8,7 @@ import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { AgentConfig } from "@/types/agent";
 import { getPromptFromFile } from "./prompts";
+import { scaffoldAgent } from "@/lib/scaffold";
 
 export async function getAgentConfigs() {
     const session = await getServerSession(authOptions);
@@ -53,6 +54,10 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
 
             .returning()
             .get();
+
+        // Sync agent files on creation
+        await scaffoldAgent(session.user.id, result.name);
+
         revalidatePath("/agent");
         return result;
     }
@@ -113,6 +118,11 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
                 })
                 .run();
         }
+    }
+
+    // Sync agent files after updating managed agents
+    for (const agent of agents) {
+        await scaffoldAgent(userId, agent.name);
     }
 }
 
