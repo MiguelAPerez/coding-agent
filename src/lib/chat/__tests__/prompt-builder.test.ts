@@ -1,5 +1,8 @@
 import { PromptBuilder } from "../prompt-builder";
 import { ContextData } from "../types";
+import { getPromptFromFile } from "@/app/actions/prompts";
+
+jest.mock("@/app/actions/prompts");
 
 describe("PromptBuilder", () => {
     const mockRepo = {
@@ -45,10 +48,16 @@ describe("PromptBuilder", () => {
         fileContents: {}
     } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (getPromptFromFile as jest.Mock).mockResolvedValue("Default documentation prompt.");
+    });
+
     it("should build a complete system prompt", async () => {
         const prompt = await PromptBuilder.buildSystemPrompt(mockContext, "src/file.ts", "console.log('test')");
         
         expect(prompt).toContain("You are a specialized bot.");
+        expect(prompt).toContain("Default documentation prompt.");
         expect(prompt).toContain("Available Skills:\n- Skill1: Desc1\nContent1");
         expect(prompt).toContain("Available Tools:\n- Tool1: TDesc1\nSchema: {}");
         expect(prompt).toContain("Repository: test/repo");
@@ -60,6 +69,7 @@ describe("PromptBuilder", () => {
     });
 
     it("should use default personality if none provided", async () => {
+        (getPromptFromFile as jest.Mock).mockResolvedValue("You are a documentation specialist.");
         const context = { ...mockContext, agentPersonalityPrompt: "" };
         const prompt = await PromptBuilder.buildSystemPrompt(context, null, "");
         expect(prompt).toContain("You are a documentation specialist.");

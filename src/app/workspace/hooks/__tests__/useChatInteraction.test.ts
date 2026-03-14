@@ -27,6 +27,10 @@ describe("useChatInteraction", () => {
             pendingSuggestion: null,
             chatTab: null,
             contextFiles: [],
+            technicalPlan: {
+                chatId: 1,
+                steps: [{ action: "modify", file: "test.ts", rationale: "testing", status: "pending" }]
+            },
         },
     };
 
@@ -34,6 +38,10 @@ describe("useChatInteraction", () => {
         jest.clearAllMocks();
         (useAppDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
         (useAppSelector as unknown as jest.Mock).mockImplementation((selector: (state: RootState) => unknown) => selector(mockState as unknown as RootState));
+        (chatActions.getTechnicalPlan as jest.Mock).mockResolvedValue({
+            message: "I have a plan.",
+            plan: mockState.chat.technicalPlan
+        });
         (chatActions.chatWithAgent as jest.Mock).mockResolvedValue({
             message: "I suggested some changes.",
             suggestion: {
