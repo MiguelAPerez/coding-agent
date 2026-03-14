@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 
 import { Navbar } from "@/components/Navbar";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { NextAuthProvider } from "@/components/NextAuthProvider";
 
 export default function RootLayout({
   children,
@@ -64,10 +65,12 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} font-sans bg-background text-foreground antialiased selection:bg-primary selection:text-primary-foreground min-h-screen`}
       >
-        <ThemeProvider>
-          <Navbar />
-          <main>{children}</main>
-        </ThemeProvider>
+        <NextAuthProvider>
+          <ThemeProvider>
+            <Navbar />
+            <main>{children}</main>
+          </ThemeProvider>
+        </NextAuthProvider>
       </body>
     </html>
   );

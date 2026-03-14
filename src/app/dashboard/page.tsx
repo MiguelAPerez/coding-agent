@@ -194,8 +194,34 @@ export default async function DashboardPage() {
         )}
 
         {/* Sandbox Monitoring Card */}
-
         <SandboxDashboardCard />
+
+        {/* External Connections Card */}
+        <Link
+          href="/settings/connections"
+          className="group relative rounded-3xl glass p-8 transition-all hover:bg-foreground/5 hover:border-border hover:-translate-y-1 block border border-border/50 overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-400 opacity-80" />
+          
+          <div className="flex items-start justify-between mb-6">
+            <div className="p-3 bg-indigo-500/10 rounded-2xl">
+              <svg xmlns="http://www.w3.org/http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                <path d="M12 8v4"/><path d="M12 16h.01"/>
+              </svg>
+            </div>
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none text-indigo-500 font-bold">
+              -&gt;
+            </span>
+          </div>
+
+          <h2 className="mb-2 text-3xl font-bold tracking-tight text-foreground">
+            Connections
+          </h2>
+          <p className="mb-0 mt-0 text-foreground/60 leading-relaxed group-hover:text-foreground/80 transition-colors">
+            Connect your agents to external apps like Discord and Slack.
+          </p>
+        </Link>
       </div>
     </main>
   );
