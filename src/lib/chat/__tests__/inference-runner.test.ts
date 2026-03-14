@@ -1,5 +1,5 @@
 import { InferenceRunner } from "../inference-runner";
-import { ChatClient, ChatMessage, ContextData } from "../types";
+import { ChatClient, ContextData } from "../types";
 import { PromptBuilder } from "../prompt-builder";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
 
@@ -11,7 +11,8 @@ describe("InferenceRunner", () => {
     const userId = "user-123";
     const repoId = "repo-456";
     const contextData: ContextData = {
-        agentConfig: {} as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        agentConfig: {} as any, // suppressed for mock
         agentPersonalityPrompt: "You are a helpful assistant.",
         enabledSkills: [],
         enabledTools: [],

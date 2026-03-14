@@ -4,7 +4,7 @@ import { MessageItem } from "./MessageItem";
 interface MessageListProps {
     messages: { role: string, content: string }[];
     isLoading?: boolean;
-    messagesEndRef: React.RefObject<HTMLDivElement>;
+    messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export function MessageList({ messages, isLoading, messagesEndRef }: MessageListProps) {

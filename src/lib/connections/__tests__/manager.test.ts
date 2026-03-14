@@ -40,7 +40,7 @@ describe("ConnectionManager", () => {
         ];
         (db.query.connections.findMany as jest.Mock).mockResolvedValue(mockConnections);
 
-        const startSpy = jest.spyOn(DiscordBot.prototype, "start").mockResolvedValue();
+        jest.spyOn(DiscordBot.prototype, "start").mockResolvedValue();
 
         await manager.startAll();
 

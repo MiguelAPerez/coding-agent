@@ -1,7 +1,6 @@
 import { ChatService } from "../service";
 import { db } from "@/../db";
 import { chats, messages } from "@/../db/schema";
-import { eq } from "drizzle-orm";
 
 // Mock DB
 jest.mock("@/../db", () => ({
