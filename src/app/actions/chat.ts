@@ -5,7 +5,7 @@ import { authOptions } from "@/auth";
 import { ChatContext } from "@/lib/chat/context";
 import { OllamaClient } from "@/lib/chat/ollama-client";
 import { InferenceRunner } from "@/lib/chat/inference-runner";
-import { ChatMessage, ChatResponse, PendingSuggestion } from "@/lib/chat/types";
+import { ChatMessage, ChatResponse } from "@/lib/chat/types";
 import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
 import { getPromptFromFile } from "./prompts";
 

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { PendingSuggestion, TechnicalPlan, PlanStep } from "@/app/actions/chat";
+import React, { useState } from "react";
+import { PendingSuggestion, TechnicalPlan } from "@/app/actions/chat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";

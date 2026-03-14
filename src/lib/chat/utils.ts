@@ -85,7 +85,7 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
     const knownPaths = Object.keys(fileContents);
 
     while ((match = looseRegex.exec(cleanContent)) !== null) {
-        const [_, path, code] = match;
+        const [, path, code] = match;
         const cleanPath = path
             .replace(/^@/, '')
             .replace(/`/g, '')

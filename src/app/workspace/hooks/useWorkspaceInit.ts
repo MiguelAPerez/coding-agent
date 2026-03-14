@@ -121,7 +121,7 @@ export function useWorkspaceInit() {
         return () => { active = false; };
         // We exclude syncCurrentBranch from dependencies to avoid infinite loops,
         // but it will be called once upon initial load.
-    }, [selectedRepoId, dispatch, addLog]);
+    }, [selectedRepoId, selectedBranch, syncCurrentBranch, dispatch, addLog]);
 
     return { isLoadingInit, syncCurrentBranch, addLog };
 }
