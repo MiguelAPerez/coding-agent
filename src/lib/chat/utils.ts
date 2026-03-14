@@ -1,4 +1,4 @@
-import { FileChange, PendingSuggestion } from "./types";
+import { FileChange, PendingSuggestion, TechnicalPlan } from "./types";
 
 export function extractMentionedPaths(text: string): string[] {
     const paths: string[] = [];
@@ -85,7 +85,7 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
     const knownPaths = Object.keys(fileContents);
 
     while ((match = looseRegex.exec(cleanContent)) !== null) {
-        const [_, path, code] = match;
+        const [, path, code] = match;
         const cleanPath = path
             .replace(/^@/, '')
             .replace(/`/g, '')
@@ -178,4 +178,30 @@ export function parseDiffs(content: string, activeFilePath: string | null, fileC
         },
         cleanContent: cleanContent.trim().replace(/\n{3,}/g, '\n\n')
     };
+}
+
+export function parseTechnicalPlan(content: string): TechnicalPlan | null {
+    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*"steps"[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    
+    let jsonStr = jsonMatch[0];
+    if (jsonMatch[1]) jsonStr = jsonMatch[1];
+
+    try {
+        const plan = JSON.parse(jsonStr);
+        if (plan.steps && Array.isArray(plan.steps)) {
+            return {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            steps: plan.steps.map((s: any) => ({
+                    file: s.file || s.path,
+                    action: s.action || "modify",
+                    rationale: s.rationale || s.description || "",
+                    status: "pending"
+                }))
+            };
+        }
+    } catch (e) {
+        console.error("Failed to parse technical plan", e);
+    }
+    return null;
 }

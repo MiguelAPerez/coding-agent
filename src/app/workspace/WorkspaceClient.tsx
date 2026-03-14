@@ -95,11 +95,13 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
         agents,
         selectedAgentId,
         pendingSuggestion,
+        technicalPlan,
         chatTab,
         contextFiles,
         handleSendMessage,
         handleApproveSuggestion,
         handleRejectSuggestion,
+        handleApprovePlan,
         handleRemoveContext,
         handleAddContext,
     } = useChatInteraction(handleSaveFile, loadChangedFiles, refreshGit);
@@ -274,8 +276,10 @@ export default function WorkspaceClient({ initialRepos }: { initialRepos: Repo[]
                                 onRemoveContext={handleRemoveContext}
                                 onSendMessage={handleSendMessage}
                                 pendingSuggestion={pendingSuggestion}
+                                technicalPlan={technicalPlan}
                                 onApproveSuggestion={handleApproveSuggestion}
                                 onRejectSuggestion={handleRejectSuggestion}
+                                onApprovePlan={handleApprovePlan}
                                 onJumpToFile={handleFileSelect}
                                 activeTab={chatTab}
                                 onTabChange={(tab) => dispatch(setChatTab(tab))}

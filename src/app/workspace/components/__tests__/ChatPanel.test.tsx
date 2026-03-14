@@ -28,10 +28,12 @@ describe("ChatPanel", () => {
         onRemoveContext: jest.fn(),
         onSendMessage: jest.fn(),
         pendingSuggestion: null,
+        technicalPlan: null,
         onApproveSuggestion: jest.fn(),
         onRejectSuggestion: jest.fn(),
+        onApprovePlan: jest.fn(),
         onJumpToFile: jest.fn(),
-        activeTab: null as "context" | "suggestions" | null,
+        activeTab: null as "context" | "suggestions" | "plan" | null,
         onTabChange: jest.fn(),
         agents: [{ id: "agent1", name: "Agent 1" }],
         selectedAgentId: "agent1",
@@ -161,6 +163,68 @@ describe("ChatPanel", () => {
         expect(input).toHaveValue("@src/index.ts");
     });
     
+    it("shows plan tab as disabled when no technical plan", () => {
+        render(<ChatPanel {...mockProps} />);
+        const planBtn = screen.getByTitle("View Technical Plan");
+        expect(planBtn).toBeDisabled();
+    });
+
+    it("shows plan pulse when technical plan exists", () => {
+        const propsWithPlan = {
+            ...mockProps,
+            technicalPlan: {
+                chatId: 0,
+                steps: [{ action: 'modify' as const, file: 'test.ts', rationale: 'test', status: 'pending' as const }]
+            }
+        };
+        render(<ChatPanel {...propsWithPlan} />);
+        const pulse = screen.getByTitle("View Technical Plan").querySelector(".animate-pulse");
+        expect(pulse).toBeInTheDocument();
+    });
+
+    it("calls onTabChange when plan tab is clicked and plan exists", () => {
+        const propsWithPlan = {
+            ...mockProps,
+            technicalPlan: {
+                chatId: 0,
+                steps: [{ action: 'modify' as const, file: 'test.ts', rationale: 'test', status: 'pending' as const }]
+            }
+        };
+        render(<ChatPanel {...propsWithPlan} />);
+        const planBtn = screen.getByTitle("View Technical Plan");
+        fireEvent.click(planBtn);
+        expect(mockProps.onTabChange).toHaveBeenCalledWith("plan");
+    });
+
+    it("displays plan steps and approve button when activeTab is 'plan'", () => {
+        const propsWithPlan = {
+            ...mockProps,
+            activeTab: "plan" as const,
+            technicalPlan: {
+                chatId: 0,
+                steps: [{ action: 'modify' as const, file: 'test.ts', rationale: 'test rationale', status: 'pending' as const }]
+            }
+        };
+        render(<ChatPanel {...propsWithPlan} />);
+        expect(screen.getByText("test.ts")).toBeInTheDocument();
+        expect(screen.getByText("test rationale")).toBeInTheDocument();
+        expect(screen.getByText("Approve & Execute Plan")).toBeInTheDocument();
+    });
+
+    it("calls onApprovePlan when Approve button is clicked", () => {
+        const propsWithPlan = {
+            ...mockProps,
+            activeTab: "plan" as const,
+            technicalPlan: {
+                chatId: 0,
+                steps: [{ action: 'modify' as const, file: 'test.ts', rationale: 'test', status: 'pending' as const }]
+            }
+        };
+        render(<ChatPanel {...propsWithPlan} />);
+        fireEvent.click(screen.getByText("Approve & Execute Plan"));
+        expect(mockProps.onApprovePlan).toHaveBeenCalled();
+    });
+
     it("renders thinking indicator and disables inputs when isLoading is true", () => {
         render(<ChatPanel {...mockProps} isLoading={true} />);
         

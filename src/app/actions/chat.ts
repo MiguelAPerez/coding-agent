@@ -6,10 +6,10 @@ import { ChatContext } from "@/lib/chat/context";
 import { OllamaClient } from "@/lib/chat/ollama-client";
 import { InferenceRunner } from "@/lib/chat/inference-runner";
 import { ChatMessage, ChatResponse } from "@/lib/chat/types";
-import { extractMentionedPaths, parseDiffs } from "@/lib/chat/utils";
-import { getPromptFromFile } from "@/app/actions/prompts";
+import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
+import { getPromptFromFile } from "./prompts";
 
-export type { ChatMessage, ChatResponse, FileChange, PendingSuggestion } from "@/lib/chat/types";
+export type { ChatMessage, ChatResponse, FileChange, PendingSuggestion, TechnicalPlan, PlanStep } from "@/lib/chat/types";
 
 // --- Public Actions ---
 
@@ -103,5 +103,60 @@ export async function chatWithAgentInternal(
         message: cleanContent,
         redirect: null,
         suggestion: Object.keys(suggestion.filesChanged).length > 0 ? suggestion : null
+    };
+}
+
+export async function getTechnicalPlan(
+    repoId: string,
+    filePath: string | null,
+    prompt: string,
+    agentId: string,
+    history: ChatMessage[] = []
+): Promise<ChatResponse> {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const extraPaths = extractMentionedPaths(prompt + " " + history.map(m => m.content).join(" "));
+    const context = new ChatContext(session.user.id, repoId, agentId, filePath, extraPaths);
+    const contextData = await context.load();
+
+    const ollama = new OllamaClient(
+        contextData.ollamaConfig,
+        contextData.agentConfig.model!,
+        contextData.agentConfig.temperature
+    );
+
+    // Build the system prompt with the "Planner" instructions
+    let systemPrompt = await getPromptFromFile("PLANNER");
+    if (contextData.agentPersonalityPrompt) {
+        systemPrompt = `${contextData.agentPersonalityPrompt}\n\n${systemPrompt}`;
+    }
+
+    const messages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...history,
+    ];
+
+    if (Object.keys(contextData.fileContents).length > 0) {
+        let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";
+        for (const [path, content] of Object.entries(contextData.fileContents)) {
+            contextMessage += `FILE: ${path}\n\`\`\`\n${content}\n\`\`\`\n\n`;
+        }
+        contextMessage += `User Request: ${prompt}`;
+        messages.push({ role: "user", content: contextMessage });
+    } else {
+        messages.push({ role: "user", content: prompt });
+    }
+
+    const responseContent = await ollama.chat(messages);
+    const plan = parseTechnicalPlan(responseContent);
+
+    // Clean up the message content by removing the JSON block
+    const cleanMessage = responseContent.replace(/```json\n[\s\S]*?\n```/g, "").trim();
+
+    return {
+        message: cleanMessage,
+        redirect: null,
+        plan
     };
 }

@@ -7,6 +7,18 @@ export interface ChatResponse {
     message: string;
     redirect: string | null;
     suggestion?: PendingSuggestion | null;
+    plan?: TechnicalPlan | null;
+}
+
+export interface PlanStep {
+    file: string;
+    action: "modify" | "new" | "delete";
+    rationale: string;
+    status: "pending" | "in-progress" | "completed" | "failed";
+}
+
+export interface TechnicalPlan {
+    steps: PlanStep[];
 }
 
 export interface FileChange {

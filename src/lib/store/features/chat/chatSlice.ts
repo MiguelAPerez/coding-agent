@@ -1,12 +1,13 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ChatMessage, PendingSuggestion } from "@/app/actions/chat";
+import { ChatMessage, PendingSuggestion, TechnicalPlan, PlanStep } from "@/app/actions/chat";
 
 interface ChatState {
     chatMessages: ChatMessage[];
     agents: { id: string; name: string }[];
     selectedAgentId: string;
     pendingSuggestion: PendingSuggestion | null;
-    chatTab: "context" | "suggestions" | null;
+    technicalPlan: TechnicalPlan | null;
+    chatTab: "context" | "suggestions" | "plan" | null;
     contextFiles: string[];
 }
 
@@ -15,6 +16,7 @@ const initialState: ChatState = {
     agents: [],
     selectedAgentId: "",
     pendingSuggestion: null,
+    technicalPlan: null,
     chatTab: null,
     contextFiles: [],
 };
@@ -41,7 +43,21 @@ export const chatSlice = createSlice({
         setPendingSuggestion: (state, action: PayloadAction<PendingSuggestion | null>) => {
             state.pendingSuggestion = action.payload;
         },
-        setChatTab: (state, action: PayloadAction<"context" | "suggestions" | null>) => {
+        setTechnicalPlan: (state, action: PayloadAction<TechnicalPlan | null>) => {
+            state.technicalPlan = action.payload;
+            if (action.payload) {
+                state.chatTab = "plan";
+            }
+        },
+        updatePlanStepStatus: (state, action: PayloadAction<{ file: string; status: PlanStep["status"] }>) => {
+            if (state.technicalPlan) {
+                const step = state.technicalPlan.steps.find(s => s.file === action.payload.file);
+                if (step) {
+                    step.status = action.payload.status;
+                }
+            }
+        },
+        setChatTab: (state, action: PayloadAction<"context" | "suggestions" | "plan" | null>) => {
             state.chatTab = action.payload;
         },
         setContextFiles: (state, action: PayloadAction<string[]>) => {
@@ -63,6 +79,7 @@ export const chatSlice = createSlice({
         clearChat: (state) => {
             state.chatMessages = [];
             state.pendingSuggestion = null;
+            state.technicalPlan = null;
             state.chatTab = null;
             state.contextFiles = [];
         }
@@ -75,6 +92,8 @@ export const {
     setAgents,
     setSelectedAgentId,
     setPendingSuggestion,
+    setTechnicalPlan,
+    updatePlanStepStatus,
     setChatTab,
     setContextFiles,
     addContextFile,
