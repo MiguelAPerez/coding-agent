@@ -1,4 +1,4 @@
-import { DiscordBot } from "../manager";
+import { DiscordBot } from "../discord";
 import { ChatService } from "@/lib/chat/service";
 import { chatWithAgentInternal } from "@/app/actions/chat";
 import { Message } from "discord.js";
