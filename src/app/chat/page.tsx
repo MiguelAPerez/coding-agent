@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ChatSidebar, { ChatThread } from "@/components/chat/ChatSidebar";
 import ChatInterface, { Message } from "@/components/chat/ChatInterface";
 import { useSession } from "next-auth/react";
@@ -20,35 +20,7 @@ export default function UnifiedChatPage() {
     const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
     const [currentAgentId, setCurrentAgentId] = useState<string | undefined>();
 
-    const fetchAgents = async () => {
-        try {
-            const res = await fetch("/api/agents");
-            if (!res.ok) throw new Error("Failed to fetch");
-            const data = await res.json();
-            setAgents(data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
-        } catch (err) {
-            console.error("Failed to fetch agents:", err);
-        }
-    };
-
-    const fetchThreads = async () => {
-        try {
-            const res = await fetch("/api/chats");
-            const data = await res.json();
-            setThreads(data.map((t: { id: string; title: string; type: "web" | "discord"; agentId?: string; updatedAt: string }) => ({
-                id: t.id,
-                title: t.title || "Untitled Chat",
-                type: t.type,
-                agentId: t.agentId,
-                updatedAt: new Date(t.updatedAt),
-                lastMessage: "Click to view history"
-            })));
-        } catch (err) {
-            console.error("Failed to fetch threads:", err);
-        }
-    };
-
-    const fetchMessages = async (chatId: string) => {
+    const fetchMessages = useCallback(async (chatId: string) => {
         setIsLoading(true);
         try {
             const res = await fetch(`/api/chats/${chatId}/messages`);
@@ -64,7 +36,35 @@ export default function UnifiedChatPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    const fetchAgents = useCallback(async () => {
+        try {
+            const res = await fetch("/api/agents");
+            if (!res.ok) throw new Error("Failed to fetch");
+            const data = await res.json();
+            setAgents(data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+        } catch (err) {
+            console.error("Failed to fetch agents:", err);
+        }
+    }, []);
+
+    const fetchThreads = useCallback(async () => {
+        try {
+            const res = await fetch("/api/chats");
+            const data = await res.json();
+            setThreads(data.map((t: { id: string; title: string; type: "web" | "discord"; agentId?: string; updatedAt: string }) => ({
+                id: t.id,
+                title: t.title || "Untitled Chat",
+                type: t.type,
+                agentId: t.agentId,
+                updatedAt: new Date(t.updatedAt),
+                lastMessage: "Click to view history"
+            })));
+        } catch (err) {
+            console.error("Failed to fetch threads:", err);
+        }
+    }, []);
 
     useEffect(() => {
         if (sessionContext?.status === "unauthenticated") {
@@ -73,11 +73,15 @@ export default function UnifiedChatPage() {
             fetchThreads();
             fetchAgents();
         }
-    }, [session, sessionContext?.status, router]);
+    }, [session, sessionContext?.status, router, fetchThreads, fetchAgents]);
 
     useEffect(() => {
         if (activeThreadId) {
-            fetchMessages(activeThreadId);
+            // Only fetch messages if we don't already have them for this thread
+            // This prevents overwriting the optimistic state on a newly created chat
+            if (messages.length === 0) {
+                fetchMessages(activeThreadId);
+            }
             const thread = threads.find(t => t.id === activeThreadId);
             if (thread) {
                 setCurrentAgentId(thread.agentId);
@@ -86,7 +90,7 @@ export default function UnifiedChatPage() {
             setMessages([]);
             setCurrentAgentId(undefined);
         }
-    }, [activeThreadId, threads]);
+    }, [activeThreadId, threads, messages.length, fetchMessages]);
 
     const handleSendMessage = async (content: string) => {
         if (!activeThreadId) {
