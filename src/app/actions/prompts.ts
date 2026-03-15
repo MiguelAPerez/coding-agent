@@ -12,7 +12,7 @@ import path from "path";
 
 const SYSTEM_PROMPTS_DIR = path.join(process.cwd(), "data", "system");
 
-export async function getPromptFromFile(name: string): Promise<string> {
+export async function getSystempPromptFromFile(name: string): Promise<string> {
     try {
         const filePath = path.join(SYSTEM_PROMPTS_DIR, `${name.toUpperCase()}.md`);
         return await fs.readFile(filePath, "utf-8");
@@ -138,7 +138,7 @@ export async function syncManagedPersonas(personas: SystemPrompt[]) {
     // 2. Upsert managed personas
     for (const persona of personas) {
         const existing = db.select().from(systemPrompts).where(eq(systemPrompts.id, persona.id)).get();
-        
+
         const values = {
             userId,
             name: persona.name,

@@ -1,6 +1,9 @@
 import { ChatMessage, ChatResponse, ContextData, ChatClient, WorkMode } from "./types";
 import { PromptBuilder } from "./prompt-builder";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+
+const tracer = trace.getTracer("inference-runner");
 
 /**
  * This class is used to run the inference with the agent.
@@ -16,6 +19,12 @@ export class InferenceRunner {
 
 
     async run(prompt: string, initialFilePath: string | null, initialFileContent: string, sysPrompt: string, workMode: WorkMode): Promise<ChatResponse> {
+        return tracer.startActiveSpan("inference_runner.run", async (span) => {
+            try {
+                span.setAttributes({
+                    "work_mode": workMode,
+                    "prompt.length": prompt.length
+                });
         const messages: ChatMessage[] = [
             { role: "system", content: "" }, // Placeholder, will be updated in the loop
             { role: "user", content: prompt }
@@ -98,5 +107,12 @@ export class InferenceRunner {
             message: "Maximum inference steps reached.",
             redirect: currentRedirect
         };
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : "Unknown error" });
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
     }
 }

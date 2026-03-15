@@ -52,6 +52,7 @@ Is a platform designed to help you manage your codebases
   - [docs-chat](docs-chat.md): Explains the DocsChat architecture and document parsing layout.
   - [background-jobs](background-jobs.md): Instructions on how to add and manage scheduled cron tasks.
   - [workspaces](workspaces.md): A place to pair program and make quick modifications
+  - [observibility](observibility.md): How to observe the system
 
 ## Chat
 

@@ -1,0 +1,278 @@
+
+> coding-agent@0.3.0 test
+> jest src/lib/chat/__tests__/ollama-client.test.ts
+
+FAIL src/lib/chat/__tests__/ollama-client.test.ts
+  OllamaClient
+    ✓ should perform a successful non-streaming chat (2 ms)
+    ✓ should throw error if non-streaming chat fails (5 ms)
+    ✓ should perform a successful streaming chat (1 ms)
+    ✓ should handle partial JSON chunks in stream
+    ✓ should throw error if stream chat fails (1 ms)
+    ✓ should handle missing body in streaming response
+    ✓ should log parsing errors in stream and continue
+    ✓ should handle remaining buffer at end of stream (1 ms)
+    ✕ should handle JSON with no content (1 ms)
+
+  ● OllamaClient › should handle JSON with no content
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      202 |         const generator = client.streamChat([]);
+      203 |         const result = await generator.next();
+    > 204 |         expect(result.done).toBe(true);
+          |                             ^
+      205 |     });
+      206 | });
+      207 |
+
+      at Object.toBe (src/lib/chat/__tests__/ollama-client.test.ts:204:29)
+
+--------------------------------------------------------------|---------|----------|---------|---------|-------------------
+File                                                          | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+--------------------------------------------------------------|---------|----------|---------|---------|-------------------
+All files                                                     |    0.62 |     0.72 |    0.21 |    0.58 |                   
+ src                                                          |       0 |        0 |       0 |       0 |                   
+  auth.ts                                                     |       0 |        0 |       0 |       0 | 2-102             
+  config.ts                                                   |       0 |      100 |     100 |       0 | 7                 
+  instrumentation.ts                                          |       0 |        0 |       0 |       0 | 1-47              
+  proxy.ts                                                    |       0 |        0 |       0 |       0 | 1-43              
+ src/app                                                      |       0 |        0 |       0 |       0 |                   
+  layout.tsx                                                  |       0 |      100 |       0 |       0 | 2-19              
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 1-14              
+ src/app/actions                                              |       0 |        0 |       0 |       0 |                   
+  agent-files.ts                                              |       0 |        0 |       0 |       0 | 3-61              
+  agent.ts                                                    |       0 |      100 |     100 |       0 | 3-6               
+  anthropic.ts                                                |       0 |        0 |       0 |       0 | 3-92              
+  auth.ts                                                     |       0 |        0 |       0 |       0 | 3-113             
+  benchmarks.ts                                               |       0 |      100 |     100 |       0 | 1-4               
+  chat.ts                                                     |       0 |        0 |       0 |       0 | 3-263             
+  config.ts                                                   |       0 |        0 |       0 |       0 | 3-207             
+  docker-mgmt.ts                                              |       0 |        0 |       0 |       0 | 3-28              
+  docker-sandboxes.ts                                         |       0 |        0 |       0 |       0 | 3-171             
+  files.ts                                                    |       0 |        0 |       0 |       0 | 3-184             
+  git.ts                                                      |       0 |        0 |       0 |       0 | 3-320             
+  gitea.ts                                                    |       0 |        0 |       0 |       0 | 3-110             
+  github.ts                                                   |       0 |        0 |       0 |       0 | 3-138             
+  google.ts                                                   |       0 |        0 |       0 |       0 | 3-104             
+  ollama.ts                                                   |       0 |        0 |       0 |       0 | 3-148             
+  performance.ts                                              |       0 |        0 |       0 |       0 | 1-78              
+  prompts.ts                                                  |       0 |        0 |       0 |       0 | 3-156             
+  repositories.ts                                             |       0 |        0 |       0 |       0 | 3-309             
+  search.ts                                                   |       0 |        0 |       0 |       0 | 3-177             
+  semantic-search.ts                                          |       0 |        0 |       0 |       0 | 3-285             
+  settings.ts                                                 |       0 |        0 |       0 |       0 | 3-40              
+  skills.ts                                                   |       0 |        0 |       0 |       0 | 3-60              
+  tools.ts                                                    |       0 |        0 |       0 |       0 | 3-60              
+  workspace-files.ts                                          |       0 |        0 |       0 |       0 | 3-180             
+  workspace.ts                                                |       0 |        0 |       0 |       0 | 3-87              
+ src/app/actions/benchmarks                                   |       0 |        0 |       0 |       0 |                   
+  context-groups.ts                                           |       0 |        0 |       0 |       0 | 3-74              
+  execution.ts                                                |       0 |        0 |       0 |       0 | 3-537             
+  queries.ts                                                  |       0 |        0 |       0 |       0 | 3-101             
+  run-definitions.ts                                          |       0 |        0 |       0 |       0 | 3-62              
+ src/app/admin/jobs                                           |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-134             
+ src/app/agent                                                |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 1-48              
+ src/app/api                                                  |       0 |      100 |       0 |       0 |                   
+  route.ts                                                    |       0 |      100 |       0 |       0 | 3-21              
+ src/app/api/agents                                           |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-17              
+ src/app/api/auth/[...nextauth]                               |       0 |      100 |     100 |       0 |                   
+  route.ts                                                    |       0 |      100 |     100 |       0 | 1-6               
+ src/app/api/benchmark/step                                   |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-18              
+ src/app/api/chat                                             |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-127             
+ src/app/api/chats                                            |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-39              
+ src/app/api/chats/[id]                                       |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-36              
+ src/app/api/chats/[id]/messages                              |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-45              
+ src/app/api/connections                                      |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-49              
+ src/app/api/connections/[id]                                 |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-82              
+ src/app/api/connections/status                               |       0 |        0 |       0 |       0 |                   
+  route.ts                                                    |       0 |        0 |       0 |       0 | 1-17              
+ src/app/chat                                                 |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-213             
+ src/app/code-search                                          |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-358             
+ src/app/code-search/components                               |       0 |        0 |       0 |       0 |                   
+  ErrorBanner.tsx                                             |       0 |      100 |       0 |       0 | 1-3               
+  FileResults.tsx                                             |       0 |        0 |       0 |       0 | 1-37              
+  MatchLine.tsx                                               |       0 |        0 |       0 |       0 | 1-37              
+  RepoChip.tsx                                                |       0 |        0 |       0 |       0 | 1-13              
+  RepoResults.tsx                                             |       0 |        0 |       0 |       0 | 1-50              
+ src/app/code-search/hooks                                    |       0 |        0 |       0 |       0 |                   
+  useSearch.ts                                                |       0 |        0 |       0 |       0 | 1-176             
+ src/app/dashboard                                            |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 1-28              
+ src/app/docs-chat                                            |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 1-42              
+ src/app/evaluation-lab                                       |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 1-41              
+ src/app/evaluation-lab/components/Benchmark                  |       0 |        0 |       0 |       0 |                   
+  BenchmarkProgress.tsx                                       |       0 |        0 |       0 |       0 | 3-379             
+  BenchmarkResults.tsx                                        |       0 |        0 |       0 |       0 | 3-119             
+  BenchmarkRunForm.tsx                                        |       0 |        0 |       0 |       0 | 3-327             
+  BenchmarkRunManager.tsx                                     |       0 |        0 |       0 |       0 | 3-211             
+  BenchmarkRunner.tsx                                         |       0 |        0 |       0 |       0 | 3-179             
+  Drilldown.tsx                                               |       0 |        0 |       0 |       0 | 1-28              
+  EntryDetails.tsx                                            |       0 |        0 |       0 |       0 | 1-65              
+  EvaluationQueue.tsx                                         |       0 |        0 |       0 |       0 | 1-259             
+  Leaderboard.tsx                                             |       0 |        0 |       0 |       0 | 1-24              
+  LiveTimer.tsx                                               |       0 |        0 |       0 |       0 | 3-16              
+ src/app/evaluation-lab/components/Benchmark/components       |       0 |        0 |       0 |       0 |                   
+  Drilldown.tsx                                               |       0 |        0 |       0 |       0 | 1-37              
+  Leaderboard.tsx                                             |       0 |        0 |       0 |       0 | 1-34              
+  ViewSwitcher.tsx                                            |       0 |        0 |       0 |       0 | 3-67              
+ src/app/evaluation-lab/components/Benchmark/hooks            |       0 |        0 |       0 |       0 |                   
+  useBenchmarkStats.ts                                        |       0 |        0 |       0 |       0 | 3-166             
+ src/app/evaluation-lab/components/EvaluationLab              |       0 |        0 |       0 |       0 |                   
+  ContextGroupManager.tsx                                     |       0 |        0 |       0 |       0 | 3-208             
+  EvaluationLab.tsx                                           |       0 |        0 |       0 |       0 | 3-29              
+  EvaluationLabClient.tsx                                     |       0 |        0 |       0 |       0 | 3-62              
+  SystemPromptSetManager.tsx                                  |       0 |        0 |       0 |       0 | 3-187             
+ src/app/evaluation-lab/components/EvaluationLab/ContextGroup |       0 |        0 |       0 |       0 |                   
+  ContextGroupCard.tsx                                        |       0 |        0 |       0 |       0 | 1-65              
+  ContextGroupForm.tsx                                        |       0 |        0 |       0 |       0 | 1-218             
+  ExpectationItem.tsx                                         |       0 |        0 |       0 |       0 | 1-32              
+  ReferenceItem.tsx                                           |       0 |        0 |       0 |       0 | 1-47              
+  SkillSelector.tsx                                           |       0 |        0 |       0 |       0 | 1-16              
+  VariationItem.tsx                                           |       0 |      100 |       0 |       0 | 1-34              
+  useContextGroupForm.ts                                      |       0 |        0 |       0 |       0 | 1-155             
+ src/app/evaluation-lab/hooks                                 |       0 |        0 |       0 |       0 |                   
+  useProcessedBenchmarkData.ts                                |       0 |        0 |       0 |       0 | 1-163             
+ src/app/login                                                |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-39              
+ src/app/profile                                              |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 1-8               
+ src/app/register                                             |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-48              
+ src/app/repositories                                         |       0 |      100 |       0 |       0 |                   
+  page.tsx                                                    |       0 |      100 |       0 |       0 | 1-7               
+ src/app/settings                                             |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-36              
+ src/app/settings/connections                                 |       0 |        0 |       0 |       0 |                   
+  page.tsx                                                    |       0 |        0 |       0 |       0 | 3-320             
+ src/app/workspace                                            |       0 |        0 |       0 |       0 |                   
+  WorkspaceClient.tsx                                         |       0 |        0 |       0 |       0 | 3-302             
+  page.tsx                                                    |       0 |      100 |       0 |       0 | 1-6               
+ src/app/workspace/components                                 |       0 |        0 |       0 |       0 |                   
+  ChatInput.tsx                                               |       0 |        0 |       0 |       0 | 1-98              
+  ChatPanel.tsx                                               |       0 |        0 |       0 |       0 | 3-71              
+  ChatTabs.tsx                                                |       0 |        0 |       0 |       0 | 1-157             
+  EditorArea.tsx                                              |       0 |        0 |       0 |       0 | 1-221             
+  EditorTabs.tsx                                              |       0 |        0 |       0 |       0 | 1-33              
+  FileTree.tsx                                                |       0 |        0 |       0 |       0 | 3-176             
+  GitLog.tsx                                                  |       0 |        0 |       0 |       0 | 3-37              
+  MessageItem.tsx                                             |       0 |        0 |       0 |       0 | 1-27              
+  MessageList.tsx                                             |       0 |        0 |       0 |       0 | 1-24              
+  RevertPrompt.tsx                                            |       0 |        0 |       0 |       0 | 3-33              
+  SourceControlPanel.tsx                                      |       0 |        0 |       0 |       0 | 1-91              
+  Terminal.tsx                                                |       0 |        0 |       0 |       0 | 3-116             
+  WorkspaceTopBar.tsx                                         |       0 |        0 |       0 |       0 | 3-112             
+ src/app/workspace/hooks                                      |       0 |        0 |       0 |       0 |                   
+  useChatInteraction.ts                                       |       0 |        0 |       0 |       0 | 1-245             
+  useFileManagement.ts                                        |       0 |        0 |       0 |       0 | 1-123             
+  useGitDiffDecorations.ts                                    |       0 |        0 |       0 |       0 | 1-125             
+  useGitOperations.ts                                         |       0 |        0 |       0 |       0 | 1-179             
+  useTerminalExecution.ts                                     |       0 |        0 |       0 |       0 | 1-49              
+  useWorkspaceInit.ts                                         |       0 |        0 |       0 |       0 | 1-126             
+ src/components                                               |       0 |        0 |       0 |       0 |                   
+  NavLinks.tsx                                                |       0 |        0 |       0 |       0 | 2-34              
+  Navbar.tsx                                                  |       0 |        0 |       0 |       0 | 1-10              
+  NextAuthProvider.tsx                                        |       0 |      100 |       0 |       0 | 3-5               
+  UpdateProfileForm.tsx                                       |       0 |        0 |       0 |       0 | 3-207             
+  UserProfileDropdown.tsx                                     |       0 |        0 |       0 |       0 | 3-111             
+ src/components/AgentConfiguration                            |       0 |        0 |       0 |       0 |                   
+  AgentConfigForm.tsx                                         |       0 |        0 |       0 |       0 | 1-326             
+  AgentPageClient.tsx                                         |       0 |        0 |       0 |       0 | 3-124             
+  AgentPerformanceTab.tsx                                     |       0 |        0 |       0 |       0 | 3-32              
+  SkillsManager.tsx                                           |       0 |        0 |       0 |       0 | 1-122             
+  SystemPromptsManager.tsx                                    |       0 |        0 |       0 |       0 | 1-120             
+  ToolsManager.tsx                                            |       0 |        0 |       0 |       0 | 1-122             
+ src/components/Dashboard                                     |       0 |        0 |       0 |       0 |                   
+  SandboxDashboardCard.tsx                                    |       0 |        0 |       0 |       0 | 3-100             
+ src/components/DocsChat                                      |       0 |        0 |       0 |       0 |                   
+  ChatPanel.tsx                                               |       0 |        0 |       0 |       0 | 3-184             
+  DocViewer.tsx                                               |       0 |        0 |       0 |       0 | 3-130             
+  DocsChatLayout.tsx                                          |       0 |        0 |       0 |       0 | 3-79              
+  DocsSidebar.tsx                                             |       0 |        0 |       0 |       0 | 3-296             
+ src/components/GiteaConfiguration                            |       0 |        0 |       0 |       0 |                   
+  RepositoryCard.tsx                                          |       0 |        0 |       0 |       0 | 3-108             
+  RepositoryList.tsx                                          |       0 |        0 |       0 |       0 | 3-132             
+  SyncButton.tsx                                              |       0 |        0 |       0 |       0 | 3-20              
+ src/components/SystemSettings                                |       0 |        0 |       0 |       0 |                   
+  ClaudeConfiguration.tsx                                     |       0 |        0 |       0 |       0 | 3-202             
+  DockerConfiguration.tsx                                     |       0 |        0 |       0 |       0 | 3-267             
+  GitHubConfiguration.tsx                                     |       0 |        0 |       0 |       0 | 3-296             
+  GiteaConfiguration.tsx                                      |       0 |        0 |       0 |       0 | 3-183             
+  GoogleConfiguration.tsx                                     |       0 |        0 |       0 |       0 | 3-204             
+  OllamaConfiguration.tsx                                     |       0 |        0 |       0 |       0 | 3-165             
+  RepositoriesConfiguration.tsx                               |       0 |        0 |       0 |       0 | 3-147             
+ src/components/chat                                          |       0 |        0 |       0 |       0 |                   
+  ChatHeader.tsx                                              |       0 |        0 |       0 |       0 | 3-149             
+  ChatInput.tsx                                               |       0 |        0 |       0 |       0 | 3-37              
+  ChatInterface.tsx                                           |       0 |        0 |       0 |       0 | 3-29              
+  ChatSidebar.tsx                                             |       0 |        0 |       0 |       0 | 3-41              
+  MessageItem.tsx                                             |       0 |        0 |       0 |       0 | 3-33              
+  MessageList.tsx                                             |       0 |        0 |       0 |       0 | 3-39              
+ src/components/icons                                         |       0 |        0 |     100 |       0 |                   
+  ChevronDownIcon.tsx                                         |       0 |        0 |     100 |       0 | 1-3               
+  LogoutIcon.tsx                                              |       0 |        0 |     100 |       0 | 1-3               
+  RepositoryIcon.tsx                                          |       0 |        0 |     100 |       0 | 1-3               
+  SettingsIcon.tsx                                            |       0 |        0 |     100 |       0 | 1-3               
+  UserIcon.tsx                                                |       0 |        0 |     100 |       0 | 1-3               
+ src/context                                                  |       0 |        0 |       0 |       0 |                   
+  ThemeContext.tsx                                            |       0 |        0 |       0 |       0 | 3-61              
+ src/lib                                                      |       0 |        0 |       0 |       0 |                   
+  analysis.ts                                                 |       0 |        0 |       0 |       0 | 1-138             
+  background-jobs.ts                                          |       0 |        0 |       0 |       0 | 1-33              
+  chat-cleanup.ts                                             |       0 |      100 |       0 |       0 | 1-37              
+  constants.ts                                                |       0 |      100 |       0 |       0 | 1-24              
+  cron-constants.ts                                           |       0 |      100 |     100 |       0 | 1                 
+  docker-git.ts                                               |       0 |        0 |       0 |       0 | 1-70              
+  editor-utils.ts                                             |       0 |        0 |       0 |       0 | 4-51              
+  git-auth.ts                                                 |       0 |        0 |       0 |       0 | 1-52              
+  mockDataLoader.ts                                           |       0 |        0 |       0 |       0 | 1-106             
+  repo-utils.ts                                               |       0 |        0 |       0 |       0 | 1-28              
+  scaffold.ts                                                 |       0 |        0 |       0 |       0 | 1-86              
+  semanticIndexing.ts                                         |       0 |        0 |       0 |       0 | 1-52              
+  sync.ts                                                     |       0 |        0 |       0 |       0 | 1-43              
+ src/lib/chat                                                 |   10.92 |     9.89 |    6.12 |    9.97 |                   
+  anthropic-client.ts                                         |       0 |        0 |       0 |       0 | 1-110             
+  client-factory.ts                                           |       0 |        0 |       0 |       0 | 2-42              
+  context.ts                                                  |       0 |        0 |       0 |       0 | 1-124             
+  google-client.ts                                            |       0 |        0 |       0 |       0 | 1-110             
+  inference-runner.ts                                         |       0 |        0 |       0 |       0 | 2-97              
+  ollama-client.ts                                            |   95.74 |    80.55 |     100 |      95 | 90-96             
+  prompt-builder.ts                                           |       0 |        0 |       0 |       0 | 2-89              
+  service.ts                                                  |       0 |        0 |       0 |       0 | 1-115             
+  utils.ts                                                    |       0 |        0 |       0 |       0 | 3-206             
+ src/lib/connections                                          |       0 |        0 |       0 |       0 |                   
+  discord.ts                                                  |       0 |        0 |       0 |       0 | 1-197             
+  manager.ts                                                  |       0 |        0 |       0 |       0 | 1-69              
+ src/lib/store                                                |       0 |      100 |       0 |       0 |                   
+  Provider.tsx                                                |       0 |      100 |       0 |       0 | 3-8               
+  hooks.ts                                                    |       0 |      100 |     100 |       0 | 1-7               
+  store.ts                                                    |       0 |      100 |       0 |       0 | 1-7               
+ src/lib/store/features/chat                                  |       0 |        0 |       0 |       0 |                   
+  chatSlice.ts                                                |       0 |        0 |       0 |       0 | 1-112             
+ src/lib/store/features/terminal                              |       0 |      100 |       0 |       0 |                   
+  terminalSlice.ts                                            |       0 |      100 |       0 |       0 | 1-62              
+ src/lib/store/features/workspace                             |       0 |        0 |       0 |       0 |                   
+  workspaceSlice.ts                                           |       0 |        0 |       0 |       0 | 1-145             
+--------------------------------------------------------------|---------|----------|---------|---------|-------------------
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 8 passed, 9 total
+Snapshots:   0 total
+Time:        2.059 s
+Ran all test suites matching src/lib/chat/__tests__/ollama-client.test.ts.

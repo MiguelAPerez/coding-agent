@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { AgentConfig } from "@/types/agent";
-import { getPromptFromFile } from "./prompts";
+import { getSystempPromptFromFile } from "./prompts";
 import { scaffoldAgent } from "@/lib/scaffold";
 
 export async function getAgentConfigs() {
@@ -30,7 +30,7 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
                 provider: data.provider,
                 model: data.model,
                 systemPromptId: data.systemPromptId,
-                systemPrompt: data.systemPrompt || (await getPromptFromFile("DEFAULT_PERSONALITY")),
+                systemPrompt: data.systemPrompt || (await getSystempPromptFromFile("DEFAULT_PERSONALITY")),
                 temperature: data.temperature,
                 updatedAt: now,
             })
@@ -47,7 +47,7 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
                 provider: data.provider,
                 model: data.model,
                 systemPromptId: data.systemPromptId,
-                systemPrompt: data.systemPrompt || (await getPromptFromFile("DEFAULT_PERSONALITY")),
+                systemPrompt: data.systemPrompt || (await getSystempPromptFromFile("DEFAULT_PERSONALITY")),
                 temperature: data.temperature,
                 updatedAt: now,
             })
@@ -99,7 +99,7 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
             model: agent.model,
 
             systemPromptId: agent.systemPromptId,
-            systemPrompt: agent.systemPrompt || (await getPromptFromFile("DEFAULT_PERSONALITY")),
+            systemPrompt: agent.systemPrompt || (await getSystempPromptFromFile("DEFAULT_PERSONALITY")),
             temperature: agent.temperature,
             isManaged: true,
             updatedAt: new Date(),

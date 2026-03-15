@@ -4,6 +4,9 @@ import { ChatMessage, ChatClient } from "./types";
 import { db } from "@/../db";
 import { googleConfigurations } from "@/../db/schema";
 import { eq, sql } from "drizzle-orm";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+
+const tracer = trace.getTracer("google-client");
 
 export class GoogleClient implements ChatClient {
     private client: GoogleGenAI;
@@ -38,59 +41,98 @@ export class GoogleClient implements ChatClient {
     }
 
     async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
-        const { contents, systemInstruction } = this.convertMessages(messages);
+        return tracer.startActiveSpan("google.chat", async (span) => {
+            try {
+                const { contents, systemInstruction } = this.convertMessages(messages);
+                span.setAttributes({
+                    "gen_ai.model_name": this.model,
+                    "gen_ai.system": "google",
+                    "gen_ai.request.temperature": this.temperature / 100,
+                });
 
-        const response = await this.client.models.generateContent({
-            model: this.model,
-            contents,
-            config: {
-                systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-                temperature: this.temperature / 100,
-            },
+                const response = await this.client.models.generateContent({
+                    model: this.model,
+                    contents,
+                    config: {
+                        systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+                        temperature: this.temperature / 100,
+                    },
+                });
+
+                let usage: { promptTokens: number; completionTokens: number } | undefined;
+                if (response.usageMetadata) {
+                    usage = {
+                        promptTokens: response.usageMetadata.promptTokenCount || 0,
+                        completionTokens: response.usageMetadata.candidatesTokenCount || 0
+                    };
+                    span.setAttributes({
+                        "gen_ai.response.input_tokens": usage.promptTokens,
+                        "gen_ai.response.output_tokens": usage.completionTokens,
+                    });
+                    await this.updateUsage(usage.promptTokens, usage.completionTokens);
+                }
+
+                return {
+                    content: response.text || "",
+                    usage
+                };
+            } catch (error) {
+                span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : "Unknown error" });
+                throw error;
+            } finally {
+                span.end();
+            }
         });
-
-        if (response.usageMetadata) {
-            await this.updateUsage(response.usageMetadata.promptTokenCount || 0, response.usageMetadata.candidatesTokenCount || 0);
-        }
-        
-        return {
-            content: response.text || "",
-            usage: response.usageMetadata ? {
-                promptTokens: response.usageMetadata.promptTokenCount || 0,
-                completionTokens: response.usageMetadata.candidatesTokenCount || 0
-            } : undefined
-        };
     }
 
     async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
-        const { contents, systemInstruction } = this.convertMessages(messages);
-
-        const stream = await this.client.models.generateContentStream({
-            model: this.model,
-            contents,
-            config: {
-                systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-                temperature: this.temperature / 100,
+        const span = tracer.startSpan("google.streamChat", {
+            attributes: {
+                "gen_ai.model_name": this.model,
+                "gen_ai.system": "google",
+                "gen_ai.request.temperature": this.temperature / 100,
             },
         });
 
-        let finalUsage: { promptTokens: number; completionTokens: number } | undefined;
+        try {
+            const { contents, systemInstruction } = this.convertMessages(messages);
 
-        for await (const chunk of stream) {
-            if (chunk.text) {
-                yield chunk.text;
-            }
-            if (chunk.usageMetadata) {
-                await this.updateUsage(chunk.usageMetadata.promptTokenCount || 0, chunk.usageMetadata.candidatesTokenCount || 0);
-                finalUsage = {
-                    promptTokens: chunk.usageMetadata.promptTokenCount || 0,
-                    completionTokens: chunk.usageMetadata.candidatesTokenCount || 0
-                };
-            }
-        }
+            const stream = await this.client.models.generateContentStream({
+                model: this.model,
+                contents,
+                config: {
+                    systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+                    temperature: this.temperature / 100,
+                },
+            });
 
-        if (finalUsage) {
-            yield { usage: finalUsage };
+            let finalUsage: { promptTokens: number; completionTokens: number } | undefined;
+
+            for await (const chunk of stream) {
+                if (chunk.text) {
+                    yield chunk.text;
+                }
+                if (chunk.usageMetadata) {
+                    finalUsage = {
+                        promptTokens: chunk.usageMetadata.promptTokenCount || 0,
+                        completionTokens: chunk.usageMetadata.candidatesTokenCount || 0
+                    };
+                    span.setAttributes({
+                        "gen_ai.response.input_tokens": finalUsage.promptTokens,
+                        "gen_ai.response.output_tokens": finalUsage.completionTokens,
+                    });
+                    await this.updateUsage(finalUsage.promptTokens, finalUsage.completionTokens);
+                }
+            }
+
+            if (finalUsage) {
+                yield { usage: finalUsage };
+            }
+        } catch (error) {
+            span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : "Unknown error" });
+            throw error;
+        } finally {
+            span.end();
         }
     }
 
