@@ -25,7 +25,6 @@ export class OllamaClient implements ChatClient {
                         options: { temperature: this.temperature / 100 }
                     }),
                 });
-                console.log(messages);
 
                 if (!response.ok) throw new Error(`Ollama API error: ${response.statusText}`);
                 const data = await response.json();
@@ -64,7 +63,6 @@ export class OllamaClient implements ChatClient {
         });
 
         try {
-            console.log(messages);
             const response = await fetch(`${this.config.url}/api/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

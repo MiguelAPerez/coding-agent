@@ -52,7 +52,7 @@ describe("ConnectionManager", () => {
         await manager.startAll();
 
         expect(db.query.connections.findMany).toHaveBeenCalled();
-        expect(DiscordBot).toHaveBeenCalledWith("token1", "user1", "conn1", "agent123");
+        expect(DiscordBot).toHaveBeenCalledWith("token1", "user1", "conn1", "agent123", null, null, 0, null);
     });
 
     it("should not start disabled connections", async () => {

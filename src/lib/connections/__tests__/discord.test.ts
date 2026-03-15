@@ -32,6 +32,11 @@ jest.mock("@/../db", () => ({
                 findFirst: jest.fn(),
             },
         },
+        update: jest.fn().mockReturnValue({
+            set: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnThis(),
+            }),
+        }),
     },
 }));
 
@@ -43,25 +48,27 @@ describe("DiscordBot agentId Fallback Logic", () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        jest.spyOn(console, 'log').mockImplementation(() => {});
+        // jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterEach(() => {
-        (console.log as jest.Mock).mockRestore();
-        (console.error as jest.Mock).mockRestore();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((console.log as any).mockRestore) (console.log as any).mockRestore();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((console.error as any).mockRestore) (console.error as any).mockRestore();
     });
 
     it("should use agentId from chat if present", async () => {
-        bot = new DiscordBot(token, userId, connectionId, "connection-agent-id");
+        const testMetadata = JSON.stringify({ channels: { "channel123": { name: "general", enabled: true } } });
+        bot = new DiscordBot(token, userId, connectionId, "chat-agent-id", testMetadata);
         const mockMessage = {
             id: "msg101",
             author: { bot: false },
             content: "hello @bot",
             mentions: { has: jest.fn(() => true) },
             reference: null,
-            channelId: "channel123",
-            channel: { name: "general", sendTyping: jest.fn() },
+            channel: { id: "channel123", name: "general", sendTyping: jest.fn() },
             reply: jest.fn().mockResolvedValue({ id: "reply-id" }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
@@ -91,15 +98,15 @@ describe("DiscordBot agentId Fallback Logic", () => {
     });
 
     it("should use connection-specific agentId if chat has no agentId", async () => {
-        bot = new DiscordBot(token, userId, connectionId, "connection-agent-id");
+        const testMetadata = JSON.stringify({ channels: { "channel123": { name: "general", enabled: true } } });
+        bot = new DiscordBot(token, userId, connectionId, "connection-agent-id", testMetadata);
         const mockMessage = {
             id: "msg101",
             author: { bot: false },
             content: "hello @bot",
             mentions: { has: jest.fn(() => true) },
             reference: null,
-            channelId: "channel123",
-            channel: { name: "general", sendTyping: jest.fn() },
+            channel: { id: "channel123", name: "general", sendTyping: jest.fn() },
             reply: jest.fn().mockResolvedValue({ id: "reply-id" }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
@@ -129,15 +136,15 @@ describe("DiscordBot agentId Fallback Logic", () => {
     });
 
     it("should fallback to first user agent if neither chat nor connection has agentId", async () => {
-        bot = new DiscordBot(token, userId, connectionId, null);
+        const testMetadata = JSON.stringify({ channels: { "channel123": { name: "general", enabled: true } } });
+        bot = new DiscordBot(token, userId, connectionId, null, testMetadata);
         const mockMessage = {
             id: "msg101",
             author: { bot: false },
             content: "hello @bot",
             mentions: { has: jest.fn(() => true) },
             reference: null,
-            channelId: "channel123",
-            channel: { name: "general", sendTyping: jest.fn() },
+            channel: { id: "channel123", name: "general", sendTyping: jest.fn() },
             reply: jest.fn().mockResolvedValue({ id: "reply-id" }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
@@ -172,15 +179,15 @@ describe("DiscordBot agentId Fallback Logic", () => {
     });
 
     it("should reply with error if no agent is found at all", async () => {
-        bot = new DiscordBot(token, userId, connectionId, null);
+        const testMetadata = JSON.stringify({ channels: { "channel123": { name: "general", enabled: true } } });
+        bot = new DiscordBot(token, userId, connectionId, null, testMetadata);
         const mockMessage = {
             id: "msg101",
             author: { bot: false },
             content: "hello @bot",
             mentions: { has: jest.fn(() => true) },
             reference: null,
-            channelId: "channel123",
-            channel: { name: "general", sendTyping: jest.fn() },
+            channel: { id: "channel123", name: "general", sendTyping: jest.fn() },
             reply: jest.fn().mockResolvedValue({ id: "reply-id" }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;

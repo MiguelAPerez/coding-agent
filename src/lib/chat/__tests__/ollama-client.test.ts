@@ -82,7 +82,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Part 1", "Part 2", { usage: { promptTokens: 0, completionTokens: 0 } }]);
+        expect(results).toEqual(["Part 1", "Part 2", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
     });
 
     it("should handle partial JSON chunks in stream", async () => {
@@ -109,7 +109,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Hello", { usage: { promptTokens: 0, completionTokens: 0 } }]);
+        expect(results).toEqual(["Hello", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
     });
 
     it("should throw error if stream chat fails", async () => {
@@ -154,7 +154,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["valid", { usage: { promptTokens: 0, completionTokens: 0 } }]);
+        expect(results).toEqual(["valid", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
         expect(console.error).toHaveBeenCalled();
     });
 
@@ -180,7 +180,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Final", { usage: { promptTokens: 0, completionTokens: 0 } }]);
+        expect(results).toEqual(["Final", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
     });
 
     it("should handle JSON with no content", async () => {
@@ -201,7 +201,7 @@ describe("OllamaClient", () => {
 
         const generator = client.streamChat([]);
         const result = await generator.next();
-        expect(result.value).toEqual({ usage: { promptTokens: 0, completionTokens: 0 } });
+        expect(result.value).toEqual({ usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } });
         expect(result.done).toBe(false);
         const secondResult = await generator.next();
         expect(secondResult.done).toBe(true);

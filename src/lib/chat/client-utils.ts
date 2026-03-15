@@ -47,7 +47,9 @@ export async function streamChatResponse(
             onChunk(chunk);
         }
     } finally {
-        reader.releaseLock();
+        if (reader.releaseLock) {
+            reader.releaseLock();
+        }
     }
 
     return accumulatedContent;

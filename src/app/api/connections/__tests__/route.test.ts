@@ -121,7 +121,7 @@ describe("POST /api/connections", () => {
 
         expect(db.insert).toHaveBeenCalled();
         expect(ConnectionManager.getInstance().startConnection).toHaveBeenCalledWith(
-            "conn-1", "discord", "user-1", {}, "agent-1"
+            "conn-1", "discord", "user-1", "{}", "agent-1", undefined, undefined
         );
         expect(NextResponse.json).toHaveBeenCalledWith(mockConn);
     });

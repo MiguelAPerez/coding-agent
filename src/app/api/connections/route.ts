@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
             conn.id, 
             type, 
             session.user.id, 
-            config, 
+            JSON.stringify(config), 
             agentId, 
             metadata, 
             tokenLimitDaily

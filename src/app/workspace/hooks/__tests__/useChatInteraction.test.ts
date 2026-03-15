@@ -47,7 +47,8 @@ describe("useChatInteraction", () => {
                                 return Promise.resolve({ done: false, value: new TextEncoder().encode("Chunk 1") });
                             }
                             return Promise.resolve({ done: true });
-                        }
+                        },
+                        releaseLock: jest.fn()
                     };
                 }
             }
