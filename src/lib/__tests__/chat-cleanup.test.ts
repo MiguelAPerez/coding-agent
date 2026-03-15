@@ -30,6 +30,14 @@ describe("cleanupOldExternalChats", () => {
 
         (db.select as jest.Mock).mockReturnValue(mockSelect);
         (db.delete as jest.Mock).mockReturnValue(mockDelete);
+
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        (console.log as jest.Mock).mockRestore();
+        (console.error as jest.Mock).mockRestore();
     });
 
     test("successfully cleans up old discord chats", async () => {

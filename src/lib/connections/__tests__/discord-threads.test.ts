@@ -42,6 +42,13 @@ describe("DiscordBot Thread Tracking", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         bot = new DiscordBot(token, userId, connectionId);
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        (console.log as jest.Mock).mockRestore();
+        (console.error as jest.Mock).mockRestore();
     });
 
     it("should ignore messages that are not mentions or replies", async () => {

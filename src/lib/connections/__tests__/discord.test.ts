@@ -43,6 +43,13 @@ describe("DiscordBot agentId Fallback Logic", () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        (console.log as jest.Mock).mockRestore();
+        (console.error as jest.Mock).mockRestore();
     });
 
     it("should use agentId from chat if present", async () => {

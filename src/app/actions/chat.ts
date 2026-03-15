@@ -5,7 +5,7 @@ import { authOptions } from "@/auth";
 import { ChatContext } from "@/lib/chat/context";
 import { ChatClientFactory } from "@/lib/chat/client-factory";
 import { InferenceRunner } from "@/lib/chat/inference-runner";
-import { ChatMessage, ChatResponse } from "@/lib/chat/types";
+import { ChatMessage, ChatResponse, WorkMode } from "@/lib/chat/types";
 import { extractMentionedPaths, parseDiffs, parseTechnicalPlan } from "@/lib/chat/utils";
 import { PromptBuilder } from "@/lib/chat/prompt-builder";
 import { getPromptFromFile } from "./prompts";
@@ -83,7 +83,8 @@ export async function chatWithAgentInternal(
     // Simple Channel Response
     const promptStart = Date.now();
     instructions = (discordChannelId) ? await getPromptFromFile("DISCORD") : null;
-    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, null, contextData.initialFileContent || "", instructions);
+    const mode: WorkMode = discordChannelId ? "DISCORD" : "GENERAL";
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, null, contextData.initialFileContent || "", mode, instructions);
     messages[0].content = systemPrompt;
     const promptBuildTime = Date.now() - promptStart;
 
@@ -118,7 +119,7 @@ export async function chatWithDocInternal(repoId: string, filePath: string | nul
     // TODO: move json parser into a global place like parseDiff
     const runner = new InferenceRunner(userId, repoId, contextData, client);
 
-    return runner.run(prompt, filePath, contextData.initialFileContent, docPrompt);
+    return runner.run(prompt, filePath, contextData.initialFileContent, docPrompt, "DOCUMENTATION");
 }
 
 
@@ -151,7 +152,7 @@ export async function chatWithCoderInternal(
         ...history,
     ];
 
-    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", instructions);
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", "CODER", instructions);
     messages[0].content = systemPrompt;
 
     if (Object.keys(contextData.fileContents).length > 0) {
@@ -204,7 +205,7 @@ export async function getTechnicalPlan(
         ...history,
     ];
 
-    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", plannerInstructions);
+    const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", "PLANNER", plannerInstructions);
     messages[0].content = systemPrompt;
 
     if (Object.keys(contextData.fileContents).length > 0) {

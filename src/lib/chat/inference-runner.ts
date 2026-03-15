@@ -1,4 +1,4 @@
-import { ChatMessage, ChatResponse, ContextData, ChatClient } from "./types";
+import { ChatMessage, ChatResponse, ContextData, ChatClient, WorkMode } from "./types";
 import { PromptBuilder } from "./prompt-builder";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
 
@@ -15,7 +15,7 @@ export class InferenceRunner {
     ) { }
 
 
-    async run(prompt: string, initialFilePath: string | null, initialFileContent: string, sysPrompt: string): Promise<ChatResponse> {
+    async run(prompt: string, initialFilePath: string | null, initialFileContent: string, sysPrompt: string, workMode: WorkMode): Promise<ChatResponse> {
         const messages: ChatMessage[] = [
             { role: "system", content: "" }, // Placeholder, will be updated in the loop
             { role: "user", content: prompt }
@@ -27,7 +27,7 @@ export class InferenceRunner {
 
         for (let step = 0; step < 2; step++) {
             console.log(`[Chat Inference] Step ${step + 1}/2...`);
-            const systemPrompt = await PromptBuilder.buildSystemPrompt(this.contextData, currentFilePath, currentFileContent, sysPrompt);
+            const systemPrompt = await PromptBuilder.buildSystemPrompt(this.contextData, currentFilePath, currentFileContent, workMode, sysPrompt);
             messages[0].content = systemPrompt; // Refresh system prompt with new context if navigated
 
             const content = await this.chatClient.chat(messages);

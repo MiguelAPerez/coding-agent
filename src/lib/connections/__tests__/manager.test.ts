@@ -22,10 +22,17 @@ describe("ConnectionManager", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         manager = ConnectionManager.getInstance();
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
         // Reset singleton internal state for testing if possible, 
         // but since it's a private constructor and static instance, 
         // we'll just clear the bots map if we could, but it's private.
         // For now, let's just test getInstance and initial states.
+    });
+
+    afterEach(() => {
+        (console.log as jest.Mock).mockRestore();
+        (console.error as jest.Mock).mockRestore();
     });
 
     it("should be a singleton", () => {

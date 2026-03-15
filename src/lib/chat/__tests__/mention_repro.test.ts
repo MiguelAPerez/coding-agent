@@ -21,6 +21,6 @@ describe("extractMentionedPaths (reproduction)", () => {
         const text = "Email me at user@example.com";
         const result = extractMentionedPaths(text);
         // If it returns ["example.com"], we know it's capturing after the @
-        console.log("Email result:", result);
+        expect(result).toBeDefined();
     });
 });

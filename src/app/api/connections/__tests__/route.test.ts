@@ -49,6 +49,11 @@ jest.mock("next/server", () => ({
 describe("GET /api/connections", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        (console.error as jest.Mock).mockRestore();
     });
 
     test("returns 401 if no session", async () => {
@@ -82,6 +87,11 @@ describe("GET /api/connections", () => {
 describe("POST /api/connections", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        (console.error as jest.Mock).mockRestore();
     });
 
     test("returns 401 if no session", async () => {
