@@ -30,7 +30,19 @@ export class InferenceRunner {
             const systemPrompt = await PromptBuilder.buildSystemPrompt(this.contextData, currentFilePath, currentFileContent, workMode, sysPrompt);
             messages[0].content = systemPrompt; // Refresh system prompt with new context if navigated
 
-            const content = await this.chatClient.chat(messages);
+            const inferenceStart = Date.now();
+            const { content, usage } = await this.chatClient.chat(messages);
+            const inferenceTime = Date.now() - inferenceStart;
+
+            // Record usage stats
+            if (this.contextData.agentConfig.id) {
+                try {
+                    const { recordAgentUsage } = await import("@/app/actions/performance");
+                    await recordAgentUsage(this.contextData.agentConfig.id, usage?.promptTokens || 0, usage?.completionTokens || 0, inferenceTime);
+                } catch (e) {
+                    console.error("Failed to record agent usage:", e);
+                }
+            }
 
 
             const jsonMatch = content.match(/\{[\s\S]*\}/);

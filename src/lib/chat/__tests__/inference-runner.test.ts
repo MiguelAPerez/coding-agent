@@ -43,7 +43,7 @@ describe("InferenceRunner", () => {
 
     it("should return a simple message when no redirect is requested", async () => {
         const mockResponse = JSON.stringify({ message: "Hello there!" });
-        (mockChatClient.chat as jest.Mock).mockResolvedValue(mockResponse);
+        (mockChatClient.chat as jest.Mock).mockResolvedValue({ content: mockResponse });
 
         const result = await runner.run("hi", "file.ts", "content", "sys-prompt", "GENERAL");
 
@@ -55,9 +55,9 @@ describe("InferenceRunner", () => {
     it("should handle navigation/redirect and perform a second step", async () => {
         // Step 1: Redirect to another file
         (mockChatClient.chat as jest.Mock)
-            .mockResolvedValueOnce(JSON.stringify({ redirect: "other.ts", message: "Navigating..." }))
+            .mockResolvedValueOnce({ content: JSON.stringify({ redirect: "other.ts", message: "Navigating..." }) })
             // Step 2: Final answer
-            .mockResolvedValueOnce(JSON.stringify({ message: "Found it in other.ts" }));
+            .mockResolvedValueOnce({ content: JSON.stringify({ message: "Found it in other.ts" }) });
 
         (getRepoFileContentInternal as jest.Mock).mockResolvedValue("---header---\nOther File Content");
 
@@ -71,7 +71,7 @@ describe("InferenceRunner", () => {
 
     it("should fallback to raw content if JSON parsing fails", async () => {
         const rawContent = "This is not JSON but a direct answer.";
-        (mockChatClient.chat as jest.Mock).mockResolvedValue(rawContent);
+        (mockChatClient.chat as jest.Mock).mockResolvedValue({ content: rawContent });
 
         const result = await runner.run("tell me something", "file.ts", "content", "sys-prompt", "GENERAL");
 
@@ -82,9 +82,9 @@ describe("InferenceRunner", () => {
     it("should stop after 2 steps and return current progress", async () => {
         // Step 1: Redirect
         (mockChatClient.chat as jest.Mock)
-            .mockResolvedValueOnce(JSON.stringify({ redirect: "file2.ts" }))
+            .mockResolvedValueOnce({ content: JSON.stringify({ redirect: "file2.ts" }) })
             // Step 2: Another redirect (it should stop here because step becomes 1 and loop ends or continue check fails)
-            .mockResolvedValueOnce(JSON.stringify({ redirect: "file3.ts", message: "Still searching" }));
+            .mockResolvedValueOnce({ content: JSON.stringify({ redirect: "file3.ts", message: "Still searching" }) });
 
         (getRepoFileContentInternal as jest.Mock).mockResolvedValue("Content 2");
 
@@ -98,7 +98,7 @@ describe("InferenceRunner", () => {
     });
 
     it("should handle navigation failure and return current state", async () => {
-        (mockChatClient.chat as jest.Mock).mockResolvedValue(JSON.stringify({ redirect: "nonexistent.ts" }));
+        (mockChatClient.chat as jest.Mock).mockResolvedValue({ content: JSON.stringify({ redirect: "nonexistent.ts" }) });
         (getRepoFileContentInternal as jest.Mock).mockRejectedValue(new Error("File not found"));
 
         const result = await runner.run("go to void", "file.ts", "content", "sys-prompt", "GENERAL");

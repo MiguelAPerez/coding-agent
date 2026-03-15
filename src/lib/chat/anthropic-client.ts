@@ -17,7 +17,7 @@ export class ClaudeClient implements ChatClient {
         });
     }
 
-    async chat(messages: ChatMessage[]): Promise<string> {
+    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
         const systemMessage = messages.find(m => m.role === 'system');
         const userMessages = messages.filter(m => m.role !== 'system');
 
@@ -39,12 +39,18 @@ export class ClaudeClient implements ChatClient {
 
         const firstBlock = response.content[0];
         if (firstBlock.type === 'text') {
-            return firstBlock.text;
+            return {
+                content: firstBlock.text,
+                usage: response.usage ? {
+                    promptTokens: response.usage.input_tokens,
+                    completionTokens: response.usage.output_tokens
+                } : undefined
+            };
         }
-        return "";
+        return { content: "" };
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
         const systemMessage = messages.find(m => m.role === 'system');
         const userMessages = messages.filter(m => m.role !== 'system');
 
@@ -60,20 +66,30 @@ export class ClaudeClient implements ChatClient {
             stream: true,
         });
 
+        let finalUsage: { promptTokens: number; completionTokens: number } | undefined;
+
         for await (const chunk of stream) {
             if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
                 yield chunk.delta.text;
             } else if (chunk.type === 'message_stop' && (chunk as unknown as { usage?: { input_tokens: number; output_tokens: number } }).usage) {
-                // Some versions/types might have usage here
                 const usage = (chunk as unknown as { usage: { input_tokens: number; output_tokens: number } }).usage;
                 await this.updateUsage(usage.input_tokens, usage.output_tokens);
+                finalUsage = { promptTokens: usage.input_tokens, completionTokens: usage.output_tokens };
             } else if (chunk.type === 'message_start' && chunk.message.usage) {
-                 await this.updateUsage(chunk.message.usage.input_tokens, 0); // Start usage
+                 await this.updateUsage(chunk.message.usage.input_tokens, 0);
             } else if (chunk.type === 'message_delta' && chunk.usage) {
-                 await this.updateUsage(0, chunk.usage.output_tokens); // Delta usage
+                 await this.updateUsage(0, chunk.usage.output_tokens);
+                 // message_delta might have the accumulated output tokens
+                 if (finalUsage) {
+                     finalUsage.completionTokens = chunk.usage.output_tokens;
+                 } else {
+                     finalUsage = { promptTokens: 0, completionTokens: chunk.usage.output_tokens };
+                 }
             }
-
-
+        }
+        
+        if (finalUsage) {
+            yield { usage: finalUsage };
         }
     }
 

@@ -13,9 +13,14 @@ export interface ChatResponse {
     plan?: TechnicalPlan | null;
 }
 
+export interface Usage {
+    promptTokens: number;
+    completionTokens: number;
+}
+
 export interface ChatClient {
-    chat(messages: ChatMessage[]): Promise<string>;
-    streamChat(messages: ChatMessage[]): AsyncGenerator<string>;
+    chat(messages: ChatMessage[]): Promise<{ content: string; usage?: Usage }>;
+    streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: Usage }>;
 }
 
 

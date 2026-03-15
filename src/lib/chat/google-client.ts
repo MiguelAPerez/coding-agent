@@ -37,7 +37,7 @@ export class GoogleClient implements ChatClient {
         return { contents, systemInstruction };
     }
 
-    async chat(messages: ChatMessage[]): Promise<string> {
+    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
         const { contents, systemInstruction } = this.convertMessages(messages);
 
         const response = await this.client.models.generateContent({
@@ -53,10 +53,16 @@ export class GoogleClient implements ChatClient {
             await this.updateUsage(response.usageMetadata.promptTokenCount || 0, response.usageMetadata.candidatesTokenCount || 0);
         }
         
-        return response.text || "";
+        return {
+            content: response.text || "",
+            usage: response.usageMetadata ? {
+                promptTokens: response.usageMetadata.promptTokenCount || 0,
+                completionTokens: response.usageMetadata.candidatesTokenCount || 0
+            } : undefined
+        };
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
         const { contents, systemInstruction } = this.convertMessages(messages);
 
         const stream = await this.client.models.generateContentStream({
@@ -68,13 +74,23 @@ export class GoogleClient implements ChatClient {
             },
         });
 
+        let finalUsage: { promptTokens: number; completionTokens: number } | undefined;
+
         for await (const chunk of stream) {
             if (chunk.text) {
                 yield chunk.text;
             }
             if (chunk.usageMetadata) {
                 await this.updateUsage(chunk.usageMetadata.promptTokenCount || 0, chunk.usageMetadata.candidatesTokenCount || 0);
+                finalUsage = {
+                    promptTokens: chunk.usageMetadata.promptTokenCount || 0,
+                    completionTokens: chunk.usageMetadata.candidatesTokenCount || 0
+                };
             }
+        }
+
+        if (finalUsage) {
+            yield { usage: finalUsage };
         }
     }
 

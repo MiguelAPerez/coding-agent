@@ -22,11 +22,9 @@ export const AgentPageClient = ({
     performanceSummaries: {
         agentId: string;
         agentName: string;
-        avgScore: number;
-        totalBenchmarks: number;
-        latestScore: number | null;
-        latestDuration: number | null;
-        lastUpdated: Date | null;
+        avgLatency: number;
+        totalWeekTokens: number;
+        totalMonthTokens: number;
     }[];
 }) => {
     const [mainTab, setMainTab] = useState("performance");

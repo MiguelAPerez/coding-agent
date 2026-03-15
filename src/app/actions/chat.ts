@@ -89,10 +89,20 @@ export async function chatWithAgentInternal(
     const promptBuildTime = Date.now() - promptStart;
 
     const inferenceStart = Date.now();
-    const responseContent = await client.chat(messages);
+    const { content: responseContent, usage } = await client.chat(messages);
     const inferenceTime = Date.now() - inferenceStart;
 
     console.log(`[chatWithAgentInternal] userId: ${userId} context: ${contextLoadTime}ms, prompt: ${promptBuildTime}ms, inference: ${inferenceTime}ms, total: ${Date.now() - start}ms`);
+
+    // Record usage stats
+    if (agentId) {
+        try {
+            const { recordAgentUsage } = await import("@/app/actions/performance");
+            await recordAgentUsage(agentId, usage?.promptTokens || 0, usage?.completionTokens || 0, inferenceTime);
+        } catch (e) {
+            console.error("Failed to record agent usage:", e);
+        }
+    }
 
     // We don't expect an specific format here, just a message
     return {
@@ -166,7 +176,19 @@ export async function chatWithCoderInternal(
         messages.push({ role: "user", content: prompt });
     }
 
-    const responseContent = await client.chat(messages);
+    const inferenceStart = Date.now();
+    const { content: responseContent, usage } = await client.chat(messages);
+    const inferenceTime = Date.now() - inferenceStart;
+
+    // Record usage stats
+    if (agentId) {
+        try {
+            const { recordAgentUsage } = await import("@/app/actions/performance");
+            await recordAgentUsage(agentId, usage?.promptTokens || 0, usage?.completionTokens || 0, inferenceTime);
+        } catch (e) {
+            console.error("Failed to record agent usage:", e);
+        }
+    }
 
     // Parse diffs and clean content
     const { suggestion, cleanContent } = parseDiffs(responseContent, filePath, contextData.fileContents);
@@ -219,7 +241,20 @@ export async function getTechnicalPlan(
         messages.push({ role: "user", content: prompt });
     }
 
-    const responseContent = await client.chat(messages);
+    const inferenceStart = Date.now();
+    const { content: responseContent, usage } = await client.chat(messages);
+    const inferenceTime = Date.now() - inferenceStart;
+
+    // Record usage stats
+    if (agentId) {
+        try {
+            const { recordAgentUsage } = await import("@/app/actions/performance");
+            await recordAgentUsage(agentId, usage?.promptTokens || 0, usage?.completionTokens || 0, inferenceTime);
+        } catch (e) {
+            console.error("Failed to record agent usage:", e);
+        }
+    }
+
     const plan = parseTechnicalPlan(responseContent);
 
     // Clean up the message content by removing the JSON block

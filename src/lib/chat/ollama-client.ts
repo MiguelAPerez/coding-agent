@@ -3,7 +3,7 @@ import { ChatMessage, ChatClient } from "./types";
 export class OllamaClient implements ChatClient {
     constructor(private readonly config: { url: string }, private readonly model: string, private readonly temperature: number) { }
 
-    async chat(messages: ChatMessage[]): Promise<string> {
+    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
         const response = await fetch(`${this.config.url}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -17,10 +17,16 @@ export class OllamaClient implements ChatClient {
 
         if (!response.ok) throw new Error(`Ollama API error: ${response.statusText}`);
         const data = await response.json();
-        return data.message.content;
+        return {
+            content: data.message.content,
+            usage: {
+                promptTokens: data.prompt_eval_count || 0,
+                completionTokens: data.eval_count || 0
+            }
+        };
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
         const response = await fetch(`${this.config.url}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -53,7 +59,15 @@ export class OllamaClient implements ChatClient {
                 if (!line.trim()) continue;
                 try {
                     const json = JSON.parse(line);
-                    if (json.done) return;
+                    if (json.done) {
+                        yield {
+                            usage: {
+                                promptTokens: json.prompt_eval_count || 0,
+                                completionTokens: json.eval_count || 0
+                            }
+                        };
+                        return;
+                    }
                     if (json.message?.content) {
                         yield json.message.content;
                     }
@@ -69,6 +83,14 @@ export class OllamaClient implements ChatClient {
                 const json = JSON.parse(buffer);
                 if (json.message?.content) {
                     yield json.message.content;
+                }
+                if (json.done) {
+                    yield {
+                        usage: {
+                            promptTokens: json.prompt_eval_count || 0,
+                            completionTokens: json.eval_count || 0
+                        }
+                    };
                 }
             } catch {
                 // Ignore final partial parse failure

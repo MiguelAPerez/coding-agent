@@ -12,6 +12,21 @@ export const systemPrompts = sqliteTable("system_prompt", {
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 })
 
+export const agentUsageStats = sqliteTable("agent_usage_stats", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    agentId: text("agentId")
+        .notNull()
+        .references(() => agentConfigurations.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // YYYY-MM-DD
+    totalInputTokens: integer("totalInputTokens").notNull().default(0),
+    totalOutputTokens: integer("totalOutputTokens").notNull().default(0),
+    totalDuration: integer("totalDuration").notNull().default(0), // sum of latencies in ms
+    messageCount: integer("messageCount").notNull().default(0),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+})
+
 export const agentConfigurations = sqliteTable("agent_configuration", {
     id: text("id")
         .primaryKey()

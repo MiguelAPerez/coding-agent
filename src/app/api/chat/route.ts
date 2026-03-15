@@ -51,12 +51,31 @@ export async function POST(req: NextRequest) {
                         messages[0].content = systemPrompt;
 
                         let assistantContent = "";
+                        let usage: { promptTokens: number; completionTokens: number } | undefined;
+                        const startTime = Date.now();
+                        
                         const iterator = chatClient.streamChat(messages);
                         for await (const chunk of iterator) {
-                            assistantContent += chunk;
-                            if (maxSteps === 1 || step === maxSteps - 1) {
-                                // Only stream the final response to the client
-                                controller.enqueue(new TextEncoder().encode(chunk));
+                            if (typeof chunk === 'string') {
+                                assistantContent += chunk;
+                                if (maxSteps === 1 || step === maxSteps - 1) {
+                                    // Only stream the final response to the client
+                                    controller.enqueue(new TextEncoder().encode(chunk));
+                                }
+                            } else if (chunk.usage) {
+                                usage = chunk.usage;
+                            }
+                        }
+
+                        const duration = Date.now() - startTime;
+
+                        // Record usage stats
+                        if (agentId) {
+                            try {
+                                const { recordAgentUsage } = await import("@/app/actions/performance");
+                                await recordAgentUsage(agentId, usage?.promptTokens || 0, usage?.completionTokens || 0, duration);
+                            } catch (e) {
+                                console.error("Failed to record agent usage:", e);
                             }
                         }
 

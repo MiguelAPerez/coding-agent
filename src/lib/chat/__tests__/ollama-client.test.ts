@@ -28,7 +28,7 @@ describe("OllamaClient", () => {
         const messages: ChatMessage[] = [{ role: "user", content: "hi" }];
         const response = await client.chat(messages);
 
-        expect(response).toBe("hello world");
+        expect(response.content).toBe("hello world");
         expect(global.fetch).toHaveBeenCalledWith(
             "http://ollama:11434/api/chat",
             expect.objectContaining({
@@ -82,7 +82,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Part 1", "Part 2"]);
+        expect(results).toEqual(["Part 1", "Part 2", { usage: { promptTokens: 0, completionTokens: 0 } }]);
     });
 
     it("should handle partial JSON chunks in stream", async () => {
@@ -109,7 +109,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Hello"]);
+        expect(results).toEqual(["Hello", { usage: { promptTokens: 0, completionTokens: 0 } }]);
     });
 
     it("should throw error if stream chat fails", async () => {
@@ -154,7 +154,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["valid"]);
+        expect(results).toEqual(["valid", { usage: { promptTokens: 0, completionTokens: 0 } }]);
         expect(console.error).toHaveBeenCalled();
     });
 
@@ -180,7 +180,7 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Final"]);
+        expect(results).toEqual(["Final", { usage: { promptTokens: 0, completionTokens: 0 } }]);
     });
 
     it("should handle JSON with no content", async () => {
