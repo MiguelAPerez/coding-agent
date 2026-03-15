@@ -27,11 +27,15 @@ export class InferenceService {
                 let currentFilePath = filePath;
                 let currentFileContent = contextData.initialFileContent || "";
                 
+                const lastHistoryMessage = history[history.length - 1];
                 const messages: ChatMessage[] = [
                     { role: "system", content: "" },
                     ...history,
-                    { role: "user", content: prompt }
                 ];
+
+                if (!lastHistoryMessage || lastHistoryMessage.content !== prompt || lastHistoryMessage.role !== "user") {
+                    messages.push({ role: "user", content: prompt });
+                }
 
                 const maxSteps = workMode === "DOCUMENTATION" ? 2 : 1;
                 let finalResponse: ChatResponse = { message: "" };
@@ -93,11 +97,15 @@ export class InferenceService {
                     let currentFilePath = filePath;
                     let currentFileContent = contextData.initialFileContent || "";
                     
+                    const lastHistoryMessage = history[history.length - 1];
                     const messages: ChatMessage[] = [
                         { role: "system", content: "" },
                         ...(history || []),
-                        { role: "user", content: prompt }
                     ];
+
+                    if (!lastHistoryMessage || lastHistoryMessage.content !== prompt || lastHistoryMessage.role !== "user") {
+                        messages.push({ role: "user", content: prompt });
+                    }
 
                     const maxSteps = workMode === "DOCUMENTATION" ? 2 : 1;
 

@@ -140,9 +140,11 @@ export class DiscordBot {
                     externalId: message.id,
                 });
 
-                // Get history for context (including the message we just saved)
+                // Get history for context (excluding the message we just saved if we are passing it as prompt)
                 const history = await ChatService.getChatHistory(chat.id);
-                const chatMessages = history.map(h => ({ role: h.role as "user" | "assistant" | "system", content: h.content }));
+                const chatMessages = history
+                    .filter(h => h.externalId !== message.id)
+                    .map(h => ({ role: h.role as "user" | "assistant" | "system", content: h.content }));
 
                 // Trigger agent inference with persistent typing indicator
                 let typingInterval: NodeJS.Timeout | null = null;
