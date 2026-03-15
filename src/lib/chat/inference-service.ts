@@ -61,7 +61,8 @@ export class InferenceService {
 
                     finalResponse = { 
                         message: content,
-                        redirect: currentFilePath
+                        redirect: currentFilePath,
+                        usage: usage
                     };
                     break;
                 }

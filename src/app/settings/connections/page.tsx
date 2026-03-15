@@ -10,7 +10,7 @@ export default function ConnectionsSettingsPage() {
     const router = useRouter();
     const sessionContext = useSession();
     const session = sessionContext?.data;
-    const [connections, setConnections] = useState<{ id: string; name: string; enabled: boolean; type: string; config: string; agentId: string | null }[]>([]);
+    const [connections, setConnections] = useState<{ id: string; name: string; enabled: boolean; type: string; config: string; agentId: string | null; tokenLimitDaily: number | null; metadata: string | null }[]>([]);
     const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string>("");
     const [addingType, setAddingType] = useState<string | null>(null);
@@ -18,8 +18,43 @@ export default function ConnectionsSettingsPage() {
     const [discordToken, setDiscordToken] = useState("");
     const [botName, setBotName] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [tokenLimitDaily, setTokenLimitDaily] = useState<string>("");
+    const [metadata, setMetadata] = useState<{ channels: Record<string, { name: string; enabled: boolean }> }>({ channels: {} });
     const [isLoading, setIsLoading] = useState(true);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const [newChannelId, setNewChannelId] = useState("");
+    const [newChannelName, setNewChannelName] = useState("");
+
+    const addChannelOverride = () => {
+        if (!newChannelId.trim()) return;
+        setMetadata(prev => ({
+            ...prev,
+            channels: {
+                ...prev.channels,
+                [newChannelId.trim()]: { name: newChannelName.trim() || `Channel ${newChannelId}`, enabled: true }
+            }
+        }));
+        setNewChannelId("");
+        setNewChannelName("");
+    };
+
+    const toggleChannelOverride = (id: string) => {
+        setMetadata(prev => ({
+            ...prev,
+            channels: {
+                ...prev.channels,
+                [id]: { ...prev.channels[id], enabled: !prev.channels[id].enabled }
+            }
+        }));
+    };
+
+    const removeChannelOverride = (id: string) => {
+        setMetadata(prev => {
+            const next = { ...prev.channels };
+            delete next[id];
+            return { ...prev, channels: next };
+        });
+    };
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -70,15 +105,23 @@ export default function ConnectionsSettingsPage() {
         setDiscordToken("");
         setBotName("");
         setSelectedAgentId("");
+        setTokenLimitDaily("");
+        setMetadata({ channels: {} });
         setIsDropdownOpen(false);
     };
 
-    const handleEditClick = (conn: { id: string; name: string; enabled: boolean; type: string; config: string; agentId: string | null }) => {
+    const handleEditClick = (conn: { id: string; name: string; enabled: boolean; type: string; config: string; agentId: string | null; tokenLimitDaily: number | null; metadata: string | null }) => {
 
         setAddingType(conn.type);
         setEditingId(conn.id);
         setBotName(conn.name);
         setSelectedAgentId(conn.agentId || "");
+        setTokenLimitDaily(conn.tokenLimitDaily?.toString() || "");
+        try {
+            setMetadata(conn.metadata ? JSON.parse(conn.metadata) : { channels: {} });
+        } catch {
+            setMetadata({ channels: {} });
+        }
         try {
             const config = JSON.parse(conn.config);
             setDiscordToken(config.token || "");
@@ -94,7 +137,9 @@ export default function ConnectionsSettingsPage() {
                 type: "discord",
                 name: botName,
                 config: JSON.stringify({ token: discordToken }),
-                agentId: selectedAgentId || null
+                agentId: selectedAgentId || null,
+                tokenLimitDaily: tokenLimitDaily === "" ? null : parseInt(tokenLimitDaily),
+                metadata: JSON.stringify(metadata)
             };
 
             if (editingId) {
@@ -115,6 +160,8 @@ export default function ConnectionsSettingsPage() {
             setEditingId(null);
             setDiscordToken("");
             setBotName("");
+            setTokenLimitDaily("");
+            setMetadata({ channels: {} });
             fetchConnections();
         } catch (err) {
             console.error("Failed to save connection:", err);
@@ -243,6 +290,79 @@ export default function ConnectionsSettingsPage() {
                                 className="w-full bg-foreground/5 border border-border/50 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 required
                             />
+                        </div>
+
+                        <div className="pt-4 border-t border-border/50">
+                            <h3 className="text-sm font-bold mb-3">Discord Advanced Settings</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-foreground/60 mb-1 caps tracking-wider">Daily Token Limit</label>
+                                    <input
+                                        type="number"
+                                        value={tokenLimitDaily}
+                                        onChange={(e) => setTokenLimitDaily(e.target.value)}
+                                        placeholder="Unlimited (Leave empty)"
+                                        className="w-full bg-foreground/5 border border-border/50 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    />
+                                    <p className="text-[10px] text-foreground/40 mt-1">Maximum tokens the bot can use per day for this connection.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-foreground/60 mb-2 caps tracking-wider">Channel Overrides</label>
+                                    <div className="space-y-2 mb-3">
+                                        {Object.entries(metadata.channels || {}).map(([id, config]) => (
+                                            <div key={id} className="flex items-center justify-between p-2 rounded-lg bg-foreground/5 border border-border/30">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleChannelOverride(id)}
+                                                        className={`w-8 h-4 rounded-full relative transition-colors ${config.enabled ? 'bg-primary' : 'bg-gray-400'}`}
+                                                    >
+                                                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${config.enabled ? 'left-4.5' : 'left-0.5'}`} />
+                                                    </button>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium">{config.name}</span>
+                                                        <span className="text-[10px] text-foreground/40 font-mono">{id}</span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeChannelOverride(id)}
+                                                    className="p-1.5 hover:bg-red-500/10 text-foreground/40 hover:text-red-500 rounded-md transition-colors"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newChannelId}
+                                            onChange={(e) => setNewChannelId(e.target.value)}
+                                            placeholder="Channel ID"
+                                            className="flex-1 bg-foreground/5 border border-border/50 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={newChannelName}
+                                            onChange={(e) => setNewChannelName(e.target.value)}
+                                            placeholder="Label (optional)"
+                                            className="flex-1 bg-foreground/5 border border-border/50 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={addChannelOverride}
+                                            className="px-3 py-1.5 bg-foreground/10 hover:bg-foreground/20 rounded-xl text-xs font-bold transition-colors"
+                                        >
+                                            Add Override
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-foreground/40 mt-2">Explicitly enable or disable bot responses in specific channels.</p>
+                                </div>
+                            </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-6">
                             <button

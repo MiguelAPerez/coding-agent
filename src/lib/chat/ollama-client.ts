@@ -1,4 +1,4 @@
-import { ChatMessage, ChatClient } from "./types";
+import { ChatMessage, ChatClient, Usage } from "./types";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("ollama-client");
@@ -6,7 +6,7 @@ const tracer = trace.getTracer("ollama-client");
 export class OllamaClient implements ChatClient {
     constructor(private readonly config: { url: string }, private readonly model: string, private readonly temperature: number) { }
 
-    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
+    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: Usage }> {
         return tracer.startActiveSpan("ollama.chat", async (span) => {
             try {
                 span.setAttributes({
@@ -32,7 +32,8 @@ export class OllamaClient implements ChatClient {
 
                 const usage = {
                     promptTokens: data.prompt_eval_count || 0,
-                    completionTokens: data.eval_count || 0
+                    completionTokens: data.eval_count || 0,
+                    totalTokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
                 };
 
                 span.setAttributes({
@@ -53,7 +54,7 @@ export class OllamaClient implements ChatClient {
         });
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: Usage }> {
         const span = tracer.startSpan("ollama.streamChat", {
             attributes: {
                 "gen_ai.model_name": this.model,
@@ -100,7 +101,8 @@ export class OllamaClient implements ChatClient {
                         if (json.done) {
                             const usage = {
                                 promptTokens: json.prompt_eval_count || 0,
-                                completionTokens: json.eval_count || 0
+                                completionTokens: json.eval_count || 0,
+                                totalTokens: (json.prompt_eval_count || 0) + (json.eval_count || 0)
                             };
                             span.setAttributes({
                                 "gen_ai.response.input_tokens": usage.promptTokens,
@@ -129,7 +131,8 @@ export class OllamaClient implements ChatClient {
                     if (json.done) {
                         const usage = {
                             promptTokens: json.prompt_eval_count || 0,
-                            completionTokens: json.eval_count || 0
+                            completionTokens: json.eval_count || 0,
+                            totalTokens: (json.prompt_eval_count || 0) + (json.eval_count || 0)
                         };
                         span.setAttributes({
                             "gen_ai.response.input_tokens": usage.promptTokens,
@@ -148,7 +151,8 @@ export class OllamaClient implements ChatClient {
                 yield {
                     usage: {
                         promptTokens: 0,
-                        completionTokens: 0
+                        completionTokens: 0,
+                        totalTokens: 0
                     }
                 };
             }

@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Content, Part } from "@google/genai";
-import { ChatMessage, ChatClient } from "./types";
+import { ChatMessage, ChatClient, Usage } from "./types";
 import { db } from "@/../db";
 import { googleConfigurations } from "@/../db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -40,7 +40,7 @@ export class GoogleClient implements ChatClient {
         return { contents, systemInstruction };
     }
 
-    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
+    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: Usage }> {
         return tracer.startActiveSpan("google.chat", async (span) => {
             try {
                 const { contents, systemInstruction } = this.convertMessages(messages);
@@ -59,11 +59,12 @@ export class GoogleClient implements ChatClient {
                     },
                 });
 
-                let usage: { promptTokens: number; completionTokens: number } | undefined;
+                let usage: Usage | undefined;
                 if (response.usageMetadata) {
                     usage = {
                         promptTokens: response.usageMetadata.promptTokenCount || 0,
-                        completionTokens: response.usageMetadata.candidatesTokenCount || 0
+                        completionTokens: response.usageMetadata.candidatesTokenCount || 0,
+                        totalTokens: (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0)
                     };
                     span.setAttributes({
                         "gen_ai.response.input_tokens": usage.promptTokens,
@@ -85,7 +86,7 @@ export class GoogleClient implements ChatClient {
         });
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: Usage }> {
         const span = tracer.startSpan("google.streamChat", {
             attributes: {
                 "gen_ai.model_name": this.model,
@@ -106,7 +107,7 @@ export class GoogleClient implements ChatClient {
                 },
             });
 
-            let finalUsage: { promptTokens: number; completionTokens: number } | undefined;
+            let finalUsage: Usage | undefined;
 
             for await (const chunk of stream) {
                 if (chunk.text) {
@@ -115,7 +116,8 @@ export class GoogleClient implements ChatClient {
                 if (chunk.usageMetadata) {
                     finalUsage = {
                         promptTokens: chunk.usageMetadata.promptTokenCount || 0,
-                        completionTokens: chunk.usageMetadata.candidatesTokenCount || 0
+                        completionTokens: chunk.usageMetadata.candidatesTokenCount || 0,
+                        totalTokens: (chunk.usageMetadata.promptTokenCount || 0) + (chunk.usageMetadata.candidatesTokenCount || 0)
                     };
                     span.setAttributes({
                         "gen_ai.response.input_tokens": finalUsage.promptTokens,

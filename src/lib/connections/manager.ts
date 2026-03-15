@@ -22,11 +22,21 @@ export class ConnectionManager {
 
         console.log(`[ConnectionManager] Found ${activeConnections.length} active connections.`);
         for (const conn of activeConnections) {
-            await this.startConnection(conn.id, conn.type, conn.userId, conn.config, conn.agentId);
+            await this.startConnection(conn.id, conn.type, conn.userId, conn.config, conn.agentId, conn.metadata, conn.tokenLimitDaily, conn.tokensUsedToday, conn.tokensLastResetAt);
         }
     }
 
-    async startConnection(id: string, type: string, userId: string, configJson: string, agentId: string | null) {
+    async startConnection(
+        id: string,
+        type: string,
+        userId: string,
+        configJson: string,
+        agentId: string | null,
+        metadataJson: string | null = null,
+        tokenLimitDaily: number | null = null,
+        tokensUsedToday: number = 0,
+        tokensLastResetAt: Date | null = null
+    ) {
         if (this.bots.has(id)) {
             console.log(`[ConnectionManager] Connection ${id} already running.`);
             return;
@@ -36,7 +46,16 @@ export class ConnectionManager {
             console.log(`[ConnectionManager] Starting connection ${id} (${type})...`);
             const config = JSON.parse(configJson);
             if (type === "discord" && config.token) {
-                const bot = new DiscordBot(config.token, userId, id, agentId);
+                const bot = new DiscordBot(
+                    config.token,
+                    userId,
+                    id,
+                    agentId,
+                    metadataJson,
+                    tokenLimitDaily,
+                    tokensUsedToday,
+                    tokensLastResetAt
+                );
                 await bot.start();
                 this.bots.set(id, bot);
                 console.log(`[ConnectionManager] Discord bot started successfully for connection ${id}.`);

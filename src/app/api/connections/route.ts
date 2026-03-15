@@ -30,18 +30,28 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { type, name, config, agentId } = await req.json();
+        const { type, name, config, agentId, metadata, tokenLimitDaily } = await req.json();
         const [conn] = await db.insert(connections).values({
             userId: session.user.id,
             agentId,
             type,
             name,
             config,
+            metadata,
+            tokenLimitDaily,
             enabled: true,
         }).returning();
 
-        // Automatically start the bot
-        await ConnectionManager.getInstance().startConnection(conn.id, type, session.user.id, config, agentId);
+        // Automatically start the bot with all settings
+        await ConnectionManager.getInstance().startConnection(
+            conn.id, 
+            type, 
+            session.user.id, 
+            config, 
+            agentId, 
+            metadata, 
+            tokenLimitDaily
+        );
 
         return NextResponse.json(conn);
     } catch (error) {

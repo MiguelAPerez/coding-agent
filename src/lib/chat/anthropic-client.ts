@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { ChatMessage, ChatClient } from "./types";
+import { ChatMessage, ChatClient, Usage } from "./types";
 import { db } from "@/../db";
 import { anthropicConfigurations } from "@/../db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -20,7 +20,7 @@ export class ClaudeClient implements ChatClient {
         });
     }
 
-    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
+    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: Usage }> {
         return tracer.startActiveSpan("anthropic.chat", async (span) => {
             try {
                 const systemMessage = messages.find(m => m.role === 'system');
@@ -58,7 +58,8 @@ export class ClaudeClient implements ChatClient {
                         content: firstBlock.text,
                         usage: response.usage ? {
                             promptTokens: response.usage.input_tokens,
-                            completionTokens: response.usage.output_tokens
+                            completionTokens: response.usage.output_tokens,
+                            totalTokens: response.usage.input_tokens + response.usage.output_tokens
                         } : undefined
                     };
                 }
@@ -72,7 +73,7 @@ export class ClaudeClient implements ChatClient {
         });
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: { promptTokens: number; completionTokens: number } }> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: Usage }> {
         const span = tracer.startSpan("anthropic.streamChat", {
             attributes: {
                 "gen_ai.model_name": this.model,
@@ -97,7 +98,7 @@ export class ClaudeClient implements ChatClient {
                 stream: true,
             });
 
-            let finalUsage: { promptTokens: number; completionTokens: number } | undefined;
+            let finalUsage: Usage | undefined;
 
             for await (const chunk of stream) {
                 if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
@@ -105,7 +106,11 @@ export class ClaudeClient implements ChatClient {
                 } else if (chunk.type === 'message_stop' && (chunk as unknown as { usage?: { input_tokens: number; output_tokens: number } }).usage) {
                     const usage = (chunk as unknown as { usage: { input_tokens: number; output_tokens: number } }).usage;
                     await this.updateUsage(usage.input_tokens, usage.output_tokens);
-                    finalUsage = { promptTokens: usage.input_tokens, completionTokens: usage.output_tokens };
+                    finalUsage = { 
+                        promptTokens: usage.input_tokens, 
+                        completionTokens: usage.output_tokens,
+                        totalTokens: usage.input_tokens + usage.output_tokens
+                    };
                 } else if (chunk.type === 'message_start' && chunk.message.usage) {
                     await this.updateUsage(chunk.message.usage.input_tokens, 0);
                 } else if (chunk.type === 'message_delta' && chunk.usage) {
@@ -113,7 +118,11 @@ export class ClaudeClient implements ChatClient {
                     if (finalUsage) {
                         finalUsage.completionTokens = chunk.usage.output_tokens;
                     } else {
-                        finalUsage = { promptTokens: 0, completionTokens: chunk.usage.output_tokens };
+                        finalUsage = { 
+                            promptTokens: 0, 
+                            completionTokens: chunk.usage.output_tokens,
+                            totalTokens: chunk.usage.output_tokens
+                        };
                     }
                 }
 

@@ -17,13 +17,24 @@ export async function PATCH(
 
     try {
         const { id } = await params;
-        const { enabled, name, config, agentId } = await req.json();
+        const { enabled, name, config, agentId, metadata, tokenLimitDaily } = await req.json();
 
-        const updateData: { updatedAt: Date, enabled?: boolean, name?: string, config?: string, agentId?: string | null } = { updatedAt: new Date() };
+        const updateData: {
+            updatedAt: Date,
+            enabled?: boolean,
+            name?: string,
+            config?: string,
+            agentId?: string | null,
+            metadata?: string | null,
+            tokenLimitDaily?: number | null
+        } = { updatedAt: new Date() };
+
         if (enabled !== undefined) updateData.enabled = enabled;
         if (name !== undefined) updateData.name = name;
         if (config !== undefined) updateData.config = config;
         if (agentId !== undefined) updateData.agentId = agentId;
+        if (metadata !== undefined) updateData.metadata = metadata;
+        if (tokenLimitDaily !== undefined) updateData.tokenLimitDaily = tokenLimitDaily;
 
         const [conn] = await db.update(connections)
             .set(updateData)
@@ -37,7 +48,17 @@ export async function PATCH(
             // Restart connection if it's enabled and something changed
             if (conn.enabled) {
                 await ConnectionManager.getInstance().stopConnection(conn.id);
-                await ConnectionManager.getInstance().startConnection(conn.id, conn.type, conn.userId, conn.config, conn.agentId);
+                await ConnectionManager.getInstance().startConnection(
+                    conn.id, 
+                    conn.type, 
+                    conn.userId, 
+                    conn.config, 
+                    conn.agentId, 
+                    conn.metadata, 
+                    conn.tokenLimitDaily, 
+                    conn.tokensUsedToday, 
+                    conn.tokensLastResetAt
+                );
             } else {
                 await ConnectionManager.getInstance().stopConnection(conn.id);
             }

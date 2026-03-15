@@ -2,11 +2,18 @@ import { Client, GatewayIntentBits, Message } from "discord.js";
 import { ChatService } from "@/lib/chat/service";
 import { ChatResponse } from "@/lib/chat/types";
 import { db } from "@/../db";
-import { chats } from "@/../db/schema";
-import { InferSelectModel } from "drizzle-orm";
+import { chats, connections } from "@/../db/schema";
+import { InferSelectModel, eq } from "drizzle-orm";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("discord-chat");
+
+interface DiscordMetadata {
+    channels?: Record<string, {
+        name: string;
+        enabled: boolean;
+    }>;
+}
 
 export class DiscordBot {
     private client: Client;
@@ -14,12 +21,35 @@ export class DiscordBot {
     private userId: string;
     private connectionId: string;
     private agentId: string | null;
+    private metadata: DiscordMetadata;
+    private tokenLimitDaily: number | null;
+    private tokensUsedToday: number;
+    private tokensLastResetAt: Date | null;
 
-    constructor(token: string, userId: string, connectionId: string, agentId: string | null = null) {
+    constructor(
+        token: string,
+        userId: string,
+        connectionId: string,
+        agentId: string | null = null,
+        metadataJson: string | null = null,
+        tokenLimitDaily: number | null = null,
+        tokensUsedToday: number = 0,
+        tokensLastResetAt: Date | null = null
+    ) {
         this.token = token;
         this.userId = userId;
         this.connectionId = connectionId;
         this.agentId = agentId;
+        this.tokenLimitDaily = tokenLimitDaily;
+        this.tokensUsedToday = tokensUsedToday;
+        this.tokensLastResetAt = tokensLastResetAt;
+
+        try {
+            this.metadata = metadataJson ? JSON.parse(metadataJson) : {};
+        } catch {
+            this.metadata = {};
+        }
+
         this.client = new Client({
             intents: [
                 GatewayIntentBits.Guilds,
@@ -44,8 +74,34 @@ export class DiscordBot {
         await this.client.destroy();
     }
 
+    private async resetTokensIfDayPassed() {
+        const now = new Date();
+        const lastReset = this.tokensLastResetAt ? new Date(this.tokensLastResetAt) : null;
+
+        const isNewDay = !lastReset ||
+            now.getUTCFullYear() !== lastReset.getUTCFullYear() ||
+            now.getUTCMonth() !== lastReset.getUTCMonth() ||
+            now.getUTCDate() !== lastReset.getUTCDate();
+
+        if (isNewDay) {
+            console.log(`[DiscordBot] Resetting tokens for connection ${this.connectionId}`);
+            this.tokensUsedToday = 0;
+            this.tokensLastResetAt = now;
+            await db.update(connections)
+                .set({ tokensUsedToday: 0, tokensLastResetAt: now })
+                .where(eq(connections.id, this.connectionId));
+        }
+    }
+
     private async handleMessage(message: Message) {
         if (message.author.bot) return;
+
+        // Check channel overrides in metadata
+        const channelId = message.channel.id;
+        const channelConfig = this.metadata.channels?.[channelId];
+        if (channelConfig && channelConfig.enabled === false) {
+            return;
+        }
 
         // Only respond if mentioned or if it's a reply
         const isMentioned = this.client.user && message.mentions.has(this.client.user);
@@ -59,6 +115,13 @@ export class DiscordBot {
             try {
                 await message;
                 if (!message.content) throw new Error("Empty message");
+
+                // Check daily token limit
+                await this.resetTokensIfDayPassed();
+                if (this.tokenLimitDaily !== null && this.tokensUsedToday >= this.tokenLimitDaily) {
+                    await message.reply(`Daily token limit reached for this connection (${this.tokensUsedToday}/${this.tokenLimitDaily}). Please try again tomorrow.`);
+                    return;
+                }
 
                 let chat: InferSelectModel<typeof chats> | undefined;
                 let chainRootId: string = message.id;
@@ -184,6 +247,14 @@ export class DiscordBot {
                     console.warn("[DiscordBot] Agent returned empty response.");
                     await message.reply("I'm sorry, I couldn't generate a response. Please try again.");
                     return;
+                }
+
+                // Update token usage
+                if (response.usage?.totalTokens) {
+                    this.tokensUsedToday += response.usage.totalTokens;
+                    await db.update(connections)
+                        .set({ tokensUsedToday: this.tokensUsedToday })
+                        .where(eq(connections.id, this.connectionId));
                 }
 
                 // Send response back to Discord

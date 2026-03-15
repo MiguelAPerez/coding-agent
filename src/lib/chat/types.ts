@@ -11,11 +11,13 @@ export interface ChatResponse {
     redirect?: string | null;
     suggestion?: PendingSuggestion | null;
     plan?: TechnicalPlan | null;
+    usage?: Usage;
 }
 
 export interface Usage {
     promptTokens: number;
     completionTokens: number;
+    totalTokens: number;
 }
 
 export interface ChatClient {
