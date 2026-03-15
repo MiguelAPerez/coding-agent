@@ -4,6 +4,8 @@ import { agentConfigurations, skills, tools, repositories, systemPrompts, ollama
 import { eq, and, isNull } from "drizzle-orm";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
 import { ContextData } from "./types";
+import fs from "fs/promises";
+import path from "path";
 
 export class ChatContext {
     constructor(
@@ -105,7 +107,20 @@ export class ChatContext {
             initialFileContent: this.filePath ? (fileContents[this.filePath] || "") : "",
 
 
-            fileContents
+            fileContents,
+            agentIdentity: await this.loadAgentFile(agentConfig.name, "IDENTITY.md"),
+            agentWorkflow: await this.loadAgentFile(agentConfig.name, "WORKFLOW.md"),
         };
+    }
+
+    private async loadAgentFile(agentName: string, fileName: string): Promise<string | null> {
+        const slug = agentName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        const filePath = path.join(process.cwd(), "data", this.userId, "agents", slug, fileName);
+        try {
+            await fs.access(filePath);
+            return await fs.readFile(filePath, "utf-8");
+        } catch {
+            return null;
+        }
     }
 }

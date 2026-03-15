@@ -1,4 +1,7 @@
+export type WorkMode = 'CODER' | 'DOCUMENTATION' | 'REVIEWER' | 'PLANNER' | 'DISCORD' | 'GENERAL';
+
 export interface ChatMessage {
+    id?: string;
     role: "system" | "user" | "assistant";
     content: string;
 }
@@ -59,5 +62,7 @@ export interface ContextData {
 
     initialFileContent: string;
     fileContents: Record<string, string>;
+    agentIdentity?: string | null;
+    agentWorkflow?: string | null;
 }
 

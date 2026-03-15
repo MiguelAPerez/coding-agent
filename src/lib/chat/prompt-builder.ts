@@ -1,4 +1,4 @@
-import { ContextData } from "./types";
+import { ContextData, WorkMode } from "./types";
 import { getPromptFromFile } from "@/app/actions/prompts";
 
 
@@ -10,44 +10,81 @@ export class PromptBuilder {
         contextData: ContextData,
         currentFilePath: string | null,
         currentFileContent: string,
-        sysPrompt: string | null
+        workMode: WorkMode,
+        sysPrompt: string | null = null
     ) {
         const { repo, agentPersonalityPrompt, enabledSkills, enabledTools } = contextData;
-        const formatPrompt = await getPromptFromFile("FORMAT");
 
-        let prompt = formatPrompt;
-
-        if (sysPrompt) {
-            prompt += `\n\n${sysPrompt}`;
+        // 1. [PERSONALITY]
+        let personality = agentPersonalityPrompt;
+        if (!personality) {
+            personality = await getPromptFromFile("DEFAULT_PERSONALITY");
         }
 
-        if (agentPersonalityPrompt) {
-            prompt = `${agentPersonalityPrompt}\n\n${prompt}`;
-        }
+        // 2. [IDENTITY]
+        const identity = contextData.agentIdentity || await getPromptFromFile("IDENTITY");
 
+        // 3. [WORKFLOW]
+        const workflow = contextData.agentWorkflow || await getPromptFromFile("WORKFLOW");
+
+        // 4. [SKILLS]
+        let skillsSection = "";
         if (enabledSkills.length > 0) {
-            prompt += "\n\nAvailable Skills:\n" + enabledSkills.map((s) => `- ${s.name}: ${s.description}\n${s.content}`).join("\n\n");
+            skillsSection = "Available Skills:\n" + enabledSkills.map((s) => `- ${s.name}: ${s.description}\n${s.content}`).join("\n\n");
         }
 
+        // 5. [TOOLS]
+        let toolsSection = "";
         if (enabledTools.length > 0) {
-            prompt += "\n\nAvailable Tools:\n" + enabledTools.map((t) => `- ${t.name}: ${t.description}\nSchema: ${t.schema}`).join("\n\n");
+            toolsSection = "Available Tools:\n" + enabledTools.map((t) => `- ${t.name}: ${t.description}\nSchema: ${t.schema}`).join("\n\n");
         }
 
+        // 6. [CONTEXT]
+        let contextSection = "";
         if (repo) {
-            prompt += `\n\nContext:\nRepository: ${repo.fullName}\n`;
+            contextSection += `Repository: ${repo.fullName}\n`;
 
             const docsMetadata = repo.docsMetadata ? JSON.parse(repo.docsMetadata) : {};
             const fileList = (docsMetadata.fileList || []) as { path: string; title?: string; description?: string }[];
 
             if (fileList.length > 0) {
-                prompt += "\nAvailable Documentation Files:\n";
-                prompt += fileList.map((f) => `- ${f.path}${f.title ? ` (${f.title})` : ""}${f.description ? `: ${f.description}` : ""}`).join("\n");
+                contextSection += "\nAvailable Documentation Files:\n";
+                contextSection += fileList.map((f) => `- ${f.path}${f.title ? ` (${f.title})` : ""}${f.description ? `: ${f.description}` : ""}`).join("\n");
             }
         }
 
         if (currentFilePath) {
-            prompt += `\nCurrently viewed file: ${currentFilePath}\nContent:\n${currentFileContent}\n`;
+            contextSection += `\nCurrently viewed file: ${currentFilePath}\nContent:\n${currentFileContent}\n`;
         }
+
+        // 7. [WORKMODE]
+        const modePrompt = await getPromptFromFile(workMode);
+
+        // Assemble the final prompt
+        let prompt = `[PERSONALITY]\n${personality}\n\n`;
+        prompt += `[IDENTITY]\n${identity}\n\n`;
+        prompt += `[WORKFLOW]\n${workflow}\n\n`;
+
+        if (skillsSection) {
+            prompt += `[SKILLS]\n${skillsSection}\n\n`;
+        }
+
+        if (toolsSection) {
+            prompt += `[TOOLS]\n${toolsSection}\n\n`;
+        }
+
+        if (contextSection) {
+            prompt += `[CONTEXT]\n${contextSection}\n\n`;
+        }
+
+        prompt += `[WORKMODE]\n${modePrompt}`;
+
+        if (sysPrompt) {
+            prompt += `\n\n[ADDITIONAL_INSTRUCTIONS]\n${sysPrompt}`;
+        }
+
+        const formatPrompt = await getPromptFromFile("FORMAT");
+        prompt += `\n\n${formatPrompt}`;
 
         return prompt;
     }

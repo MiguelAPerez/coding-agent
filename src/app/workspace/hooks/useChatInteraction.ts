@@ -1,47 +1,45 @@
 import { useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-    addChatMessage,
-    setPendingSuggestion,
+import { ChatMessage, PendingSuggestion, FileChange, WorkMode } from "@/lib/chat/types";
+import { 
+    addChatMessage, 
+    setPendingSuggestion, 
+    setTechnicalPlan, 
+    updatePlanStepStatus,
     setChatTab,
     addContextFile,
     removeContextFile,
-    setTechnicalPlan,
-    updatePlanStepStatus,
+    updateChatMessageById,
 } from "@/lib/store/features/chat/chatSlice";
-import {
+import { 
     updateTabContent,
     setTabSaved,
     Tab,
 } from "@/lib/store/features/workspace/workspaceSlice";
 import {
-    getTechnicalPlan,
-    ChatMessage,
-    FileChange,
-    PendingSuggestion,
-    chatWithCoder,
-} from "@/app/actions/chat";
-import {
     saveWorkspaceFile,
 } from "@/app/actions/workspace-files";
+import { RootState } from "@/lib/store/store";
 
 export function useChatInteraction(
     handleSaveFile: (path: string) => Promise<void>,
     loadChangedFiles: (repoId: string) => Promise<void>,
-    refreshGit: () => void
+    refreshGit: () => void,
 ) {
     const dispatch = useAppDispatch();
-    const selectedRepoId = useAppSelector((state) => state.workspace.selectedRepoId);
-    const activeTabPath = useAppSelector((state) => state.workspace.activeTabPath);
-    const openTabs = useAppSelector((state) => state.workspace.openTabs);
-    const chatMessages = useAppSelector((state) => state.chat.chatMessages);
-    const agents = useAppSelector((state) => state.chat.agents);
-    const selectedAgentId = useAppSelector((state) => state.chat.selectedAgentId);
-    const pendingSuggestion = useAppSelector((state) => state.chat.pendingSuggestion);
-    const technicalPlan = useAppSelector((state) => state.chat.technicalPlan);
-    const chatTab = useAppSelector((state) => state.chat.chatTab);
-    const contextFiles = useAppSelector((state) => state.chat.contextFiles);
-    const fileTree = useAppSelector((state) => state.workspace.fileTree);
+    
+    // Selectors
+    const selectedRepoId = useAppSelector((state: RootState) => state.workspace.selectedRepoId);
+    const activeTabPath = useAppSelector((state: RootState) => state.workspace.activeTabPath);
+    const openTabs = useAppSelector((state: RootState) => state.workspace.openTabs);
+    const chatMessages = useAppSelector((state: RootState) => state.chat.chatMessages);
+    const agents = useAppSelector((state: RootState) => state.chat.agents);
+    const selectedAgentId = useAppSelector((state: RootState) => state.chat.selectedAgentId);
+    const pendingSuggestion = useAppSelector((state: RootState) => state.chat.pendingSuggestion);
+    const technicalPlan = useAppSelector((state: RootState) => state.chat.technicalPlan);
+    const chatTab = useAppSelector((state: RootState) => state.chat.chatTab);
+    const contextFiles = useAppSelector((state: RootState) => state.chat.contextFiles);
+    const fileTree = useAppSelector((state: RootState) => state.workspace.fileTree);
 
     const [isChatLoading, setIsChatLoading] = useState(false);
 
@@ -58,37 +56,64 @@ export function useChatInteraction(
         setIsChatLoading(true);
 
         try {
-            // If we don't have a plan and the message doesn't look like a simple follow-up, get a plan
-            // For now, let's always get a plan if one isn't active to test the flow
-            if (!technicalPlan && chatMessages.length < 10) {
-                const res = await getTechnicalPlan(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
-                const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
-                dispatch(addChatMessage(newAssistantMessage));
-                if (res.plan) {
-                    dispatch(setTechnicalPlan(res.plan));
+            const isPlanning = !technicalPlan && chatMessages.length < 10;
+            const mode: WorkMode = isPlanning ? "PLANNER" : "CODER";
+
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt: message,
+                    repoId: selectedRepoId,
+                    filePath: activeTabPath,
+                    agentId: selectedAgentId,
+                    workMode: mode,
+                    history: chatMessages
+                })
+            });
+
+            if (!response.ok) throw new Error("Failed to fetch");
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error("No reader");
+
+            let assistantContent = "";
+            const assistantMsgId = Date.now().toString();
+            dispatch(addChatMessage({ id: assistantMsgId, role: "assistant", content: "" }));
+
+            const textDecoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = textDecoder.decode(value);
+                assistantContent += chunk;
+                dispatch(updateChatMessageById({ id: assistantMsgId, content: assistantContent }));
+            }
+
+            // After streaming, parse the final content for plans or suggestions
+            if (isPlanning) {
+                const { parseTechnicalPlan } = await import("@/lib/chat/utils");
+                const plan = parseTechnicalPlan(assistantContent);
+                if (plan) {
+                    dispatch(setTechnicalPlan(plan));
                 }
-                return;
+            } else {
+                const { parseDiffs } = await import("@/lib/chat/utils");
+                const { suggestion } = parseDiffs(assistantContent, activeTabPath || "", {}); 
+                if (suggestion && Object.keys(suggestion.filesChanged).length > 0) {
+                    dispatch(setPendingSuggestion(suggestion));
+                    dispatch(setChatTab("suggestions"));
+
+                    Object.entries(suggestion.filesChanged).forEach(([path, change]) => {
+                        const isOpen = openTabs.some((t: Tab) => t.path === path);
+                        if (isOpen) {
+                            dispatch(updateTabContent({ path, content: (change as FileChange).suggestedContent }));
+                        }
+                        dispatch(addContextFile(path));
+                    });
+                }
             }
 
-            const res = await chatWithCoder(selectedRepoId, activeTabPath, message, selectedAgentId, chatMessages);
-
-            const newAssistantMessage: ChatMessage = { role: "assistant", content: res.message };
-            dispatch(addChatMessage(newAssistantMessage));
-
-            if (res.suggestion) {
-                dispatch(setPendingSuggestion(res.suggestion));
-                dispatch(setChatTab("suggestions"));
-
-                (Object.entries(res.suggestion.filesChanged) as [string, FileChange][]).forEach(([path, change]) => {
-                    const isOpen = openTabs.some((t: Tab) => t.path === path);
-                    if (isOpen) {
-                        dispatch(updateTabContent({ path, content: change.suggestedContent }));
-                    }
-                    dispatch(addContextFile(path));
-                });
-            } else if (res.plan) {
-                dispatch(setTechnicalPlan(res.plan));
-            }
         } catch (e) {
             console.error("Chat failed", e);
             alert("Chat failed: " + (e instanceof Error ? e.message : String(e)));
@@ -113,19 +138,45 @@ export function useChatInteraction(
             for (const step of technicalPlan.steps) {
                 dispatch(updatePlanStepStatus({ file: step.file, status: "in-progress" }));
 
-                // Focus on the specific file
                 const stepPrompt = `Plan Step: ${step.action} ${step.file}\nRationale: ${step.rationale}\n\nPlease implement this change now according to the technical plan. Provide the FULL FILE content.`;
-                const res = await chatWithCoder(selectedRepoId, step.file, stepPrompt, selectedAgentId, chatMessages);
+                
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: stepPrompt,
+                        repoId: selectedRepoId,
+                        filePath: step.file,
+                        agentId: selectedAgentId,
+                        workMode: "CODER",
+                        history: chatMessages
+                    })
+                });
 
-                if (res.suggestion) {
-                    // Merge suggestions
+                if (!response.ok) throw new Error("Failed to fetch");
+
+                const reader = response.body?.getReader();
+                if (!reader) throw new Error("No reader");
+
+                let assistantContent = "";
+                const textDecoder = new TextDecoder();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = textDecoder.decode(value);
+                    assistantContent += chunk;
+                }
+
+                const { parseDiffs } = await import("@/lib/chat/utils");
+                const { suggestion } = parseDiffs(assistantContent, step.file, {});
+
+                if (suggestion) {
                     combinedSuggestion.filesChanged = {
                         ...combinedSuggestion.filesChanged,
-                        ...res.suggestion.filesChanged
+                        ...suggestion.filesChanged
                     };
 
-                    // Update tab content for real-time feedback
-                    Object.entries(res.suggestion.filesChanged).forEach(([path, change]) => {
+                    Object.entries(suggestion.filesChanged).forEach(([path, change]) => {
                         const isOpen = openTabs.some((t: Tab) => t.path === path);
                         if (isOpen) {
                             dispatch(updateTabContent({ path, content: (change as FileChange).suggestedContent }));
@@ -152,10 +203,8 @@ export function useChatInteraction(
 
         for (const [path, change] of Object.entries(pendingSuggestion.filesChanged) as [string, FileChange][]) {
             try {
-                // Always save directly to disk with the suggested content to avoid stale state issues
                 await saveWorkspaceFile(selectedRepoId, path, change.suggestedContent);
 
-                // If it's open, update the tab to match what's on disk
                 const isOpen = openTabs.some((t: Tab) => t.path === path);
                 if (isOpen) {
                     dispatch(updateTabContent({ path, content: change.suggestedContent }));

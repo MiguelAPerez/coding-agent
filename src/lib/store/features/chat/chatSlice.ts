@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ChatMessage, PendingSuggestion, TechnicalPlan, PlanStep } from "@/app/actions/chat";
+import { ChatMessage, PendingSuggestion, TechnicalPlan, PlanStep } from "@/lib/chat/types";
 
 interface ChatState {
     chatMessages: ChatMessage[];
@@ -76,6 +76,12 @@ export const chatSlice = createSlice({
                 state.chatMessages[action.payload.index].content = action.payload.content;
             }
         },
+        updateChatMessageById: (state, action: PayloadAction<{ id: string; content: string }>) => {
+            const msg = state.chatMessages.find(m => m.id === action.payload.id);
+            if (msg) {
+                msg.content = action.payload.content;
+            }
+        },
         clearChat: (state) => {
             state.chatMessages = [];
             state.pendingSuggestion = null;
@@ -99,7 +105,8 @@ export const {
     addContextFile,
     removeContextFile,
     clearChat,
-    updateChatMessage
+    updateChatMessage,
+    updateChatMessageById
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

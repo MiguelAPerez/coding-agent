@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Repository } from "./DocsSidebar";
-import { chatWithDoc } from "@/app/actions/chat";
 import { AgentConfig } from "@/types/agent";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,23 +28,59 @@ export default function ChatPanel({ repo, filePath, onSelectFile, agents }: Chat
         if (!input.trim() || isLoading) return;
 
         const userMessage = input.trim();
-        // Add user message
         setMessages(prev => [...prev, { role: "user", content: userMessage }]);
         setInput("");
         setIsLoading(true);
 
         try {
-            const response = await chatWithDoc(repo.id, filePath, userMessage, selectedAgentId || undefined);
-            
-            setMessages(prev => [...prev, { 
-                role: "agent", 
-                content: response.message 
-            }]);
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt: userMessage,
+                    repoId: repo.id,
+                    filePath: filePath,
+                    agentId: selectedAgentId || "default",
+                    workMode: "DOCUMENTATION",
+                    history: messages.map(m => ({ role: m.role === "agent" ? "assistant" : "user", content: m.content }))
+                })
+            });
 
-            if (response.redirect) {
-                // If the agent suggests a redirect, we use the callback
-                onSelectFile(response.redirect);
+            if (!response.ok) throw new Error("Failed to fetch");
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error("No reader");
+
+            let assistantContent = "";
+            const assistantMsgIndex = messages.length + 1; // +1 because we already added user message
+            
+            setMessages(prev => [...prev, { role: "agent", content: "" }]);
+
+            const textDecoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = textDecoder.decode(value);
+                assistantContent += chunk;
+                setMessages(prev => {
+                    const next = [...prev];
+                    next[assistantMsgIndex] = { role: "agent", content: assistantContent };
+                    return next;
+                });
             }
+
+            // After streaming, check for navigation suggestions in the final content
+            const jsonMatch = assistantContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                try {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.redirect) {
+                        onSelectFile(parsed.redirect);
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
         } catch (err) {
             console.error("Chat error:", err);
             setMessages(prev => [...prev, { 

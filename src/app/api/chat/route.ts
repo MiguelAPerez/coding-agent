@@ -6,7 +6,6 @@ import { ChatClientFactory } from "@/lib/chat/client-factory";
 import { PromptBuilder } from "@/lib/chat/prompt-builder";
 import { extractMentionedPaths } from "@/lib/chat/utils";
 
-import { getPromptFromFile } from "@/app/actions/prompts";
 
 /**
  * General Chat API Route
@@ -20,48 +19,76 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { repoId, filePath, prompt, sysPrompt, agentId, history } = await req.json();
-        let basePrompt = sysPrompt;
-        if (!basePrompt) {
-            basePrompt = await getPromptFromFile("GENERAL");
-        }
+        const { repoId, filePath, prompt, sysPrompt, agentId, history, workMode = "GENERAL" } = await req.json();
+        const userId = session.user.id;
 
         if (!prompt || !agentId) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        const userId = session.user.id;
         const extraPaths = extractMentionedPaths(prompt + " " + (history || []).map((m: { content: string }) => m.content).join(" "));
         const context = new ChatContext(userId, repoId, agentId, filePath, extraPaths);
         const contextData = await context.load();
-
         const chatClient = ChatClientFactory.getClient(contextData);
 
-        const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, filePath, contextData.initialFileContent || "", basePrompt);
-
-        const messages = [
-            { role: "system", content: systemPrompt },
-            ...(history || []),
-        ];
-
-        // if (Object.keys(contextData.fileContents).length > 0) {
-        //     let contextMessage = "Here is the content of the files currently relevant to the conversation:\n\n";
-        //     for (const [path, content] of Object.entries(contextData.fileContents)) {
-        //         contextMessage += `FILE: ${path}\n\`\`\`\n${content}\n\`\`\`\n\n`;
-        //     }
-        //     contextMessage += `User Request: ${prompt}`;
-        //     messages.push({ role: "user", content: contextMessage });
-        // } else {
-        //     messages.push({ role: "user", content: prompt });
-        // }
-
-        const encoder = new TextEncoder();
         const stream = new ReadableStream({
             async start(controller) {
                 try {
-                    for await (const chunk of chatClient.streamChat(messages)) {
+                    let currentFilePath = filePath;
+                    let currentFileContent = contextData.initialFileContent || "";
+                    const messages = [
+                        { role: "system", content: "" }, // Placeholder
+                        ...(history || []),
+                        { role: "user", content: prompt }
+                    ];
 
-                        controller.enqueue(encoder.encode(chunk));
+                    // For DOCUMENTATION mode, we allow 2 steps of inference (navigation)
+                    // For other modes, we just do 1 step (direct response)
+                    const maxSteps = workMode === "DOCUMENTATION" ? 2 : 1;
+
+                    for (let step = 0; step < maxSteps; step++) {
+                        const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, currentFilePath, currentFileContent, workMode, sysPrompt);
+                        messages[0].content = systemPrompt;
+
+                        let assistantContent = "";
+                        const iterator = chatClient.streamChat(messages);
+                        for await (const chunk of iterator) {
+                            assistantContent += chunk;
+                            if (maxSteps === 1 || step === maxSteps - 1) {
+                                // Only stream the final response to the client
+                                controller.enqueue(new TextEncoder().encode(chunk));
+                            }
+                        }
+
+                        if (maxSteps > 1 && step < maxSteps - 1) {
+                            // Check for navigation in DOCUMENTATION mode
+                            const jsonMatch = assistantContent.match(/\{[\s\S]*\}/);
+                            let parsed = null;
+                            if (jsonMatch) {
+                                try { parsed = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
+                            }
+
+                            if (parsed && parsed.redirect && parsed.redirect !== currentFilePath) {
+                                const newPath = parsed.redirect;
+                                try {
+                                    const { getRepoFileContentInternal } = await import("@/lib/repo-utils");
+                                    const newContent = await getRepoFileContentInternal(repoId, newPath, userId);
+                                    const cleanedContent = newContent.replace(/^---\s*[\s\S]*?---\s*/, '');
+
+                                    messages.push({ role: "assistant", content: assistantContent });
+                                    messages.push({
+                                        role: "user",
+                                        content: `Observation: You are now seeing the FULL content of "${newPath}".\n\nContent:\n${cleanedContent}\n\nPlease provide your final answer based on this new information.`
+                                    });
+
+                                    currentFilePath = newPath;
+                                    currentFileContent = cleanedContent;
+                                    continue; // Go to next step
+                                } catch (e) {
+                                    console.error(`Failed to navigate to ${newPath}:`, e);
+                                }
+                            }
+                        }
                     }
                     controller.close();
                 } catch (e) {
@@ -69,7 +96,6 @@ export async function POST(req: NextRequest) {
                 }
             },
         });
-        console.log("Stream", stream);
 
         return new Response(stream, {
             headers: {

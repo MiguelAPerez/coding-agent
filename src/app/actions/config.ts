@@ -56,7 +56,7 @@ export async function saveAgentConfig(data: { id?: string; name: string; provide
             .get();
 
         // Sync agent files on creation
-        await scaffoldAgent(session.user.id, result.name);
+        await scaffoldAgent(session.user.id, result.name, result.systemPrompt || undefined);
 
         revalidatePath("/agent");
         return result;
@@ -122,7 +122,7 @@ export async function syncManagedAgents(agents: AgentConfig[]) {
 
     // Sync agent files after updating managed agents
     for (const agent of agents) {
-        await scaffoldAgent(userId, agent.name);
+        await scaffoldAgent(userId, agent.name, agent.systemPrompt || undefined);
     }
 }
 

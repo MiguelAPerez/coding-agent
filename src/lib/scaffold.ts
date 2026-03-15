@@ -45,7 +45,7 @@ export async function ensureUserScaffold(userId: string) {
     await syncGlobalSystem();
 }
 
-export async function scaffoldAgent(userId: string, agentName: string) {
+export async function scaffoldAgent(userId: string, agentName: string, initialPersonality?: string) {
     const userAgentsDir = path.join(DATA_BASE_DIR, userId, "agents");
     // Slugify agent name for folder
     const slug = agentName.toLowerCase().replace(/[^a-z0-9]/g, "-");
@@ -59,11 +59,27 @@ export async function scaffoldAgent(userId: string, agentName: string) {
         for (const file of files) {
             const src = path.join(templatesSrc, file);
             const dest = path.join(agentDir, file);
-            // Copy if not exists
+            
+            // If personality is provided and it's IDENTITY or WORKFLOW, and dest doesn't exist,
+            // we might want to do something special. 
+            // The user wanted: "should use the current 'set personality' when creating to 'from personaliy(optional) 
+            // that would copy over on create. from there the agent will use the INENITY file instead of the peronsoaliy"
+            
             try {
                 await fs.access(dest);
+                // Already exists, don't overwrite
             } catch {
-                await fs.copyFile(src, dest);
+                if (initialPersonality && (file === "IDENTITY.md" || file === "WORKFLOW.md")) {
+                    // For now, let's put the whole personality in IDENTITY and a generic one in WORKFLOW
+                    // Or maybe split it? Let's just put it in IDENTITY for now as requested.
+                    if (file === "IDENTITY.md") {
+                        await fs.writeFile(dest, initialPersonality);
+                    } else {
+                        await fs.copyFile(src, dest);
+                    }
+                } else {
+                    await fs.copyFile(src, dest);
+                }
             }
         }
     } catch (e) {
