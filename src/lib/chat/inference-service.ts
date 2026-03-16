@@ -245,30 +245,46 @@ export class InferenceService {
                         span.setAttributes({ "skill.id": skillId, "skill.args": JSON.stringify(argsArray) });
                         
                         try {
-                            const actualRepoIds = repoId === "NONE" 
-                                ? [] 
-                                : (repoId ? [repoId] : (await (async () => {
-                                    const { db } = await import("@/../db");
-                                    const { repositories } = await import("@/../db/schema");
-                                    const { eq, and } = await import("drizzle-orm");
-                                    const enabledRepos = await db.select({ id: repositories.id })
+                            // Fetch repos once – derive IDs and display names from the same result
+                            type RepoRow = { id: string; name: string };
+                            let repoRows: RepoRow[] = [];
+                            
+                            if (repoId !== "NONE") {
+                                const { db } = await import("@/../db");
+                                const { repositories } = await import("@/../db/schema");
+                                const { eq, and, inArray } = await import("drizzle-orm");
+
+                                if (repoId) {
+                                    repoRows = await db.select({ id: repositories.id, name: repositories.name })
+                                        .from(repositories)
+                                        .where(inArray(repositories.id, [repoId]))
+                                        .all();
+                                } else {
+                                    // Global context — all enabled repos for this user
+                                    repoRows = await db.select({ id: repositories.id, name: repositories.name })
                                         .from(repositories)
                                         .where(and(eq(repositories.userId, userId), eq(repositories.enabled, true)))
                                         .all();
-                                    return enabledRepos.map(r => r.id);
-                                })()));
+                                }
+                            }
+
+                            const actualRepoIds = repoRows.map(r => r.id);
+                            const repoContext = repoRows.length === 0
+                                ? "No repository context"
+                                : (repoId === null ? `All enabled repos: ${repoRows.map(r => r.name).join(", ")}` : repoRows.map(r => r.name).join(", "));
 
                             const result = await executeSkill(skill, argsArray, {
                                 REPO_IDS: JSON.stringify(actualRepoIds)
                             });
 
-                            let observation = `Observation: Executed skill "${skillId}" with args: ${argsArray.join(", ")}.\n\n`;
+                            let observation = `Observation: Executed skill "${skillId}" with args: ${argsArray.join(", ")}.\n`;
+                            observation += `Searched Repositories: ${repoContext}\n\n`;
                             observation += `Exit Code: ${result.exitCode}\n`;
                             if (result.stdout) observation += `Output:\n${result.stdout}\n`;
                             if (result.stderr) observation += `Error Output:\n${result.stderr}\n`;
 
                             return {
-                                observation: observation + "\nDetermine the next step or provide the final answer based on this output."
+                                observation: observation + `\nIMPORTANT: In your final answer, always cite the repository name(s) (${repoContext}) and the exact file path for each result you reference. Do not omit this information.`
                             };
                         } catch (e) {
                             console.error(`Failed to execute skill ${skillId}:`, e);

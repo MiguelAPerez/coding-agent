@@ -39,9 +39,16 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
                     <MessageItem key={msg.id} msg={msg} />
                 ))}
                 
-                {isLoading && (
-                    (!messages.length || (messages[messages.length - 1].role !== "assistant" || (!messages[messages.length - 1].content && !messages[messages.length - 1].thinking)))
-                ) && (
+                {isLoading && (() => {
+                    const last = messages[messages.length - 1];
+                    // Show thinking indicator when: no messages yet, OR last message isn't from assistant,
+                    // OR last assistant message has thinking but no response content yet (the gap state).
+                    const showIndicator = !messages.length
+                        || last.role !== "assistant"
+                        || (!last.content && !last.thinking)
+                        || (!!last.thinking && !last.content);
+                    return showIndicator;
+                })() && (
                     <div className="flex justify-start animate-in fade-in duration-500">
                         <div className="bg-foreground/5 border border-border/50 rounded-3xl rounded-tl-sm px-5 py-3 text-sm text-foreground/50 flex items-center gap-3">
                             <div className="flex gap-1">

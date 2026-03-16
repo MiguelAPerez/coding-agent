@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -12,6 +12,8 @@ interface MessageItemProps {
 }
 
 export default function MessageItem({ msg }: MessageItemProps) {
+    const [thinkingOpen, setThinkingOpen] = useState(false);
+
     return (
         <div 
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}
@@ -26,12 +28,30 @@ export default function MessageItem({ msg }: MessageItemProps) {
                 {msg.role === "assistant" ? (
                     <>
                         {msg.thinking && (
-                            <div className="mb-3 pb-3 border-b border-border/30 text-xs text-foreground/50 italic whitespace-pre-wrap animate-in fade-in slide-in-from-top-1 duration-500">
-                                <div className="flex items-center gap-1.5 mb-1 not-italic font-semibold opacity-70">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse" />
-                                    Thought
-                                </div>
-                                {msg.thinking}
+                            <div className="mb-3 pb-3 border-b border-border/30 animate-in fade-in slide-in-from-top-1 duration-500">
+                                {/* Collapsible header */}
+                                <button
+                                    onClick={() => setThinkingOpen(o => !o)}
+                                    className="flex items-center gap-1.5 w-full text-left group/think"
+                                >
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 shrink-0" />
+                                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                                        Thought
+                                    </span>
+                                    <svg
+                                        className={`ml-auto w-3 h-3 text-foreground/30 transition-transform duration-200 group-hover/think:text-foreground/60 ${thinkingOpen ? "rotate-180" : ""}`}
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {/* Collapsible body */}
+                                {thinkingOpen && (
+                                    <div className="mt-2 text-xs text-foreground/45 italic whitespace-pre-wrap leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
+                                        {msg.thinking}
+                                    </div>
+                                )}
                             </div>
                         )}
                         <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed prose-p:my-1 prose-pre:my-2 prose-headings:my-2 prose-ul:my-1 prose-li:my-0 prose-code:text-foreground prose-code:bg-foreground/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
