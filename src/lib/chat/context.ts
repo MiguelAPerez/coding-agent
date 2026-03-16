@@ -76,7 +76,7 @@ export class ChatContext {
                 const skillIds: string[] = JSON.parse(agentConfig.skillIds || "[]");
                 const { loadSkillById } = await import("@/lib/skills");
                 const enabledSkills = (await Promise.all(
-                    skillIds.map(id => loadSkillById(id, this.userId))
+                    skillIds.map(id => loadSkillById(id, agentConfig.userId))
                 )).filter((s): s is Skill => s !== null);
 
                 const enabledTools = db.select().from(tools).where(and(

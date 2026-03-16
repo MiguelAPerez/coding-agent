@@ -6,7 +6,7 @@ import { SkillsManager } from "./SkillsManager";
 import { ToolsManager } from "@/components/AgentConfiguration/ToolsManager";
 import { AgentPerformanceTab } from "./AgentPerformanceTab";
 import { SystemPromptsManager } from "./SystemPromptsManager";
-import { PersonasSkillsManager } from "./PersonasSkillsManager";
+import SkillLibraryManager from "./SkillLibraryManager";
 import { AgentConfig, Skill, Tool, SystemPrompt } from "@/types/agent";
 
 export const AgentPageClient = ({
@@ -83,7 +83,7 @@ export const AgentPageClient = ({
 
                 {mainTab === "skills" && (
                     <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                        <PersonasSkillsManager initialSkills={initialSkills} />
+                        <SkillLibraryManager />
                     </div>
                 )}
 

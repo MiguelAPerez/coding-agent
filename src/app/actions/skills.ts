@@ -147,7 +147,11 @@ export async function syncSystemSkills() {
     const targetDir = path.join(process.cwd(), "data", "system", "skills");
 
     try {
+        // Clear existing system skills in data/system/skills to ensure a clean sync
+        // and avoid "duplicates" if skills were renamed or removed in statics.
+        await fs.rm(targetDir, { recursive: true, force: true });
         await fs.mkdir(targetDir, { recursive: true });
+
         const items = await fs.readdir(sourceDir, { withFileTypes: true });
 
         for (const item of items) {

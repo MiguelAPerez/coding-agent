@@ -23,7 +23,7 @@ async function getSkillFromDir(dirPath: string, id: string, isManaged: boolean, 
 
         const stats = await fs.stat(skillMdPath);
 
-        let runtime: "local" | "docker" = "local";
+        let runtime: "local" | "docker" = "docker";
         let envVars: Record<string, string> = {};
         try {
             const configPath = path.join(dirPath, "skill.json");
@@ -68,22 +68,20 @@ async function getSkillFromDir(dirPath: string, id: string, isManaged: boolean, 
 }
 
 export async function loadAllSkills(userId: string): Promise<Skill[]> {
-    const allSkills: Skill[] = [];
+    const skillsMap = new Map<string, Skill>();
 
-    // Load System Skills
+    // Load System Skills first
     try {
         const systemSkillDirs = await fs.readdir(SYSTEM_SKILLS_DIR, { withFileTypes: true });
         for (const dirent of systemSkillDirs) {
             if (dirent.isDirectory()) {
                 const skill = await getSkillFromDir(path.join(SYSTEM_SKILLS_DIR, dirent.name), dirent.name, true, "system");
-                if (skill) allSkills.push(skill);
+                if (skill) skillsMap.set(skill.id, skill);
             }
         }
-    } catch {
-        // console.error("Failed to load system skills");
-    }
+    } catch { /* ignore */ }
 
-    // Load User Skills
+    // Load User Skills (these will overwrite system skills with same ID)
     const userSkillsDir = path.join(USER_DATA_DIR, userId, "skills");
     try {
         await fs.mkdir(userSkillsDir, { recursive: true });
@@ -91,14 +89,12 @@ export async function loadAllSkills(userId: string): Promise<Skill[]> {
         for (const dirent of userSkillDirs) {
             if (dirent.isDirectory()) {
                 const skill = await getSkillFromDir(path.join(userSkillsDir, dirent.name), dirent.name, false, userId);
-                if (skill) allSkills.push(skill);
+                if (skill) skillsMap.set(skill.id, skill);
             }
         }
-    } catch {
-        // console.error("Failed to load user skills");
-    }
+    } catch { /* ignore */ }
 
-    return allSkills;
+    return Array.from(skillsMap.values());
 }
 
 export async function loadSkillById(id: string, userId: string): Promise<Skill | null> {
