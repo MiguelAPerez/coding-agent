@@ -17,7 +17,7 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ repo, filePath, onSelectFile, agents }: ChatPanelProps) {
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(agents[0]?.id || null);
-    const [messages, setMessages] = useState<{ role: "user" | "agent"; content: string }[]>([
+    const [messages, setMessages] = useState<{ role: "user" | "agent"; content: string; thinking?: string }[]>([
         { role: "agent", content: "Hello! I'm ready to help you explore the document. What would you like to know?" }
     ]);
     const [input, setInput] = useState("");
@@ -38,6 +38,7 @@ export default function ChatPanel({ repo, filePath, onSelectFile, agents }: Chat
             setMessages(prev => [...prev, { role: "agent", content: "" }]);
             const assistantMsgIndex = messages.length + 1;
 
+            let fullStreamingContent = "";
             const assistantContent = await streamChatResponse({
                 prompt: userMessage,
                 repoId: repo.id,
@@ -46,10 +47,31 @@ export default function ChatPanel({ repo, filePath, onSelectFile, agents }: Chat
                 workMode: "DOCUMENTATION",
                 history: messages.map(m => ({ role: m.role === "agent" ? "assistant" : "user", content: m.content }))
             }, (chunk) => {
+                fullStreamingContent += chunk;
+                
+                let currentThinking = "";
+                let currentContent = fullStreamingContent;
+                
+                const thinkStart = fullStreamingContent.indexOf("<think>");
+                const thinkEnd = fullStreamingContent.indexOf("</think>");
+                
+                if (thinkStart !== -1) {
+                    if (thinkEnd !== -1) {
+                        currentThinking = fullStreamingContent.substring(thinkStart + 7, thinkEnd);
+                        currentContent = fullStreamingContent.substring(0, thinkStart) + fullStreamingContent.substring(thinkEnd + 8);
+                    } else {
+                        currentThinking = fullStreamingContent.substring(thinkStart + 7);
+                        currentContent = fullStreamingContent.substring(0, thinkStart);
+                    }
+                }
+
                 setMessages(prev => {
                     const next = [...prev];
-                    const currentContent = next[assistantMsgIndex].content;
-                    next[assistantMsgIndex] = { role: "agent", content: currentContent + chunk };
+                    next[assistantMsgIndex] = { 
+                        role: "agent", 
+                        content: currentContent.trimStart(),
+                        thinking: currentThinking.trimStart() 
+                    };
                     return next;
                 });
             });
@@ -109,35 +131,46 @@ export default function ChatPanel({ repo, filePath, onSelectFile, agents }: Chat
                             }`}
                         >
                             {msg.role === "agent" ? (
-                                <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0 prose-code:text-foreground prose-code:bg-foreground/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
-                                    <ReactMarkdown 
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            code(props: { inline?: boolean; className?: string; children?: React.ReactNode }) {
-                                                const { inline, className, children } = props;
-                                                const match = /language-(\w+)/.exec(className || '');
-                                                return !inline && match ? (
-                                                    <div className="my-2 rounded-lg overflow-hidden border border-border/50 shadow-sm">
-                                                        <SyntaxHighlighter
-                                                            style={vscDarkPlus as { [key: string]: React.CSSProperties }}
-                                                            language={match[1]}
-                                                            PreTag="div"
-                                                            customStyle={{ margin: 0, padding: '1rem', fontSize: '11px' }}
-                                                        >
-                                                            {String(children).replace(/\n$/, '')}
-                                                        </SyntaxHighlighter>
-                                                    </div>
-                                                ) : (
-                                                    <code className={className}>
-                                                        {children}
-                                                    </code>
-                                                );
-                                            }
-                                        }}
-                                    >
-                                        {msg.content}
-                                    </ReactMarkdown>
-                                </div>
+                                <>
+                                    {msg.thinking && (
+                                        <div className="mb-3 pb-3 border-b border-border/20 text-[11px] text-foreground/50 italic whitespace-pre-wrap">
+                                            <div className="flex items-center gap-1.5 mb-1 not-italic font-semibold opacity-70">
+                                                <div className="w-1 h-1 rounded-full bg-primary/40 animate-pulse" />
+                                                Thought
+                                            </div>
+                                            {msg.thinking}
+                                        </div>
+                                    )}
+                                    <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0 prose-code:text-foreground prose-code:bg-foreground/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+                                        <ReactMarkdown 
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                code(props: { inline?: boolean; className?: string; children?: React.ReactNode }) {
+                                                    const { inline, className, children } = props;
+                                                    const match = /language-(\w+)/.exec(className || '');
+                                                    return !inline && match ? (
+                                                        <div className="my-2 rounded-lg overflow-hidden border border-border/50 shadow-sm">
+                                                            <SyntaxHighlighter
+                                                                style={vscDarkPlus as { [key: string]: React.CSSProperties }}
+                                                                language={match[1]}
+                                                                PreTag="div"
+                                                                customStyle={{ margin: 0, padding: '1rem', fontSize: '11px' }}
+                                                            >
+                                                                {String(children).replace(/\n$/, '')}
+                                                            </SyntaxHighlighter>
+                                                        </div>
+                                                    ) : (
+                                                        <code className={className}>
+                                                            {children}
+                                                        </code>
+                                                    );
+                                                }
+                                            }}
+                                        >
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                </>
                             ) : (
                                 msg.content
                             )}

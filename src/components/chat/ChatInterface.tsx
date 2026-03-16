@@ -9,6 +9,7 @@ export interface Message {
     id: string;
     role: "user" | "assistant" | "system";
     content: string;
+    thinking?: string;
     createdAt?: Date;
 }
 
@@ -23,6 +24,9 @@ interface ChatInterfaceProps {
     onAgentSelect?: (agentId: string) => void;
     onSetDefaultAgent?: (agentId: string) => void;
     onSetGlobalDefaultAgent?: (agentId: string) => void;
+    repositories?: { id: string; fullName: string }[];
+    selectedRepoId?: string;
+    onRepoSelect?: (repoId: string | undefined) => void;
 }
 
 export default function ChatInterface({ 
@@ -35,7 +39,10 @@ export default function ChatInterface({
     currentAgentId,
     onAgentSelect,
     onSetDefaultAgent,
-    onSetGlobalDefaultAgent
+    onSetGlobalDefaultAgent,
+    repositories = [],
+    selectedRepoId,
+    onRepoSelect
 }: ChatInterfaceProps) {
     return (
         <div className="flex flex-col h-full bg-background relative overflow-hidden">
@@ -58,6 +65,9 @@ export default function ChatInterface({
             <ChatInput 
                 onSendMessage={onSendMessage}
                 isLoading={isLoading}
+                repositories={repositories}
+                selectedRepoId={selectedRepoId}
+                onRepoSelect={onRepoSelect}
             />
         </div>
     );

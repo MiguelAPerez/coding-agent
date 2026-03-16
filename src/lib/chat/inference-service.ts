@@ -117,24 +117,17 @@ export class InferenceService {
                                 const systemPrompt = await PromptBuilder.buildSystemPrompt(contextData, currentFilePath, currentFileContent, workMode, sysPrompt);
                                 messages[0].content = systemPrompt;
 
-                                let assistantContent = "";
-                                let usage: Usage | undefined;
                                 const startTime = Date.now();
-
                                 const isFinalStep = step === maxSteps - 1;
-                                const iterator = client.streamChat(messages);
 
-                                for await (const chunk of iterator) {
-                                    if (typeof chunk === 'string') {
-                                        assistantContent += chunk;
-                                        // Only stream to controller if it's the final potential step or if no navigation is expected
-                                        if (isFinalStep) {
-                                            controller.enqueue(new TextEncoder().encode(chunk));
-                                        }
-                                    } else if (chunk.usage) {
-                                        usage = chunk.usage;
-                                    }
-                                }
+                                const { assistantContent, usage } = await (InferenceService as unknown as { 
+                                    streamStepContent: (c: typeof controller, cl: typeof client, m: typeof messages, f: boolean) => Promise<{ assistantContent: string; usage: Usage | undefined }>
+                                }).streamStepContent(
+                                    controller,
+                                    client,
+                                    messages,
+                                    isFinalStep
+                                );
 
                                 const duration = Date.now() - startTime;
                                 await InferenceService.recordUsage(agentId, usage, duration);
@@ -226,5 +219,35 @@ export class InferenceService {
                 span.end();
             }
         });
+    }
+
+    private static async streamStepContent(
+        controller: ReadableStreamDefaultController,
+        client: { streamChat: (messages: ChatMessage[]) => AsyncIterable<string | { usage: Usage }> },
+        messages: ChatMessage[],
+        isFinalStep: boolean
+    ): Promise<{ assistantContent: string; usage: Usage | undefined }> {
+        let assistantContent = "";
+        let usage: Usage | undefined;
+        const iterator = client.streamChat(messages);
+
+        if (!isFinalStep) {
+            controller.enqueue(new TextEncoder().encode("<think>"));
+        }
+
+        for await (const chunk of iterator) {
+            if (typeof chunk === 'string') {
+                assistantContent += chunk;
+                controller.enqueue(new TextEncoder().encode(chunk));
+            } else if (chunk.usage) {
+                usage = chunk.usage;
+            }
+        }
+
+        if (!isFinalStep) {
+            controller.enqueue(new TextEncoder().encode("</think>\n\n"));
+        }
+
+        return { assistantContent, usage };
     }
 }

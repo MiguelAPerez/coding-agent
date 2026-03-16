@@ -14,7 +14,12 @@ export async function getAgentConfigs() {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return [];
 
-    return db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, session.user.id)).all();
+    const configs = db.select().from(agentConfigurations).where(eq(agentConfigurations.userId, session.user.id)).all();
+    
+    return configs.map(config => ({
+        ...config,
+        skillIds: JSON.parse(config.skillIds || "[]")
+    })) as AgentConfig[];
 }
 
 export async function saveAgentConfig(data: { id?: string; name: string; provider: string; model: string; systemPromptId?: string | null; systemPrompt?: string; temperature: number }) {

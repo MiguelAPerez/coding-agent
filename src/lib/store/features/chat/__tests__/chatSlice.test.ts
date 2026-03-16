@@ -2,6 +2,7 @@
 import reducer, {
     setChatMessages,
     addChatMessage,
+    updateChatMessageById,
     setAgents,
     setSelectedAgentId,
     setPendingSuggestion,
@@ -12,12 +13,16 @@ import reducer, {
     addContextFile,
     removeContextFile,
     clearChat,
-    updateChatMessage
+    updateChatMessage,
+    setRepositories,
+    setSelectedRepoId
 } from "../chatSlice";
 
 describe("chatSlice", () => {
     const initialState = {
         chatMessages: [],
+        repositories: [],
+        selectedRepoId: null,
         agents: [],
         selectedAgentId: "",
         pendingSuggestion: null,
@@ -117,12 +122,38 @@ describe("chatSlice", () => {
         expect(actual.chatMessages[0].content).toBe("new");
     });
 
+    test("should handle updateChatMessageById", () => {
+        const state = {
+            ...initialState,
+            chatMessages: [{ id: "m1", role: "assistant" as const, content: "old", thinking: "old thought" }]
+        };
+        const actual = reducer(state as any, updateChatMessageById({ id: "m1", content: "new", thinking: "new thought" }));
+        expect(actual.chatMessages[0].content).toBe("new");
+        expect(actual.chatMessages[0].thinking).toBe("new thought");
+
+        // Test append
+        const actualAppend = reducer(actual as any, updateChatMessageById({ id: "m1", content: " and more", append: true }));
+        expect(actualAppend.chatMessages[0].content).toBe("new and more");
+    });
+
+    test("should handle setRepositories", () => {
+        const repos = [{ id: "r1", fullName: "user/repo" }];
+        const actual = reducer(initialState, setRepositories(repos));
+        expect(actual.repositories).toEqual(repos);
+    });
+
+    test("should handle setSelectedRepoId", () => {
+        const actual = reducer(initialState, setSelectedRepoId("r1"));
+        expect(actual.selectedRepoId).toBe("r1");
+    });
+
     test("should handle clearChat", () => {
         const state = {
             ...initialState,
             chatMessages: [{ role: "user", content: "msg" }],
             contextFiles: ["f.ts"],
-            chatTab: "context" as const
+            chatTab: "context" as const,
+            selectedRepoId: "r1"
         };
         const actual = reducer(state as any, clearChat());
         expect(actual).toEqual(initialState);

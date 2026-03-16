@@ -3,6 +3,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import ChatSidebar, { ChatThread } from "@/components/chat/ChatSidebar";
 import ChatInterface, { Message } from "@/components/chat/ChatInterface";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/lib/store/store";
+import { 
+    setChatMessages, 
+    addChatMessage, 
+    updateChatMessageById, 
+    setAgents, 
+    setSelectedAgentId,
+    setRepositories,
+    setSelectedRepoId
+} from "@/lib/store/features/chat/chatSlice";
 
 interface ChatPageClientProps {
     initialThreads: ChatThread[];
@@ -10,31 +21,72 @@ interface ChatPageClientProps {
 }
 
 export default function ChatPageClient({ initialThreads, initialAgents }: ChatPageClientProps) {
+    const dispatch = useDispatch();
+    const messages = useSelector((state: RootState) => state.chat.chatMessages);
+    const repositories = useSelector((state: RootState) => state.chat.repositories);
+    const selectedRepoId = useSelector((state: RootState) => state.chat.selectedRepoId);
+    const agents = useSelector((state: RootState) => state.chat.agents);
+    const selectedAgentId = useSelector((state: RootState) => state.chat.selectedAgentId);
+
     const [threads, setThreads] = useState<ChatThread[]>(initialThreads);
     const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
-    const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [agents] = useState<{ id: string; name: string }[]>(initialAgents);
-    const [currentAgentId, setCurrentAgentId] = useState<string | undefined>();
     const [lastLoadedThreadId, setLastLoadedThreadId] = useState<string | undefined>();
+
+    useEffect(() => {
+        dispatch(setAgents(initialAgents));
+    }, [initialAgents, dispatch]);
+
+    useEffect(() => {
+        const fetchRepos = async () => {
+            try {
+                const res = await fetch("/api/repositories");
+                const data = await res.json();
+                dispatch(setRepositories(data.map((r: { id: string; fullName: string }) => ({ id: r.id, fullName: r.fullName }))));
+            } catch (err) {
+                console.error("Failed to fetch repositories:", err);
+            }
+        };
+        fetchRepos();
+    }, [dispatch]);
 
     const fetchMessages = useCallback(async (chatId: string) => {
         setIsLoading(true);
         try {
             const res = await fetch(`/api/chats/${chatId}/messages`);
             const data = await res.json();
-            setMessages(data.map((m: { id: string; role: "user" | "assistant" | "system"; content: string; createdAt: string }) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                createdAt: new Date(m.createdAt)
-            })));
+            const formattedMessages = data.map((m: { id: string; role: "user" | "assistant" | "system"; content: string; createdAt: string }) => {
+                let thinking = "";
+                let content = m.content;
+                
+                const thinkStart = m.content.indexOf("<think>");
+                const thinkEnd = m.content.indexOf("</think>");
+                
+                if (thinkStart !== -1) {
+                    if (thinkEnd !== -1) {
+                        thinking = m.content.substring(thinkStart + 7, thinkEnd);
+                        content = m.content.substring(0, thinkStart) + m.content.substring(thinkEnd + 8);
+                    } else {
+                        thinking = m.content.substring(thinkStart + 7);
+                        content = m.content.substring(0, thinkStart);
+                    }
+                }
+
+                return {
+                    id: m.id,
+                    role: m.role,
+                    content: content.trimStart(),
+                    thinking: thinking.trimStart(),
+                    createdAt: new Date(m.createdAt)
+                };
+            });
+            dispatch(setChatMessages(formattedMessages));
         } catch (err) {
             console.error("Failed to fetch messages:", err);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [dispatch]);
 
     const fetchThreads = useCallback(async () => {
         try {
@@ -56,21 +108,21 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
     useEffect(() => {
         if (activeThreadId) {
             if (activeThreadId !== lastLoadedThreadId) {
-                setMessages([]);
+                dispatch(setChatMessages([]));
                 fetchMessages(activeThreadId);
                 setLastLoadedThreadId(activeThreadId);
             }
             
             const thread = threads.find(t => t.id === activeThreadId);
-            if (thread) {
-                setCurrentAgentId(thread.agentId);
+            if (thread && thread.agentId) {
+                dispatch(setSelectedAgentId(thread.agentId));
             }
         } else {
-            setMessages([]);
-            setCurrentAgentId(undefined);
+            dispatch(setChatMessages([]));
+            dispatch(setSelectedAgentId(""));
             setLastLoadedThreadId(undefined);
         }
-    }, [activeThreadId, threads, fetchMessages, lastLoadedThreadId]);
+    }, [activeThreadId, threads, fetchMessages, lastLoadedThreadId, dispatch]);
 
     const handleSendMessage = async (content: string) => {
         if (!activeThreadId) {
@@ -80,7 +132,7 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         title: content.slice(0, 30),
-                        agentId: currentAgentId
+                        agentId: selectedAgentId
                     })
                 });
                 const newChat = await res.json();
@@ -99,8 +151,8 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
 
     const sendMessageToChat = async (chatId: string, content: string) => {
         setIsLoading(true);
-        const userMsg: Message = { id: Date.now().toString(), role: "user", content };
-        setMessages(prev => [...prev, userMsg]);
+        const userMsg = { id: Date.now().toString(), role: "user" as const, content };
+        dispatch(addChatMessage(userMsg));
 
         try {
             await fetch(`/api/chats/${chatId}/messages`, {
@@ -110,16 +162,42 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
             });
 
             const assistantMsgId = (Date.now() + 1).toString();
-            setMessages(prev => [...prev, { id: assistantMsgId, role: "assistant", content: "" }]);
+            dispatch(addChatMessage({ id: assistantMsgId, role: "assistant", content: "" }));
 
             const { streamChatResponse } = await import("@/lib/chat/client-utils");
+            let fullStreamingContent = "";
             const assistantContent = await streamChatResponse({
                 prompt: content,
-                repoId: null,
-                agentId: currentAgentId || "default",
-                history: messages.map(m => ({ role: m.role, content: m.content }))
+                repoId: selectedRepoId || undefined,
+                agentId: selectedAgentId || "default",
+                history: [
+                    ...messages.map(m => ({ role: m.role, content: m.content })),
+                    { role: "user", content }
+                ]
             }, (chunk) => {
-                setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: m.content + chunk } : m));
+                fullStreamingContent += chunk;
+                
+                let currentThinking = "";
+                let currentContent = fullStreamingContent;
+                
+                const thinkStart = fullStreamingContent.indexOf("<think>");
+                const thinkEnd = fullStreamingContent.indexOf("</think>");
+                
+                if (thinkStart !== -1) {
+                    if (thinkEnd !== -1) {
+                        currentThinking = fullStreamingContent.substring(thinkStart + 7, thinkEnd);
+                        currentContent = fullStreamingContent.substring(0, thinkStart) + fullStreamingContent.substring(thinkEnd + 8);
+                    } else {
+                        currentThinking = fullStreamingContent.substring(thinkStart + 7);
+                        currentContent = fullStreamingContent.substring(0, thinkStart);
+                    }
+                }
+                
+                dispatch(updateChatMessageById({
+                    id: assistantMsgId,
+                    content: currentContent.trimStart(),
+                    thinking: currentThinking.trimStart()
+                }));
             });
 
             await fetch(`/api/chats/${chatId}/messages`, {
@@ -137,8 +215,8 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
 
     const handleNewChat = () => {
         setActiveThreadId(undefined);
-        setMessages([]);
-        setCurrentAgentId(undefined);
+        dispatch(setChatMessages([]));
+        dispatch(setSelectedAgentId(""));
     };
 
     const handleSetDefaultAgent = async (agentId: string) => {
@@ -162,8 +240,8 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
             });
             if (activeThreadId === id) {
                 setActiveThreadId(undefined);
-                setMessages([]);
-                setCurrentAgentId(undefined);
+                dispatch(setChatMessages([]));
+                dispatch(setSelectedAgentId(""));
             }
             fetchThreads();
         } catch (err) {
@@ -187,15 +265,18 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
 
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <ChatInterface
-                    messages={messages}
+                    messages={messages as Message[]}
                     isLoading={isLoading}
                     onSendMessage={handleSendMessage}
                     title={activeThread?.title}
                     type={activeThread?.type}
                     agents={agents}
-                    currentAgentId={currentAgentId}
-                    onAgentSelect={setCurrentAgentId}
+                    currentAgentId={selectedAgentId}
+                    onAgentSelect={(id) => dispatch(setSelectedAgentId(id))}
                     onSetDefaultAgent={handleSetDefaultAgent}
+                    repositories={repositories}
+                    selectedRepoId={selectedRepoId || undefined}
+                    onRepoSelect={(id) => dispatch(setSelectedRepoId(id || null))}
                 />
             </div>
         </div>

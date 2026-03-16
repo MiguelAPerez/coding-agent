@@ -3,6 +3,8 @@ import { ChatMessage, PendingSuggestion, TechnicalPlan, PlanStep } from "@/lib/c
 
 interface ChatState {
     chatMessages: ChatMessage[];
+    repositories: { id: string; fullName: string }[];
+    selectedRepoId: string | null;
     agents: { id: string; name: string }[];
     selectedAgentId: string;
     pendingSuggestion: PendingSuggestion | null;
@@ -13,6 +15,8 @@ interface ChatState {
 
 const initialState: ChatState = {
     chatMessages: [],
+    repositories: [],
+    selectedRepoId: null,
     agents: [],
     selectedAgentId: "",
     pendingSuggestion: null,
@@ -76,7 +80,7 @@ export const chatSlice = createSlice({
                 state.chatMessages[action.payload.index].content = action.payload.content;
             }
         },
-        updateChatMessageById: (state, action: PayloadAction<{ id: string; content: string; append?: boolean }>) => {
+        updateChatMessageById: (state, action: PayloadAction<{ id: string; content: string; thinking?: string; append?: boolean }>) => {
             const msg = state.chatMessages.find(m => m.id === action.payload.id);
             if (msg) {
                 if (action.payload.append) {
@@ -84,7 +88,16 @@ export const chatSlice = createSlice({
                 } else {
                     msg.content = action.payload.content;
                 }
+                if (action.payload.thinking !== undefined) {
+                    msg.thinking = action.payload.thinking;
+                }
             }
+        },
+        setRepositories: (state, action: PayloadAction<{ id: string; fullName: string }[]>) => {
+            state.repositories = action.payload;
+        },
+        setSelectedRepoId: (state, action: PayloadAction<string | null>) => {
+            state.selectedRepoId = action.payload;
         },
         clearChat: (state) => {
             state.chatMessages = [];
@@ -92,6 +105,7 @@ export const chatSlice = createSlice({
             state.technicalPlan = null;
             state.chatTab = null;
             state.contextFiles = [];
+            state.selectedRepoId = null;
         }
     },
 });
@@ -110,7 +124,9 @@ export const {
     removeContextFile,
     clearChat,
     updateChatMessage,
-    updateChatMessageById
+    updateChatMessageById,
+    setRepositories,
+    setSelectedRepoId
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

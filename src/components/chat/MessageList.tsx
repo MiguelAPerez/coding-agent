@@ -40,6 +40,8 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
                 ))}
                 
                 {isLoading && (
+                    (!messages.length || (messages[messages.length - 1].role !== "assistant" || (!messages[messages.length - 1].content && !messages[messages.length - 1].thinking)))
+                ) && (
                     <div className="flex justify-start animate-in fade-in duration-500">
                         <div className="bg-foreground/5 border border-border/50 rounded-3xl rounded-tl-sm px-5 py-3 text-sm text-foreground/50 flex items-center gap-3">
                             <div className="flex gap-1">
