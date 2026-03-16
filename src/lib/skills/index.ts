@@ -23,6 +23,15 @@ async function getSkillFromDir(dirPath: string, id: string, isManaged: boolean, 
 
         const stats = await fs.stat(skillMdPath);
 
+        let runtime: "local" | "docker" = "local";
+        let envVars: Record<string, string> = {};
+        try {
+            const configPath = path.join(dirPath, "skill.json");
+            const configData = JSON.parse(await fs.readFile(configPath, "utf-8"));
+            if (configData.runtime) runtime = configData.runtime;
+            if (configData.envVars) envVars = configData.envVars;
+        } catch { /* ignore */ }
+
         let scriptContent: string | null = null;
         if (scriptFile) {
             try {
@@ -44,6 +53,8 @@ async function getSkillFromDir(dirPath: string, id: string, isManaged: boolean, 
             description,
             content,
             isManaged,
+            runtime,
+            envVars,
             scriptFile,
             scriptContent,
             requirementsFile,

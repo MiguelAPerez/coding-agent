@@ -20,6 +20,8 @@ export interface Skill {
     description: string;
     content: string; // From SKILL.md
     isManaged: boolean;
+    runtime: "local" | "docker"; // "lambda" etc later
+    envVars?: Record<string, string>;
     scriptFile: string | null;
     scriptContent?: string | null;
     requirementsFile: string | null;

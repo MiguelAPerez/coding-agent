@@ -63,8 +63,16 @@ export async function executeSkill(
     }
 
     try {
+        // Prepare context-aware environment
+        const contextEnv: Record<string, string> = {
+            ...process.env,
+            ...env,
+            USER_ID: skill.userId,
+            REPO_IDS: env.REPO_IDS || "[]", // Can be passed from caller
+        };
+
         const { stdout, stderr } = await execAsync(command, {
-            env: { ...process.env, ...env },
+            env: contextEnv as NodeJS.ProcessEnv,
             cwd: skillPath,
         });
 

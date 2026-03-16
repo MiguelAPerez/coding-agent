@@ -79,6 +79,8 @@ export async function saveSkill(data: {
     name: string; 
     description: string; 
     content: string;
+    runtime?: "local" | "docker";
+    envVars?: Record<string, string>;
     scriptFile?: string | null;
     scriptContent?: string | null;
     requirementsFile?: string | null;
@@ -94,6 +96,13 @@ export async function saveSkill(data: {
     try {
         await fs.mkdir(skillDir, { recursive: true });
         
+        // Write skill.json
+        const configPath = path.join(skillDir, "skill.json");
+        await fs.writeFile(configPath, JSON.stringify({
+            runtime: data.runtime || "local",
+            envVars: data.envVars || {}
+        }, null, 2), "utf-8");
+
         // Write SKILL.md
         const skillMdPath = path.join(skillDir, "SKILL.md");
         let finalContent = data.content;

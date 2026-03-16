@@ -12,10 +12,22 @@ export const PersonasSkillsManager = ({
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const [repoUrl, setRepoUrl] = useState("");
-    const [editForm, setEditForm] = useState({
+    const [editForm, setEditForm] = useState<{
+        name: string;
+        description: string;
+        content: string;
+        runtime: "local" | "docker";
+        envVars: Record<string, string>;
+        scriptFile: string;
+        scriptContent: string;
+        requirementsFile: string;
+        requirementsContent: string;
+    }>({
         name: "",
         description: "",
         content: "",
+        runtime: "local",
+        envVars: {},
         scriptFile: "",
         scriptContent: "",
         requirementsFile: "",
@@ -67,6 +79,8 @@ export const PersonasSkillsManager = ({
             name: "",
             description: "",
             content: "",
+            runtime: "local",
+            envVars: {},
             scriptFile: "index.ts",
             scriptContent: "export async function main() {\n  console.log('Hello from skill');\n}",
             requirementsFile: "",
@@ -80,6 +94,8 @@ export const PersonasSkillsManager = ({
             name: skill.name,
             description: skill.description,
             content: skill.content,
+            runtime: skill.runtime || "local",
+            envVars: skill.envVars || {},
             scriptFile: skill.scriptFile || "",
             scriptContent: skill.scriptContent || "",
             requirementsFile: skill.requirementsFile || "",
@@ -198,12 +214,20 @@ export const PersonasSkillsManager = ({
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-semibold uppercase text-foreground/40">Script Content</label>
-                                    <textarea
-                                        className="w-full bg-background border border-border rounded-xl px-4 py-2 min-h-[200px] font-mono text-xs focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                                        value={editForm.scriptContent}
-                                        onChange={e => setEditForm({ ...editForm, scriptContent: e.target.value })}
-                                        placeholder="Code execution entry point..."
-                                    />
+                                    <div className="relative border border-border rounded-xl bg-[#0d1117] overflow-hidden group/editor">
+                                        <div className="absolute left-0 top-0 bottom-0 w-10 bg-black/20 border-r border-white/5 flex flex-col items-center pt-2 text-[10px] text-white/20 select-none font-mono">
+                                            {Array.from({ length: Math.max(10, editForm.scriptContent.split('\n').length) }).map((_, i) => (
+                                                <div key={i} className="h-[1.5em] leading-[1.5em]">{i + 1}</div>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            className="w-full pl-12 bg-transparent text-white/80 px-4 py-2 min-h-[300px] font-mono text-xs focus:outline-none transition-all resize-none leading-[1.5em]"
+                                            value={editForm.scriptContent}
+                                            onChange={e => setEditForm({ ...editForm, scriptContent: e.target.value })}
+                                            placeholder="Code execution entry point..."
+                                            spellCheck={false}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -219,30 +243,120 @@ export const PersonasSkillsManager = ({
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-semibold uppercase text-foreground/40">Requirements Content</label>
-                                    <textarea
-                                        className="w-full bg-background border border-border rounded-xl px-4 py-2 min-h-[200px] font-mono text-xs focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                                        value={editForm.requirementsContent}
-                                        onChange={e => setEditForm({ ...editForm, requirementsContent: e.target.value })}
-                                        placeholder="pip install requirements or npm dependencies..."
-                                    />
+                                    <div className="relative border border-border rounded-xl bg-[#0d1117] overflow-hidden group/editor">
+                                        <div className="absolute left-0 top-0 bottom-0 w-10 bg-black/20 border-r border-white/5 flex flex-col items-center pt-2 text-[10px] text-white/20 select-none font-mono">
+                                            {Array.from({ length: Math.max(5, editForm.requirementsContent.split('\n').length) }).map((_, i) => (
+                                                <div key={i} className="h-[1.5em] leading-[1.5em]">{i + 1}</div>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            className="w-full pl-12 bg-transparent text-white/80 px-4 py-2 min-h-[150px] font-mono text-xs focus:outline-none transition-all resize-none leading-[1.5em]"
+                                            value={editForm.requirementsContent}
+                                            onChange={e => setEditForm({ ...editForm, requirementsContent: e.target.value })}
+                                            placeholder="pip install requirements or npm dependencies..."
+                                            spellCheck={false}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="pt-4 border-t border-border/30">
+                                    <label className="text-xs font-semibold uppercase text-foreground/40 block mb-2">Internal Environment Context</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="glass p-2 rounded-lg border border-border/50">
+                                            <span className="text-[10px] font-mono text-primary block">USER_ID</span>
+                                            <span className="text-[9px] text-foreground/40 uppercase">Provided automatically</span>
+                                        </div>
+                                        <div className="glass p-2 rounded-lg border border-border/50">
+                                            <span className="text-[10px] font-mono text-primary block">REPO_IDS</span>
+                                            <span className="text-[9px] text-foreground/40 uppercase">JSON array of repo IDs</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 pt-4 border-t border-border/30">
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-xs font-semibold uppercase text-foreground/40">Custom Environment Variables</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const key = prompt("Enter variable name (e.g., API_KEY):");
+                                                if (key) setEditForm({ ...editForm, envVars: { ...editForm.envVars, [key]: "" } });
+                                            }}
+                                            className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-lg font-bold"
+                                        >
+                                            + Add Var
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2">
+                                        {Object.entries(editForm.envVars).map(([key, value]) => (
+                                            <div key={key} className="flex gap-2 items-center">
+                                                <div className="text-[10px] font-mono text-foreground/60 w-24 truncate" title={key}>{key}</div>
+                                                <input
+                                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-1 text-xs"
+                                                    value={value}
+                                                    onChange={e => setEditForm({ ...editForm, envVars: { ...editForm.envVars, [key]: e.target.value } })}
+                                                    placeholder="Value"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newVars = { ...editForm.envVars };
+                                                        delete newVars[key];
+                                                        setEditForm({ ...editForm, envVars: newVars });
+                                                    }}
+                                                    className="text-foreground/20 hover:text-destructive transition-colors"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {Object.keys(editForm.envVars).length === 0 && (
+                                            <div className="text-[10px] text-foreground/20 italic">No custom variables defined</div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
-                            <button
-                                type="button"
-                                onClick={() => setIsEditing(null)}
-                                className="px-4 py-2 text-sm text-foreground/60 hover:text-foreground font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-md shadow-primary/10"
-                            >
-                                Save Skill
-                            </button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-4 border-t border-border/50">
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold uppercase text-foreground/40">Execution Sandbox (Runtime)</label>
+                                <div className="flex gap-3">
+                                    {["local", "docker"].map(r => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            onClick={() => setEditForm({ ...editForm, runtime: r as "local" | "docker" })}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                                editForm.runtime === r 
+                                                    ? "bg-primary/20 border-primary text-primary" 
+                                                    : "bg-background border-border text-foreground/40 hover:border-primary/30"
+                                            }`}
+                                        >
+                                            {r.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-foreground/30">
+                                    {editForm.runtime === "local" 
+                                        ? "Runs directly on the host system. Fast, but less isolated." 
+                                        : "Runs in a disposable Docker container. Highly isolated."}
+                                </p>
+                            </div>
+                            <div className="flex justify-end gap-3 self-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditing(null)}
+                                    className="px-4 py-2 text-sm text-foreground/60 hover:text-foreground font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-md shadow-primary/10"
+                                >
+                                    Save Skill
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
