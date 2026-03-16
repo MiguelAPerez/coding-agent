@@ -41,7 +41,16 @@ export default function SkillLibraryManager() {
         setIsLoading(false);
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => { 
+        let isMounted = true;
+        getSkills().then(data => {
+            if (isMounted) {
+                setSkills(data);
+                setIsLoading(false);
+            }
+        });
+        return () => { isMounted = false; };
+    }, []);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();

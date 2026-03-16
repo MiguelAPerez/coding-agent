@@ -4,8 +4,16 @@ import { SkillSelector } from "../SkillSelector";
 
 describe("SkillSelector", () => {
     const skills = [
-        { id: "s1", name: "Skill 1", description: "desc", content: "content", isEnabled: true, userId: "u1", agentId: null, updatedAt: new Date() },
-        { id: "s2", name: "Skill 2", description: "desc2", content: "content2", isEnabled: true, userId: "u1", agentId: null, updatedAt: new Date() },
+        { 
+            id: "s1", name: "Skill 1", description: "desc", content: "content", 
+            isManaged: false, runtime: "local" as const, scriptFile: null, requirementsFile: null,
+            userId: "u1", updatedAt: new Date() 
+        },
+        { 
+            id: "s2", name: "Skill 2", description: "desc2", content: "content2", 
+            isManaged: false, runtime: "local" as const, scriptFile: null, requirementsFile: null,
+            userId: "u1", updatedAt: new Date() 
+        },
     ];
     const onToggle = jest.fn();
 

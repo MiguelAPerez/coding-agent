@@ -4,6 +4,7 @@ export interface ChatMessage {
     id?: string;
     role: "system" | "user" | "assistant";
     content: string;
+    thinking?: string;
 }
 
 export interface ChatResponse {
@@ -57,6 +58,7 @@ import { InferSelectModel } from "drizzle-orm";
 import { repositories, agentConfigurations, tools, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
 
 import { Skill } from "@/types/agent";
+export type { Skill };
 
 export interface ContextData {
     repo?: InferSelectModel<typeof repositories>;

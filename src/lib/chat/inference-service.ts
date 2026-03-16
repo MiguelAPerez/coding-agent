@@ -154,13 +154,17 @@ export class InferenceService {
                                 }
                             } catch (err) {
                                 console.error("Error in inference loop:", err);
+                                span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : "Inference loop error" });
                             } finally {
                                 child_process.end();
                             }
                         }
                         controller.close();
                     } catch (e) {
+                        span.setStatus({ code: SpanStatusCode.ERROR, message: e instanceof Error ? e.message : "Stream error" });
                         controller.error(e);
+                    } finally {
+                        span.end();
                     }
                 });
             }
@@ -192,30 +196,35 @@ export class InferenceService {
 
     private static async handleNavigation(content: string, step: number, maxSteps: number, repoId: string | null, userId: string) {
         return tracer.startActiveSpan("inference_service.handleNavigation", async (span) => {
-            if (repoId && step < maxSteps - 1) {
-                const jsonMatch = content.match(/\{[\s\S]*\}/);
-                let parsed = null;
-                if (jsonMatch) {
-                    try { parsed = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
-                }
+            try {
+                if (repoId && step < maxSteps - 1) {
+                    const jsonMatch = content.match(/\{[\s\S]*\}/);
+                    let parsed = null;
+                    if (jsonMatch) {
+                        try { parsed = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
+                    }
 
-                if (parsed && parsed.redirect) {
-                    const newPath = parsed.redirect;
-                    try {
-                        const newContent = await getRepoFileContentInternal(repoId, newPath, userId);
-                        const cleanedContent = newContent.replace(/^---\s*[\s\S]*?---\s*/, '');
+                    if (parsed && parsed.redirect) {
+                        const newPath = parsed.redirect;
+                        try {
+                            const newContent = await getRepoFileContentInternal(repoId, newPath, userId);
+                            const cleanedContent = newContent.replace(/^---\s*[\s\S]*?---\s*/, '');
 
-                        return {
-                            newPath,
-                            newContent: cleanedContent,
-                            observation: `Observation: You are now seeing the FULL content of "${newPath}".\n\nContent:\n${cleanedContent}\n\nPlease provide your final answer based on this new information.`
-                        };
-                    } catch (e) {
-                        console.error(`Failed to navigate to ${newPath}:`, e);
+                            return {
+                                newPath,
+                                newContent: cleanedContent,
+                                observation: `Observation: You are now seeing the FULL content of "${newPath}".\n\nContent:\n${cleanedContent}\n\nPlease provide your final answer based on this new information.`
+                            };
+                        } catch (e) {
+                            console.error(`Failed to navigate to ${newPath}:`, e);
+                            span.setStatus({ code: SpanStatusCode.ERROR, message: e instanceof Error ? e.message : "Navigation failed" });
+                        }
                     }
                 }
+                return null;
+            } finally {
+                span.end();
             }
-            return null;
         });
     }
 }
