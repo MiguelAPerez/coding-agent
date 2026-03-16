@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import { AgentConfigForm } from "./AgentConfigForm";
-import { SkillsManager } from "@/components/AgentConfiguration/SkillsManager";
+import { SkillsManager } from "./SkillsManager";
 import { ToolsManager } from "@/components/AgentConfiguration/ToolsManager";
 import { AgentPerformanceTab } from "./AgentPerformanceTab";
 import { SystemPromptsManager } from "./SystemPromptsManager";
+import { PersonasSkillsManager } from "./PersonasSkillsManager";
 import { AgentConfig, Skill, Tool, SystemPrompt } from "@/types/agent";
 
 export const AgentPageClient = ({
@@ -32,13 +33,13 @@ export const AgentPageClient = ({
     const [configTab, setConfigTab] = useState("model");
 
     const selectedAgent = configs.find(c => c.id === selectedAgentId) || null;
-    const agentSkills = initialSkills.filter(s => s.agentId === selectedAgentId);
     const agentTools = initialTools.filter(t => t.agentId === selectedAgentId);
 
     const mainTabs = [
         { id: "performance", label: "Performance", icon: "📈" },
         { id: "configuration", label: "Configuration", icon: "⚙️" },
         { id: "persona", label: "Persona", icon: "👤" },
+        { id: "skills", label: "Skills", icon: "🛠️" },
     ];
 
     const configTabs = [
@@ -75,7 +76,15 @@ export const AgentPageClient = ({
                 )}
 
                 {mainTab === "persona" && (
-                    <SystemPromptsManager initialPrompts={systemPrompts} />
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                        <SystemPromptsManager initialPrompts={systemPrompts} />
+                    </div>
+                )}
+
+                {mainTab === "skills" && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                        <PersonasSkillsManager initialSkills={initialSkills} />
+                    </div>
                 )}
 
                 {mainTab === "configuration" && (
@@ -108,7 +117,7 @@ export const AgentPageClient = ({
                                     >
                                         <span>{agent.name}</span>
                                         {agent.isManaged && (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                                         )}
                                     </button>
                                 ))}
@@ -142,8 +151,8 @@ export const AgentPageClient = ({
                                 )}
                                 {configTab === "skills" && (
                                     <SkillsManager
-                                        initialSkills={agentSkills}
-                                        agentId={selectedAgentId}
+                                        initialSkills={initialSkills}
+                                        agent={selectedAgent}
                                     />
                                 )}
                                 {configTab === "tools" && (

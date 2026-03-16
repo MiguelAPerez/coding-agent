@@ -1,9 +1,9 @@
 import { db } from "@/../db";
-import { agentConfigurations, skills, tools, repositories, systemPrompts, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
+import { agentConfigurations, tools, repositories, systemPrompts, ollamaConfigurations, anthropicConfigurations, googleConfigurations } from "@/../db/schema";
 
 import { eq, and, isNull } from "drizzle-orm";
 import { getRepoFileContentInternal } from "@/lib/repo-utils";
-import { ContextData } from "./types";
+import { ContextData, Skill } from "./types";
 import fs from "fs/promises";
 import path from "path";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
@@ -73,11 +73,11 @@ export class ChatContext {
                     if (personality) agentPersonalityPrompt = personality.content;
                 }
 
-                const enabledSkills = db.select().from(skills).where(and(
-                    eq(skills.userId, this.userId),
-                    eq(skills.isEnabled, true),
-                    this.agentId ? eq(skills.agentId, this.agentId) : isNull(skills.agentId)
-                )).all();
+                const skillIds: string[] = JSON.parse(agentConfig.skillIds || "[]");
+                const { loadSkillById } = await import("@/lib/skills");
+                const enabledSkills = (await Promise.all(
+                    skillIds.map(id => loadSkillById(id, this.userId))
+                )).filter((s): s is Skill => s !== null);
 
                 const enabledTools = db.select().from(tools).where(and(
                     eq(tools.userId, this.userId),

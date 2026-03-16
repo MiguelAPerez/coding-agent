@@ -38,6 +38,7 @@ export const agentConfigurations = sqliteTable("agent_configuration", {
     systemPromptId: text("systemPromptId").references(() => systemPrompts.id),
     systemPrompt: text("systemPrompt").notNull().default("You are a helpful coding assistant."),
     temperature: integer("temperature").notNull().default(70), // scaled by 100
+    skillIds: text("skillIds").notNull().default("[]"), // JSON string array
     isManaged: integer("isManaged", { mode: "boolean" }).notNull().default(false),
     updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
 })

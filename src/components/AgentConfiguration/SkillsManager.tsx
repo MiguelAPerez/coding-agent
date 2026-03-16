@@ -1,131 +1,122 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveSkill, deleteSkill } from "@/app/actions/skills";
-import { Skill } from "@/types/agent";
+import { linkSkillToAgent, unlinkSkillFromAgent } from "@/app/actions/skills";
+import { Skill, AgentConfig } from "@/types/agent";
 
-export const SkillsManager = ({ initialSkills, agentId }: { initialSkills: Skill[], agentId: string | null }) => {
+export const SkillsManager = ({
+    initialSkills,
+    agent
+}: {
+    initialSkills: Skill[];
+    agent: AgentConfig | null;
+}) => {
     const router = useRouter();
-    const [isEditing, setIsEditing] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ name: "", description: "", content: "", isEnabled: true });
+    const [isAdding, setIsAdding] = useState(false);
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!agentId) {
-            alert("Please select or create an agent first.");
-            return;
-        }
+    if (!agent) {
+        return (
+            <div className="py-12 text-center glass rounded-3xl border-2 border-dashed border-border/30 opacity-50">
+                <p className="text-sm italic">Select or create an agent to manage its skills.</p>
+            </div>
+        );
+    }
+
+    const linkedSkillIds = agent.skillIds || [];
+    const linkedSkills = initialSkills.filter(s => linkedSkillIds.includes(s.id));
+    const availableSkills = initialSkills.filter(s => !linkedSkillIds.includes(s.id));
+
+    const handleLink = async (skillId: string) => {
         try {
-            await saveSkill({ ...editForm, id: isEditing || undefined, agentId });
+            await linkSkillToAgent(agent.id, skillId);
+            setIsAdding(false);
             router.refresh();
         } catch {
-            alert("Failed to save skill.");
+            alert("Failed to link skill.");
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to delete this skill?")) {
+    const handleUnlink = async (skillId: string) => {
+        if (confirm("Remove this skill from this agent?")) {
             try {
-                await deleteSkill(id);
+                await unlinkSkillFromAgent(agent.id, skillId);
                 router.refresh();
             } catch {
-                alert("Failed to delete skill.");
+                alert("Failed to unlink skill.");
             }
         }
     };
 
-    const startNew = () => {
-        setIsEditing("");
-        setEditForm({ name: "", description: "", content: "", isEnabled: true });
-    };
-
-    const startEdit = (skill: Skill) => {
-        setIsEditing(skill.id);
-        setEditForm({ name: skill.name, description: skill.description, content: skill.content, isEnabled: !!skill.isEnabled });
-    };
-
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Management of Skills</h2>
-                <button
-                    onClick={startNew}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-all shadow-lg shadow-primary/20"
-                >
-                    Add Skill
-                </button>
+                <div className="space-y-1">
+                    <h2 className="text-xl font-semibold text-foreground/80">Agent Skills</h2>
+                    <p className="text-xs text-foreground/40 font-medium uppercase tracking-tight">Active capabilities for {agent.name}</p>
+                </div>
+                {!isAdding && (
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="px-4 py-2 bg-foreground text-background rounded-xl hover:opacity-90 transition-all text-sm font-bold"
+                    >
+                        + Add Skill
+                    </button>
+                )}
             </div>
 
-            {isEditing !== null && (
-                <div className="glass p-6 rounded-2xl border border-border/50 mb-8 space-y-4 animate-in slide-in-from-top-4 duration-300">
-                    <h3 className="font-medium">{isEditing ? "Edit Skill" : "New Skill"}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-xs text-foreground/40">Skill Name</label>
-                            <input
-                                placeholder="E.g., Tailwind Expert"
-                                value={editForm.name}
-                                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs text-foreground/40">Description</label>
-                            <input
-                                placeholder="What does this skill help with?"
-                                value={editForm.description}
-                                onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                                className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                        </div>
+            {isAdding && (
+                <div className="glass p-6 rounded-2xl border border-primary/30 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-foreground/80">Select Skill to Add</h3>
+                        <button onClick={() => setIsAdding(false)} className="text-xs text-foreground/40 hover:text-foreground font-medium">Cancel</button>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-xs text-foreground/40">Content / Instructions</label>
-                        <textarea
-                            placeholder="Detailed instructions for the agent..."
-                            rows={4}
-                            value={editForm.content}
-                            onChange={e => setEditForm({ ...editForm, content: e.target.value })}
-                            className="w-full bg-background border border-border rounded-xl px-4 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <label className="flex items-center gap-2 text-sm text-foreground/60 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={editForm.isEnabled}
-                                onChange={e => setEditForm({ ...editForm, isEnabled: e.target.checked })}
-                                className="accent-primary"
-                            />
-                            Enabled
-                        </label>
-                        <div className="flex gap-2">
-                            <button onClick={() => setIsEditing(null)} className="px-4 py-2 text-sm font-medium hover:text-red-500 transition-colors">Cancel</button>
-                            <button onClick={handleSave} className="px-6 py-2 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-all">Save Skill</button>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableSkills.map(skill => (
+                            <button
+                                key={skill.id}
+                                onClick={() => handleLink(skill.id)}
+                                className="flex flex-col text-left p-4 rounded-xl border border-border/50 hover:border-primary/50 hover:bg-primary/[0.02] transition-all group"
+                            >
+                                <span className="font-bold text-sm text-foreground/80 group-hover:text-primary">{skill.name}</span>
+                                <span className="text-[10px] text-foreground/40 line-claps-1">{skill.description}</span>
+                            </button>
+                        ))}
+                        {availableSkills.length === 0 && (
+                            <p className="col-span-full py-4 text-center text-xs text-foreground/40 italic">No more skills available in your library.</p>
+                        )}
                     </div>
                 </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {initialSkills.map(skill => (
-                    <div key={skill.id} className="group glass p-6 rounded-2xl border border-border/30 hover:border-primary/30 transition-all hover:shadow-xl hover:shadow-primary/5">
+                {linkedSkills.map(skill => (
+                    <div key={skill.id} className="glass p-5 rounded-2xl border border-border/50 hover:border-red-500/30 transition-all group flex flex-col h-full bg-foreground/[0.02]">
                         <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-semibold text-lg">{skill.name}</h4>
-                            <div className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${skill.isEnabled ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                {skill.isEnabled ? 'Active' : 'Disabled'}
-                            </div>
+                            <h3 className="font-bold text-foreground/80">{skill.name}</h3>
+                            <button
+                                onClick={() => handleUnlink(skill.id)}
+                                className="text-[10px] font-bold text-foreground/20 hover:text-destructive uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all"
+                            >
+                                Remove
+                            </button>
                         </div>
-                        <p className="text-sm text-foreground/40 mb-4 line-clamp-2">{skill.description}</p>
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={() => startEdit(skill)} className="text-xs font-medium text-foreground/60 hover:text-primary transition-colors">Edit</button>
-                            <button onClick={() => handleDelete(skill.id)} className="text-xs font-medium text-foreground/60 hover:text-red-500 transition-colors">Delete</button>
+                        <p className="text-xs text-foreground/40 line-clamp-2 mb-3">
+                            {skill.description}
+                        </p>
+                        <div className="mt-auto pt-2 flex items-center justify-between border-t border-border/30">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${skill.isManaged ? 'text-primary' : 'text-foreground/40'}`}>
+                                {skill.isManaged ? 'System Skill' : 'User Skill'}
+                            </span>
+                            <div className="flex gap-2">
+                                {skill.scriptFile && <span className="text-[10px] opacity-30">📜</span>}
+                                {skill.requirementsFile && <span className="text-[10px] opacity-30">📦</span>}
+                            </div>
                         </div>
                     </div>
                 ))}
-                {initialSkills.length === 0 && !isEditing && (
-                    <div className="col-span-full py-12 text-center glass rounded-2xl border border-dashed border-border/50">
-                        <p className="text-foreground/40">No skills defined yet.</p>
+                {linkedSkills.length === 0 && !isAdding && (
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-border/30 rounded-3xl opacity-40">
+                        <p className="text-sm italic">This agent has no active skills.</p>
+                        <button onClick={() => setIsAdding(true)} className="text-primary font-bold hover:underline mt-2">Add your first skill</button>
                     </div>
                 )}
             </div>

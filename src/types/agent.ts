@@ -8,18 +8,20 @@ export interface AgentConfig {
     systemPromptId: string | null;
     systemPrompt: string;
     temperature: number;
+    skillIds: string[]; // List of linked skill IDs (folder names)
     updatedAt: Date;
     isManaged: boolean;
 }
 
 export interface Skill {
-    id: string;
+    id: string; // Folder name (e.g., "stocks")
     userId: string;
-    agentId: string | null;
     name: string;
     description: string;
-    content: string;
-    isEnabled: boolean;
+    content: string; // From SKILL.md
+    isManaged: boolean;
+    scriptFile: string | null;
+    requirementsFile: string | null;
     updatedAt: Date;
 }
 
