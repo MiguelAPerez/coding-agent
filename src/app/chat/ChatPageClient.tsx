@@ -12,7 +12,9 @@ import {
     setAgents, 
     setSelectedAgentId,
     setRepositories,
-    setSelectedRepoId
+    setSelectedRepoId,
+    addLoadingChatId,
+    removeLoadingChatId
 } from "@/lib/store/features/chat/chatSlice";
 
 interface ChatPageClientProps {
@@ -28,11 +30,22 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
     const selectedRepoId = useSelector((state: RootState) => state.chat.selectedRepoId);
     const agents = useSelector((state: RootState) => state.chat.agents);
     const selectedAgentId = useSelector((state: RootState) => state.chat.selectedAgentId);
-
+    const loadingChatIds = useSelector((state: RootState) => state.chat.loadingChatIds);
+    
     const [threads, setThreads] = useState<ChatThread[]>(initialThreads);
     const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
-    const [isLoading, setIsLoading] = useState(false);
     const [lastLoadedThreadId, setLastLoadedThreadId] = useState<string | undefined>();
+    
+    // Derived loading state for current chat
+    const isCurrentChatLoading = loadingChatIds.includes(activeThreadId || "");
+
+    // Cache for background message updates
+    const backgroundMessagesRef = React.useRef<Record<string, Message[]>>({});
+
+    const activeThreadIdRef = React.useRef(activeThreadId);
+    useEffect(() => {
+        activeThreadIdRef.current = activeThreadId;
+    }, [activeThreadId]);
 
     useEffect(() => {
         dispatch(setAgents(initialAgents));
@@ -52,7 +65,9 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
     }, [dispatch]);
 
     const fetchMessages = useCallback(async (chatId: string) => {
-        setIsLoading(true);
+        if (activeThreadIdRef.current === chatId) {
+            dispatch(addLoadingChatId(chatId));
+        }
         try {
             const res = await fetch(`/api/chats/${chatId}/messages`);
             const data = await res.json();
@@ -81,11 +96,13 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
                     createdAt: new Date(m.createdAt)
                 };
             });
-            dispatch(setChatMessages(formattedMessages));
+            if (activeThreadIdRef.current === chatId) {
+                dispatch(setChatMessages(formattedMessages));
+            }
         } catch (err) {
             console.error("Failed to fetch messages:", err);
         } finally {
-            setIsLoading(false);
+            dispatch(removeLoadingChatId(chatId));
         }
     }, [dispatch]);
 
@@ -109,9 +126,15 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
     useEffect(() => {
         if (activeThreadId) {
             if (activeThreadId !== lastLoadedThreadId) {
-                dispatch(setChatMessages([]));
-                fetchMessages(activeThreadId);
-                setLastLoadedThreadId(activeThreadId);
+                // Check background cache first
+                if (backgroundMessagesRef.current[activeThreadId]) {
+                    dispatch(setChatMessages(backgroundMessagesRef.current[activeThreadId]));
+                    setLastLoadedThreadId(activeThreadId);
+                } else {
+                    dispatch(setChatMessages([]));
+                    fetchMessages(activeThreadId);
+                    setLastLoadedThreadId(activeThreadId);
+                }
             }
             
             const thread = threads.find(t => t.id === activeThreadId);
@@ -144,8 +167,11 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
                 if (!newChat.id) {
                     throw new Error("Failed to create chat: No ID returned");
                 }
-                setActiveThreadId(newChat.id);
-                setLastLoadedThreadId(newChat.id);
+                if (activeThreadIdRef.current === undefined) {
+                    activeThreadIdRef.current = newChat.id; // Immediate ref update for isolation gate
+                    setActiveThreadId(newChat.id);
+                    setLastLoadedThreadId(newChat.id);
+                }
                 await sendMessageToChat(newChat.id, content);
                 fetchThreads();
             } catch (err) {
@@ -162,19 +188,28 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
             console.error("Aborting sendMessageToChat: invalid chatId", chatId);
             return;
         }
-        setIsLoading(true);
-        const userMsg = { id: Date.now().toString(), role: "user" as const, content };
-        dispatch(addChatMessage(userMsg));
-
+        if (activeThreadIdRef.current === chatId) {
+            dispatch(addLoadingChatId(chatId));
+            const userMsg = { id: Date.now().toString(), role: "user" as const, content };
+            dispatch(addChatMessage(userMsg));
+        }
+    
         try {
-            await fetch(`/api/chats/${chatId}/messages`, {
+            const res = await fetch(`/api/chats/${chatId}/messages`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ role: "user", content })
             });
 
+            if (!res.ok) {
+                console.error("Failed to save user message to server", res.status);
+                return;
+            }
+
             const assistantMsgId = (Date.now() + 1).toString();
-            dispatch(addChatMessage({ id: assistantMsgId, role: "assistant", content: "" }));
+            if (activeThreadIdRef.current === chatId) {
+                dispatch(addChatMessage({ id: assistantMsgId, role: "assistant", content: "" }));
+            }
 
             const { streamChatResponse } = await import("@/lib/chat/client-utils");
             let fullStreamingContent = "";
@@ -215,11 +250,38 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
                 const jsonToolCallRegex = /```json\s*\{\s*"skill":[\s\S]*?\}\s*```/g;
                 currentThinking = currentThinking.replace(jsonToolCallRegex, "");
                 
-                dispatch(updateChatMessageById({
-                    id: assistantMsgId,
-                    content: currentContent.trimStart(),
-                    thinking: currentThinking.trimStart()
-                }));
+                if (activeThreadIdRef.current === chatId) {
+                    dispatch(updateChatMessageById({
+                        id: assistantMsgId,
+                        content: currentContent.trimStart(),
+                        thinking: currentThinking.trimStart()
+                    }));
+                }
+
+                // Always update background cache
+                const currentBackgroundMsgs = backgroundMessagesRef.current[chatId] || [];
+                const updatedMsgs = [...currentBackgroundMsgs];
+                const msgIdx = updatedMsgs.findIndex(m => m.id === assistantMsgId);
+                if (msgIdx !== -1) {
+                    updatedMsgs[msgIdx] = { 
+                        ...updatedMsgs[msgIdx], 
+                        content: currentContent.trimStart(), 
+                        thinking: currentThinking.trimStart() 
+                    };
+                } else {
+                    // Try to find if user msg is already there, if not add it
+                    const userMsg = { id: (parseInt(assistantMsgId) - 1).toString(), role: "user" as const, content };
+                    if (!updatedMsgs.find(m => m.id === userMsg.id)) {
+                        updatedMsgs.push(userMsg);
+                    }
+                    updatedMsgs.push({ 
+                        id: assistantMsgId, 
+                        role: "assistant", 
+                        content: currentContent.trimStart(), 
+                        thinking: currentThinking.trimStart() 
+                    });
+                }
+                backgroundMessagesRef.current[chatId] = updatedMsgs;
             });
 
             await fetch(`/api/chats/${chatId}/messages`, {
@@ -231,7 +293,7 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
         } catch (err) {
             console.error("Failed to send message:", err);
         } finally {
-            setIsLoading(false);
+            dispatch(removeLoadingChatId(chatId));
         }
     };
 
@@ -312,7 +374,7 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <ChatInterface
                     messages={messages as Message[]}
-                    isLoading={isLoading}
+                    isLoading={isCurrentChatLoading}
                     onSendMessage={handleSendMessage}
                     title={activeThread?.title}
                     type={activeThread?.type}

@@ -11,6 +11,7 @@ interface ChatState {
     technicalPlan: TechnicalPlan | null;
     chatTab: "context" | "suggestions" | "plan" | null;
     contextFiles: string[];
+    loadingChatIds: string[];
 }
 
 const initialState: ChatState = {
@@ -23,6 +24,7 @@ const initialState: ChatState = {
     technicalPlan: null,
     chatTab: null,
     contextFiles: [],
+    loadingChatIds: [],
 };
 
 export const chatSlice = createSlice({
@@ -106,6 +108,15 @@ export const chatSlice = createSlice({
             state.chatTab = null;
             state.contextFiles = [];
             state.selectedRepoId = null;
+            state.loadingChatIds = [];
+        },
+        addLoadingChatId: (state, action: PayloadAction<string>) => {
+            if (!state.loadingChatIds.includes(action.payload)) {
+                state.loadingChatIds.push(action.payload);
+            }
+        },
+        removeLoadingChatId: (state, action: PayloadAction<string>) => {
+            state.loadingChatIds = state.loadingChatIds.filter(id => id !== action.payload);
         }
     },
 });
@@ -126,7 +137,9 @@ export const {
     updateChatMessage,
     updateChatMessageById,
     setRepositories,
-    setSelectedRepoId
+    setSelectedRepoId,
+    addLoadingChatId,
+    removeLoadingChatId
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -15,7 +15,9 @@ import reducer, {
     clearChat,
     updateChatMessage,
     setRepositories,
-    setSelectedRepoId
+    setSelectedRepoId,
+    addLoadingChatId,
+    removeLoadingChatId
 } from "../chatSlice";
 
 describe("chatSlice", () => {
@@ -29,6 +31,7 @@ describe("chatSlice", () => {
         technicalPlan: null,
         chatTab: null,
         contextFiles: [],
+        loadingChatIds: [],
     };
 
     test("should return the initial state", () => {
@@ -150,12 +153,28 @@ describe("chatSlice", () => {
     test("should handle clearChat", () => {
         const state = {
             ...initialState,
-            chatMessages: [{ role: "user", content: "msg" }],
+            chatMessages: [{ role: "user", content: "msg" } as any],
             contextFiles: ["f.ts"],
             chatTab: "context" as const,
-            selectedRepoId: "r1"
+            selectedRepoId: "r1",
+            loadingChatIds: ["c1"]
         };
         const actual = reducer(state as any, clearChat());
         expect(actual).toEqual(initialState);
+    });
+    
+    test("should handle addLoadingChatId", () => {
+        const actual = reducer(initialState, addLoadingChatId("c1"));
+        expect(actual.loadingChatIds).toEqual(["c1"]);
+        
+        // Should not add duplicates
+        const actualDup = reducer(actual, addLoadingChatId("c1"));
+        expect(actualDup.loadingChatIds).toEqual(["c1"]);
+    });
+    
+    test("should handle removeLoadingChatId", () => {
+        const state = { ...initialState, loadingChatIds: ["c1", "c2"] };
+        const actual = reducer(state, removeLoadingChatId("c1"));
+        expect(actual.loadingChatIds).toEqual(["c2"]);
     });
 });
