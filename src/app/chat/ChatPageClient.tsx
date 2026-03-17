@@ -18,9 +18,10 @@ import {
 interface ChatPageClientProps {
     initialThreads: ChatThread[];
     initialAgents: { id: string; name: string }[];
+    defaultAgentId?: string;
 }
 
-export default function ChatPageClient({ initialThreads, initialAgents }: ChatPageClientProps) {
+export default function ChatPageClient({ initialThreads, initialAgents, defaultAgentId }: ChatPageClientProps) {
     const dispatch = useDispatch();
     const messages = useSelector((state: RootState) => state.chat.chatMessages);
     const repositories = useSelector((state: RootState) => state.chat.repositories);
@@ -119,10 +120,11 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
             }
         } else {
             dispatch(setChatMessages([]));
-            dispatch(setSelectedAgentId(""));
+            // Initialize with default agent if available
+            dispatch(setSelectedAgentId(defaultAgentId || ""));
             setLastLoadedThreadId(undefined);
         }
-    }, [activeThreadId, threads, fetchMessages, lastLoadedThreadId, dispatch]);
+    }, [activeThreadId, threads, fetchMessages, lastLoadedThreadId, dispatch, defaultAgentId]);
 
     const handleSendMessage = async (content: string) => {
         if (!activeThreadId) {
@@ -253,6 +255,16 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
         }
     };
 
+    const handleSetGlobalDefaultAgent = async (agentId: string) => {
+        try {
+            const { setDefaultAgentAction } = await import("@/app/actions/default-agent");
+            await setDefaultAgentAction(agentId, "chat");
+            // Optionally notify user or update local state if needed
+        } catch (err) {
+            console.error("Failed to set global default agent:", err);
+        }
+    };
+
     const handleDeleteChat = async (id: string) => {
         try {
             await fetch(`/api/chats/${id}`, {
@@ -294,6 +306,7 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
                     currentAgentId={selectedAgentId}
                     onAgentSelect={(id) => dispatch(setSelectedAgentId(id))}
                     onSetDefaultAgent={handleSetDefaultAgent}
+                    onSetGlobalDefaultAgent={handleSetGlobalDefaultAgent}
                     repositories={repositories}
                     selectedRepoId={selectedRepoId || undefined}
                     onRepoSelect={(id) => dispatch(setSelectedRepoId(id || null))}

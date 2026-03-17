@@ -17,6 +17,10 @@ export default async function UnifiedChatPage() {
 
     const threadsData = await ChatService.getUserChats(session.user.id);
     const agentsData = await getAgentConfigs();
+    
+    // Fetch default agent for this page
+    const { getDefaultAgentAction } = await import("@/app/actions/default-agent");
+    const defaultAgentId = await getDefaultAgentAction("chat");
 
     const threads = threadsData.map((t) => ({
         id: t.id,
@@ -30,6 +34,6 @@ export default async function UnifiedChatPage() {
     const agents = agentsData.map((a) => ({ id: a.id, name: a.name }));
 
     return (
-        <ChatPageClient initialThreads={threads} initialAgents={agents} />
+        <ChatPageClient initialThreads={threads} initialAgents={agents} defaultAgentId={defaultAgentId || undefined} />
     );
 }
