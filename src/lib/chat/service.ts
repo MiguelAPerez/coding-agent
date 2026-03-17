@@ -22,7 +22,7 @@ export const ChatService = {
     async createChat(params: CreateChatParams) {
         const [chat] = await db.insert(chats).values({
             userId: params.userId,
-            agentId: params.agentId,
+            agentId: params.agentId && params.agentId.trim() !== "" ? params.agentId : null,
             repoId: params.repoId,
             type: params.type,
             externalId: params.externalId,
@@ -59,19 +59,27 @@ export const ChatService = {
             }
         }
 
-        if (!message) {
-            [message] = await db.insert(messages).values({
-                chatId: params.chatId,
-                role: params.role,
-                content: params.content,
-                externalId: params.externalId,
-            }).returning();
-        }
+        try {
+            if (!message) {
+                [message] = await db.insert(messages).values({
+                    chatId: params.chatId,
+                    role: params.role,
+                    content: params.content,
+                    externalId: params.externalId,
+                }).returning();
+            }
 
-        // Update chat updatedAt
-        await db.update(chats)
-            .set({ updatedAt: new Date() })
-            .where(eq(chats.id, params.chatId));
+            // Update chat updatedAt
+            await db.update(chats)
+                .set({ updatedAt: new Date() })
+                .where(eq(chats.id, params.chatId));
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message?.includes("FOREIGN KEY constraint failed")) {
+                console.warn(`Failed to save message: Chat ${params.chatId} no longer exists.`);
+                return null;
+            }
+            throw error;
+        }
 
         return message;
     },

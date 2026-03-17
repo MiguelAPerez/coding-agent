@@ -1,12 +1,17 @@
 import { ChatMessage, ChatClient, Usage } from "./types";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { Ollama } from "ollama";
 
 const tracer = trace.getTracer("ollama-client");
 
 export class OllamaClient implements ChatClient {
-    constructor(private readonly config: { url: string }, private readonly model: string, private readonly temperature: number) { }
+    private client: Ollama;
 
-    async chat(messages: ChatMessage[]): Promise<{ content: string; usage?: Usage }> {
+    constructor(private readonly config: { url: string }, private readonly model: string, private readonly temperature: number) {
+        this.client = new Ollama({ host: this.config.url });
+    }
+
+    async chat(messages: ChatMessage[]): Promise<{ content: string; thinking?: string; usage?: Usage }> {
         return tracer.startActiveSpan("ollama.chat", async (span) => {
             try {
                 span.setAttributes({
@@ -14,26 +19,18 @@ export class OllamaClient implements ChatClient {
                     "gen_ai.system": "ollama",
                     "gen_ai.request.temperature": this.temperature / 100,
                 });
-                // console.log("messages", messages);
-                const response = await fetch(`${this.config.url}/api/chat`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        model: this.model,
-                        messages,
-                        stream: false,
-                        options: { temperature: this.temperature / 100 }
-                    }),
+
+                const response = await this.client.chat({
+                    model: this.model,
+                    messages: messages.map(m => ({ role: m.role, content: m.content })),
+                    stream: false,
+                    options: { temperature: this.temperature / 100 }
                 });
 
-                if (!response.ok) throw new Error(`Ollama API error: ${response.statusText}`);
-                const data = await response.json();
-                // console.log("data", data);
-
                 const usage = {
-                    promptTokens: data.prompt_eval_count || 0,
-                    completionTokens: data.eval_count || 0,
-                    totalTokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
+                    promptTokens: response.prompt_eval_count || 0,
+                    completionTokens: response.eval_count || 0,
+                    totalTokens: (response.prompt_eval_count || 0) + (response.eval_count || 0)
                 };
 
                 span.setAttributes({
@@ -42,7 +39,8 @@ export class OllamaClient implements ChatClient {
                 });
 
                 return {
-                    content: data.message.content,
+                    content: response.message.content,
+                    thinking: (response.message as { thinking?: string }).thinking,
                     usage
                 };
             } catch (error) {
@@ -54,7 +52,7 @@ export class OllamaClient implements ChatClient {
         });
     }
 
-    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: Usage }> {
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string | { thinking: string } | { usage: Usage }> {
         const span = tracer.startSpan("ollama.streamChat", {
             attributes: {
                 "gen_ai.model_name": this.model,
@@ -64,85 +62,38 @@ export class OllamaClient implements ChatClient {
         });
 
         try {
-            // console.log("messages", messages);
-            const response = await fetch(`${this.config.url}/api/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: this.model,
-                    messages,
-                    stream: true,
-                    options: { temperature: this.temperature / 100 }
-                }),
+            const response = await this.client.chat({
+                model: this.model,
+                messages: messages.map(m => ({ role: m.role, content: m.content })),
+                stream: true,
+                options: { temperature: this.temperature / 100 }
             });
 
-            if (!response.ok) throw new Error(`Ollama API error: ${response.statusText}`);
-            if (!response.body) throw new Error("No response body");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
             let yieldedUsage = false;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-
-                // Keep the last partial line in the buffer
-                buffer = lines.pop() || "";
-
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    try {
-                        const json = JSON.parse(line);
-                        if (json.done) {
-                            const usage = {
-                                promptTokens: json.prompt_eval_count || 0,
-                                completionTokens: json.eval_count || 0,
-                                totalTokens: (json.prompt_eval_count || 0) + (json.eval_count || 0)
-                            };
-                            span.setAttributes({
-                                "gen_ai.response.input_tokens": usage.promptTokens,
-                                "gen_ai.response.output_tokens": usage.completionTokens,
-                            });
-                            yield { usage };
-                            yieldedUsage = true;
-                            return;
-                        }
-                        if (json.message?.content) {
-                            yield json.message.content;
-                        }
-                    } catch (e) {
-                        console.error("Failed to parse chunk", line, e);
+            for await (const part of response) {
+                if (part.message) {
+                    if (part.message.content) {
+                        yield part.message.content;
+                    }
+                    const thinking = (part.message as { thinking?: string }).thinking;
+                    if (thinking) {
+                        yield { thinking } as { thinking: string };
                     }
                 }
-            }
 
-            // Handle any remaining content in the buffer
-            if (buffer.trim()) {
-                try {
-                    const json = JSON.parse(buffer);
-                    if (json.message?.content) {
-                        yield json.message.content;
-                    }
-                    if (json.done) {
-                        const usage = {
-                            promptTokens: json.prompt_eval_count || 0,
-                            completionTokens: json.eval_count || 0,
-                            totalTokens: (json.prompt_eval_count || 0) + (json.eval_count || 0)
-                        };
-                        span.setAttributes({
-                            "gen_ai.response.input_tokens": usage.promptTokens,
-                            "gen_ai.response.output_tokens": usage.completionTokens,
-                        });
-                        yield { usage };
-                        yieldedUsage = true;
-                    }
-                } catch {
-                    // Ignore final partial parse failure
+                if (part.done) {
+                    const usage: Usage = {
+                        promptTokens: part.prompt_eval_count || 0,
+                        completionTokens: part.eval_count || 0,
+                        totalTokens: (part.prompt_eval_count || 0) + (part.eval_count || 0)
+                    };
+                    span.setAttributes({
+                        "gen_ai.response.input_tokens": usage.promptTokens,
+                        "gen_ai.response.output_tokens": usage.completionTokens,
+                    });
+                    yield { usage } as { usage: Usage };
+                    yieldedUsage = true;
                 }
             }
 
@@ -154,7 +105,7 @@ export class OllamaClient implements ChatClient {
                         completionTokens: 0,
                         totalTokens: 0
                     }
-                };
+                } as { usage: Usage };
             }
         } catch (error) {
             span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : "Unknown error" });

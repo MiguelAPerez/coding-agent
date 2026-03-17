@@ -22,8 +22,8 @@ export interface Usage {
 }
 
 export interface ChatClient {
-    chat(messages: ChatMessage[]): Promise<{ content: string; usage?: Usage }>;
-    streamChat(messages: ChatMessage[]): AsyncGenerator<string | { usage: Usage }>;
+    chat(messages: ChatMessage[]): Promise<{ content: string; thinking?: string; usage?: Usage }>;
+    streamChat(messages: ChatMessage[]): AsyncGenerator<string | { thinking: string } | { usage: Usage }>;
 }
 
 

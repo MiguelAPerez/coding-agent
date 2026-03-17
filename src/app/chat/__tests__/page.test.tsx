@@ -66,8 +66,7 @@ describe("UnifiedChatPage Regression Test", () => {
         const store = makeStore();
         // 1. Mock initial loads
         (global.fetch as jest.Mock)
-            .mockImplementationOnce(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]) })) // fetchThreads (mount)
-            .mockImplementationOnce(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]) })); // fetchAgents (mount)
+            .mockImplementationOnce(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]) })); // fetchRepos (mount)
 
         render(
             <Provider store={store}>

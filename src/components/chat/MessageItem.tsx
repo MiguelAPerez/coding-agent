@@ -48,8 +48,10 @@ export default function MessageItem({ msg }: MessageItemProps) {
 
                                 {/* Collapsible body */}
                                 {thinkingOpen && (
-                                    <div className="mt-2 text-xs text-foreground/45 italic whitespace-pre-wrap leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
-                                        {msg.thinking}
+                                    <div className="mt-2 text-xs text-foreground/45 italic leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200 prose prose-invert prose-p:my-0 prose-pre:my-1 prose-sm">
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {msg.thinking}
+                                        </ReactMarkdown>
                                     </div>
                                 )}
                             </div>

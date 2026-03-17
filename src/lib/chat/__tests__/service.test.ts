@@ -42,6 +42,13 @@ jest.mock("@/../db", () => ({
 describe("ChatService", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        
+        // Reset default insert mock
+        (db.insert as jest.Mock).mockReturnValue({
+            values: jest.fn(() => ({
+                returning: jest.fn(() => [{ id: "chat-123", title: "New Chat" }]),
+            })),
+        });
     });
 
     describe("createChat", () => {
@@ -51,6 +58,19 @@ describe("ChatService", () => {
 
             expect(db.insert).toHaveBeenCalled();
             expect(result.id).toBe("chat-123");
+        });
+
+        it("should handle empty string agentId by converting to null", async () => {
+            const mockValues = jest.fn().mockReturnValue({
+                returning: jest.fn(() => [{ id: "chat-empty-agent" }]),
+            });
+            (db.insert as jest.Mock).mockReturnValue({ values: mockValues });
+
+            await ChatService.createChat({ userId: "u1", type: "web", agentId: "" });
+
+            expect(mockValues).toHaveBeenCalledWith(expect.objectContaining({
+                agentId: null
+            }));
         });
     });
 
@@ -90,7 +110,7 @@ describe("ChatService", () => {
 
             expect(db.insert).toHaveBeenCalledWith(messages);
             expect(db.update).toHaveBeenCalledWith(chats); // Should update chat updatedAt
-            expect(result.id).toBe("msg-1");
+            expect(result?.id).toBe("msg-1");
         });
 
         it("should update existing message if externalId exists", async () => {
@@ -102,6 +122,19 @@ describe("ChatService", () => {
             await ChatService.saveMessage(params);
 
             expect(db.update).toHaveBeenCalledWith(messages);
+        });
+
+        it("should handle FOREIGN KEY constraint failed error gracefully", async () => {
+            (db.insert as jest.Mock).mockReturnValue({
+                values: jest.fn().mockImplementation(() => {
+                    throw new Error("SqliteError: FOREIGN KEY constraint failed");
+                })
+            });
+
+            const params = { chatId: "non-existent", role: "user" as const, content: "fail" };
+            const result = await ChatService.saveMessage(params);
+
+            expect(result).toBeNull();
         });
     });
 

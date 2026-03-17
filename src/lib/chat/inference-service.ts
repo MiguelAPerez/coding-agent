@@ -151,12 +151,7 @@ export class InferenceService {
 
                                 const actionResult = await InferenceService.handleAction(assistantContent, step, maxSteps, repoId, userId, contextData.enabledSkills);
                                 if (actionResult) {
-                                    // Strip the model's own <think> tags from history to keep it clean.
-                                    // streamStepContent already wrapped the full chunk in <think> for the UI.
-                                    const cleanContent = assistantContent
-                                        .replace(/<think>[\s\S]*?<\/think>\s*/gi, '')
-                                        .trim();
-                                    messages.push({ role: "assistant", content: cleanContent });
+                                    messages.push({ role: "assistant", content: assistantContent });
                                     messages.push({ role: "user", content: actionResult.observation });
                                     if (actionResult.newPath) {
                                         currentFilePath = actionResult.newPath;
@@ -213,10 +208,7 @@ export class InferenceService {
             try {
                 if (step >= maxSteps - 1) return null;
 
-                // Strip model-native <think> blocks before JSON parsing so they don't interfere
-                const cleanedContent = content.replace(/<think>[\s\S]*?<\/think>\s*/gi, '').trim();
-
-                const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
                 let parsed = null;
                 if (jsonMatch) {
                     try { parsed = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
@@ -330,13 +322,35 @@ export class InferenceService {
             controller.enqueue(new TextEncoder().encode("<think>"));
         }
 
+        let isThinking = false;
         for await (const chunk of iterator) {
             if (typeof chunk === 'string') {
+                if (isThinking && isFinalStep) {
+                    controller.enqueue(new TextEncoder().encode("</think>"));
+                    isThinking = false;
+                }
                 assistantContent += chunk;
                 controller.enqueue(new TextEncoder().encode(chunk));
-            } else if (chunk.usage) {
+            } else if ('thinking' in chunk) {
+                const thought = (chunk as { thinking: string }).thinking;
+                assistantContent += thought;
+                
+                if (isFinalStep) {
+                    if (!isThinking) {
+                        controller.enqueue(new TextEncoder().encode("<think>"));
+                        isThinking = true;
+                    }
+                    controller.enqueue(new TextEncoder().encode(thought));
+                } else {
+                    controller.enqueue(new TextEncoder().encode(thought));
+                }
+            } else if ('usage' in chunk) {
                 usage = chunk.usage;
             }
+        }
+
+        if (isThinking && isFinalStep) {
+            controller.enqueue(new TextEncoder().encode("</think>\n\n"));
         }
 
         if (!isFinalStep) {

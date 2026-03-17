@@ -135,7 +135,13 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
                         agentId: selectedAgentId
                     })
                 });
+                if (!res.ok) {
+                    throw new Error(`Failed to create chat: ${res.statusText}`);
+                }
                 const newChat = await res.json();
+                if (!newChat.id) {
+                    throw new Error("Failed to create chat: No ID returned");
+                }
                 setActiveThreadId(newChat.id);
                 setLastLoadedThreadId(newChat.id);
                 await sendMessageToChat(newChat.id, content);
@@ -150,6 +156,10 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
     };
 
     const sendMessageToChat = async (chatId: string, content: string) => {
+        if (!chatId || chatId === "undefined") {
+            console.error("Aborting sendMessageToChat: invalid chatId", chatId);
+            return;
+        }
         setIsLoading(true);
         const userMsg = { id: Date.now().toString(), role: "user" as const, content };
         dispatch(addChatMessage(userMsg));
@@ -180,18 +190,28 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
                 let currentThinking = "";
                 let currentContent = fullStreamingContent;
                 
-                const thinkStart = fullStreamingContent.indexOf("<think>");
-                const thinkEnd = fullStreamingContent.indexOf("</think>");
-                
-                if (thinkStart !== -1) {
-                    if (thinkEnd !== -1) {
-                        currentThinking = fullStreamingContent.substring(thinkStart + 7, thinkEnd);
-                        currentContent = fullStreamingContent.substring(0, thinkStart) + fullStreamingContent.substring(thinkEnd + 8);
-                    } else {
-                        currentThinking = fullStreamingContent.substring(thinkStart + 7);
-                        currentContent = fullStreamingContent.substring(0, thinkStart);
-                    }
+                // Extract all closed <think>...</think> blocks
+                const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+                let match;
+                while ((match = thinkRegex.exec(fullStreamingContent)) !== null) {
+                    currentThinking += match[1] + "\n\n";
                 }
+                
+                // Also handle the trailing open <think> block if it exists
+                const lastThinkIndex = fullStreamingContent.lastIndexOf("<think>");
+                const lastThinkEndIndex = fullStreamingContent.lastIndexOf("</think>");
+                
+                if (lastThinkIndex !== -1 && lastThinkIndex > lastThinkEndIndex) {
+                    currentThinking += fullStreamingContent.substring(lastThinkIndex + 7);
+                    currentContent = fullStreamingContent.substring(0, lastThinkIndex);
+                }
+                
+                // Remove all closed <think> blocks from content
+                currentContent = currentContent.replace(thinkRegex, "");
+
+                // Strip JSON tool calls from thinking to keep it clean
+                const jsonToolCallRegex = /```json\s*\{\s*"skill":[\s\S]*?\}\s*```/g;
+                currentThinking = currentThinking.replace(jsonToolCallRegex, "");
                 
                 dispatch(updateChatMessageById({
                     id: assistantMsgId,
@@ -216,7 +236,7 @@ export default function ChatPageClient({ initialThreads, initialAgents }: ChatPa
     const handleNewChat = () => {
         setActiveThreadId(undefined);
         dispatch(setChatMessages([]));
-        dispatch(setSelectedAgentId(""));
+        // Don't reset selectedAgentId here to avoid breaking new chat creation
     };
 
     const handleSetDefaultAgent = async (agentId: string) => {

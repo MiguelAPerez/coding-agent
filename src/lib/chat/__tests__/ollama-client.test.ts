@@ -1,16 +1,23 @@
 import { OllamaClient } from "../ollama-client";
 import { ChatMessage } from "../types";
+import { Ollama } from "ollama";
+
+jest.mock("ollama");
 
 describe("OllamaClient", () => {
     const config = { url: "http://ollama:11434" };
     const model = "test-model";
     const temperature = 70;
     let client: OllamaClient;
+    let mockOllamaInstance: { chat: jest.Mock };
 
     beforeEach(() => {
+        mockOllamaInstance = {
+            chat: jest.fn()
+        };
+        (Ollama as jest.Mock).mockImplementation(() => mockOllamaInstance);
         client = new OllamaClient(config, model, temperature);
-        global.fetch = jest.fn();
-        jest.spyOn(console, "error").mockImplementation(() => {});
+        jest.spyOn(console, "error").mockImplementation(() => { });
     });
 
     afterEach(() => {
@@ -18,63 +25,53 @@ describe("OllamaClient", () => {
     });
 
     it("should perform a successful non-streaming chat", async () => {
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            json: jest.fn().mockResolvedValue({
-                message: { content: "hello world" }
-            }),
+        mockOllamaInstance.chat.mockReturnValue({
+            message: { role: "assistant", content: "Hello", thinking: "Thought 1" },
+            prompt_eval_count: 10,
+            eval_count: 5,
+            done: true
         });
 
         const messages: ChatMessage[] = [{ role: "user", content: "hi" }];
         const response = await client.chat(messages);
 
-        expect(response.content).toBe("hello world");
-        expect(global.fetch).toHaveBeenCalledWith(
-            "http://ollama:11434/api/chat",
+        expect(response.content).toBe("Hello");
+        expect(response.thinking).toBe("Thought 1");
+        expect(response.usage).toEqual({
+            promptTokens: 10,
+            completionTokens: 5,
+            totalTokens: 15
+        });
+        expect(mockOllamaInstance.chat).toHaveBeenCalledWith(
             expect.objectContaining({
-                method: "POST",
-                body: JSON.stringify({
-                    model,
-                    messages,
-                    stream: false,
-                    options: { temperature: 0.7 }
-                })
+                model,
+                messages: [{ role: "user", content: "hi" }],
+                stream: false,
+                options: { temperature: 0.7 }
             })
         );
     });
 
     it("should throw error if non-streaming chat fails", async () => {
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: false,
-            statusText: "Not Found",
-        });
+        mockOllamaInstance.chat.mockRejectedValue(new Error("Network Error"));
 
-        await expect(client.chat([])).rejects.toThrow("Ollama API error: Not Found");
+        await expect(client.chat([])).rejects.toThrow("Network Error");
     });
 
     it("should perform a successful streaming chat", async () => {
-        const chunks = [
-            JSON.stringify({ message: { content: "Part 1" }, done: false }) + "\n",
-            JSON.stringify({ message: { content: "Part 2" }, done: false }) + "\n",
-            " \n", // Empty line to trigger continue
-            JSON.stringify({ done: true }) + "\n",
+        const mockParts = [
+            { message: { content: "Part 1" }, done: false },
+            { message: { content: "Part 2" }, done: false },
+            { done: true, prompt_eval_count: 5, eval_count: 5 }
         ];
 
-        const mockReader = {
-            read: jest.fn()
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunks[0]), done: false })
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunks[1]), done: false })
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunks[2]), done: false })
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunks[3]), done: false })
-                .mockResolvedValueOnce({ done: true }),
-        };
+        async function* mockStream() {
+            for (const part of mockParts) {
+                yield part;
+            }
+        }
 
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            body: {
-                getReader: () => mockReader,
-            },
-        });
+        mockOllamaInstance.chat.mockReturnValue(mockStream());
 
         const generator = client.streamChat([{ role: "user", content: "stream me" } as ChatMessage]);
         const results = [];
@@ -82,26 +79,26 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Part 1", "Part 2", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
+        expect(results).toEqual([
+            "Part 1",
+            "Part 2",
+            { usage: { promptTokens: 5, completionTokens: 5, totalTokens: 10 } }
+        ]);
     });
 
-    it("should handle partial JSON chunks in stream", async () => {
-        const chunk1 = '{"message": {"content": "He';
-        const chunk2 = 'llo"}} \n';
+    it("should capture thinking content in streaming", async () => {
+        const mockParts = [
+            { message: { content: "Hello", thinking: "I am thinking" }, done: false },
+            { done: true, prompt_eval_count: 5, eval_count: 5 }
+        ];
 
-        const mockReader = {
-            read: jest.fn()
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunk1), done: false })
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunk2), done: false })
-                .mockResolvedValueOnce({ done: true }),
-        };
+        async function* mockStream() {
+            for (const part of mockParts) {
+                yield part;
+            }
+        }
 
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            body: {
-                getReader: () => mockReader,
-            },
-        });
+        mockOllamaInstance.chat.mockReturnValue(mockStream());
 
         const generator = client.streamChat([]);
         const results = [];
@@ -109,70 +106,39 @@ describe("OllamaClient", () => {
             results.push(chunk);
         }
 
-        expect(results).toEqual(["Hello", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
+        expect(results).toEqual([
+            "Hello",
+            { thinking: "I am thinking" },
+            { usage: { promptTokens: 5, completionTokens: 5, totalTokens: 10 } }
+        ]);
     });
 
-    it("should throw error if stream chat fails", async () => {
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: false,
-            statusText: "Internal Server Error",
-        });
-
-        const generator = client.streamChat([]);
-        await expect(generator.next()).rejects.toThrow("Ollama API error: Internal Server Error");
-    });
-
-    it("should handle missing body in streaming response", async () => {
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            body: null,
-        });
-
-        const generator = client.streamChat([]);
-        await expect(generator.next()).rejects.toThrow("No response body");
-    });
-
-    it("should log parsing errors in stream and continue", async () => {
-        const badChunk = "invalid json\n" + JSON.stringify({ message: { content: "valid" } }) + "\n";
-
-        const mockReader = {
-            read: jest.fn()
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(badChunk), done: false })
-                .mockResolvedValueOnce({ done: true }),
-        };
-
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            body: {
-                getReader: () => mockReader,
-            },
-        });
-
-        const generator = client.streamChat([]);
-        const results = [];
-        for await (const chunk of generator) {
-            results.push(chunk);
+    it("should handle error in streaming chat", async () => {
+        async function* mockErrorStream() {
+            yield { message: { content: "Part 1" }, done: false };
+            throw new Error("Stream failure");
         }
 
-        expect(results).toEqual(["valid", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
-        expect(console.error).toHaveBeenCalled();
+        mockOllamaInstance.chat.mockReturnValue(mockErrorStream());
+
+        const generator = client.streamChat([]);
+        await expect(generator.next()).resolves.toEqual({ value: "Part 1", done: false });
+        await expect(generator.next()).rejects.toThrow("Stream failure");
     });
 
-    it("should handle remaining buffer at end of stream", async () => {
-        const chunk = JSON.stringify({ message: { content: "Final" } }); // No newline
+    it("should handle missing usage at end of stream", async () => {
+        const mockParts = [
+            { message: { content: "Final" }, done: false }
+            // No part with done: true
+        ];
 
-        const mockReader = {
-            read: jest.fn()
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunk), done: false })
-                .mockResolvedValueOnce({ done: true }),
-        };
+        async function* mockStream() {
+            for (const part of mockParts) {
+                yield part;
+            }
+        }
 
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            body: {
-                getReader: () => mockReader,
-            },
-        });
+        mockOllamaInstance.chat.mockReturnValue(mockStream());
 
         const generator = client.streamChat([]);
         const results = [];
@@ -181,29 +147,5 @@ describe("OllamaClient", () => {
         }
 
         expect(results).toEqual(["Final", { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } }]);
-    });
-
-    it("should handle JSON with no content", async () => {
-        const chunk = JSON.stringify({ message: {} }) + "\n"; // No content
-
-        const mockReader = {
-            read: jest.fn()
-                .mockResolvedValueOnce({ value: new TextEncoder().encode(chunk), done: false })
-                .mockResolvedValueOnce({ done: true }),
-        };
-
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            body: {
-                getReader: () => mockReader,
-            },
-        });
-
-        const generator = client.streamChat([]);
-        const result = await generator.next();
-        expect(result.value).toEqual({ usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } });
-        expect(result.done).toBe(false);
-        const secondResult = await generator.next();
-        expect(secondResult.done).toBe(true);
     });
 });
