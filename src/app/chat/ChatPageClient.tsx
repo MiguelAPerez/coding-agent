@@ -281,6 +281,19 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
         }
     };
 
+    const handleClearAll = async () => {
+        try {
+            const { deleteAllChats } = await import("@/app/actions/chat");
+            await deleteAllChats();
+            setThreads([]);
+            setActiveThreadId(undefined);
+            dispatch(setChatMessages([]));
+            dispatch(setSelectedAgentId(defaultAgentId || ""));
+        } catch (err) {
+            console.error("Failed to clear all chats:", err);
+        }
+    };
+
     const activeThread = threads.find(t => t.id === activeThreadId);
 
     return (
@@ -291,6 +304,7 @@ export default function ChatPageClient({ initialThreads, initialAgents, defaultA
                     activeThreadId={activeThreadId}
                     onThreadSelect={setActiveThreadId}
                     onThreadDelete={handleDeleteChat}
+                    onClearAll={handleClearAll}
                     onNewChat={handleNewChat}
                 />
             </div>

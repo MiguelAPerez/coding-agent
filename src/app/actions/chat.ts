@@ -19,3 +19,14 @@ export async function clearChatMessages(chatId: string) {
     await ChatService.deleteChatMessages(chatId);
     revalidatePath(`/chat/${chatId}`);
 }
+
+/**
+ * Deletes all chats for the current user.
+ */
+export async function deleteAllChats() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    await ChatService.deleteAllUserChats(session.user.id);
+    revalidatePath("/chat");
+}
