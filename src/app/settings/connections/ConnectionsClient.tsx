@@ -10,6 +10,7 @@ interface Connection {
     config: string;
     agentId: string | null;
     tokenLimitDaily: number | null;
+    tokensUsedToday: number;
     metadata: string | null;
 }
 
@@ -433,6 +434,30 @@ export default function ConnectionsClient({ initialConnections, initialAgents }:
                                             {conn.agentId ? agents.find(a => a.id === conn.agentId)?.name || "Unknown Agent" : "No Agent Assigned"}
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                            <div className="flex-1 max-w-[200px] mx-8 flex flex-col gap-1.5">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">Daily Usage</span>
+                                    <span className="text-[10px] font-mono text-foreground/60">
+                                        {conn.tokensUsedToday.toLocaleString()}
+                                        {conn.tokenLimitDaily ? ` / ${conn.tokenLimitDaily.toLocaleString()}` : ' tokens'}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-foreground/5 rounded-full overflow-hidden border border-border/20">
+                                    <div 
+                                        className={`h-full transition-all duration-500 ${
+                                            !conn.tokenLimitDaily ? 'bg-primary/40' :
+                                            (conn.tokensUsedToday / conn.tokenLimitDaily) > 0.9 ? 'bg-red-500' :
+                                            (conn.tokensUsedToday / conn.tokenLimitDaily) > 0.7 ? 'bg-amber-500' :
+                                            'bg-primary'
+                                        }`}
+                                        style={{ 
+                                            width: !conn.tokenLimitDaily 
+                                                ? '100%' 
+                                                : `${Math.min(100, (conn.tokensUsedToday / conn.tokenLimitDaily) * 100)}%` 
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -31,6 +31,7 @@ export default async function ConnectionsSettingsPage() {
         config: c.config,
         agentId: c.agentId,
         tokenLimitDaily: c.tokenLimitDaily,
+        tokensUsedToday: c.tokensUsedToday,
         metadata: c.metadata
     }));
 

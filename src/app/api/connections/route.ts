@@ -47,10 +47,12 @@ export async function POST(req: NextRequest) {
             conn.id, 
             type, 
             session.user.id, 
-            JSON.stringify(config), 
+            config, 
             agentId, 
             metadata, 
-            tokenLimitDaily
+            tokenLimitDaily,
+            conn.tokensUsedToday,
+            conn.tokensLastResetAt
         );
 
         return NextResponse.json(conn);
